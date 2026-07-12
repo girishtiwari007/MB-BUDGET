@@ -1,0 +1,171 @@
+window.LOCAL_YEAR_DATA_SOURCES = {
+  "mode": "local-folder-first",
+  "note": "Local Dropbox paths are for development and simulation. Convert these entries to GitHub Raw or CORS-enabled direct URLs before public hosting.",
+  "dataRoot": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES",
+  "years": {
+    "2023-2024": {
+      "folder": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2023-2024",
+      "files": {
+        "smhDemandBudget": [
+          {
+            "fileName": "Demand-SMH wise 2023-2024.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2023-2024\\Demand-SMH wise 2023-2024.xls",
+            "sizeBytes": 8192,
+            "lastModified": 1783791053.8633697
+          }
+        ],
+        "puBudget": [
+          {
+            "fileName": "PU WISE Budget 2023-24.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2023-2024\\PU WISE Budget 2023-24.xls",
+            "sizeBytes": 22528,
+            "lastModified": 1783791006.5989933
+          }
+        ],
+        "smhDemandActual": [
+          {
+            "fileName": "PU WISE DEPT DEMAND WISE 2023-2024.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2023-2024\\PU WISE DEPT DEMAND WISE 2023-2024.xls",
+            "sizeBytes": 1336320,
+            "lastModified": 1783791124.5864093
+          }
+        ],
+        "puMonthActual": [
+          {
+            "fileName": "PU wise Month wise 2023-2024.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2023-2024\\PU wise Month wise 2023-2024.xls",
+            "sizeBytes": 16384,
+            "lastModified": 1783791031.5679111
+          },
+          {
+            "fileName": "SMH Wise PU wise Dept wise Month Wise 2023-2024 Actual.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2023-2024\\SMH Wise PU wise Dept wise Month Wise 2023-2024 Actual.xls",
+            "sizeBytes": 470528,
+            "lastModified": 1783797722.1185558
+          }
+        ]
+      }
+    },
+    "2024-2025": {
+      "folder": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2024-2025",
+      "files": {
+        "puBudget": [
+          {
+            "fileName": "PU WISE BUDGET 2024-2025.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2024-2025\\PU WISE BUDGET 2024-2025.xls",
+            "sizeBytes": 21504,
+            "lastModified": 1783791212.3692143
+          }
+        ],
+        "smhDemandActual": [
+          {
+            "fileName": "PU WISE DEMAND WISE DEPT WISE 2024-2025.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2024-2025\\PU WISE DEMAND WISE DEPT WISE 2024-2025.xls",
+            "sizeBytes": 1303552,
+            "lastModified": 1783791159.499593
+          }
+        ],
+        "puMonthActual": [
+          {
+            "fileName": "PU WISE MONTH WISE 2024-2025.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2024-2025\\PU WISE MONTH WISE 2024-2025.xls",
+            "sizeBytes": 16896,
+            "lastModified": 1783791326.2251577
+          },
+          {
+            "fileName": "SMH Wise PU wise Dept wise Month Wise 2024-2025 Actual.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2024-2025\\SMH Wise PU wise Dept wise Month Wise 2024-2025 Actual.xls",
+            "sizeBytes": 463872,
+            "lastModified": 1783797740.396294
+          }
+        ],
+        "smhDemandBudget": [
+          {
+            "fileName": "SMH-DEMAND WISE 2024-2025.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2024-2025\\SMH-DEMAND WISE 2024-2025.xls",
+            "sizeBytes": 9216,
+            "lastModified": 1783791182.6160648
+          }
+        ]
+      }
+    },
+    "2025-2026": {
+      "folder": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2025-2026",
+      "files": {
+        "puBudget": [
+          {
+            "fileName": "PU Wise 2025-2026 Budget.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2025-2026\\PU Wise 2025-2026 Budget.xls",
+            "sizeBytes": 21504,
+            "lastModified": 1783705058.0228689
+          }
+        ],
+        "puMonthActual": [
+          {
+            "fileName": "PU Wise Month Wise 2025-2026 Actual.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2025-2026\\PU Wise Month Wise 2025-2026 Actual.xls",
+            "sizeBytes": 16384,
+            "lastModified": 1783705250.6275575
+          },
+          {
+            "fileName": "SMH Wise PU wise Dept wise Month Wise 2025-2026 Actual.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2025-2026\\SMH Wise PU wise Dept wise Month Wise 2025-2026 Actual.xls",
+            "sizeBytes": 468992,
+            "lastModified": 1783797755.0832422
+          }
+        ],
+        "smhDemandBudget": [
+          {
+            "fileName": "SMH Wise 2025- Budget.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2025-2026\\SMH Wise 2025- Budget.xls",
+            "sizeBytes": 9216,
+            "lastModified": 1783704951.3421342
+          }
+        ],
+        "smhDemandActual": [
+          {
+            "fileName": "SMH Wise PU wise Dept wise 2025-2026 Actual.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2025-2026\\SMH Wise PU wise Dept wise 2025-2026 Actual.xls",
+            "sizeBytes": 1298944,
+            "lastModified": 1783707645.7549818
+          }
+        ]
+      }
+    },
+    "2026-2027": {
+      "folder": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2026-2027",
+      "files": {
+        "puBudget": [
+          {
+            "fileName": "PU Wise 2026-2027 Budget.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2026-2027\\PU Wise 2026-2027 Budget.xls",
+            "sizeBytes": 22016,
+            "lastModified": 1783705095.6839206
+          }
+        ],
+        "puMonthActual": [
+          {
+            "fileName": "PU Wise Month Wise 2026-2027 Actual.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2026-2027\\PU Wise Month Wise 2026-2027 Actual.xls",
+            "sizeBytes": 16384,
+            "lastModified": 1783705213.951084
+          },
+          {
+            "fileName": "SMH Wise PU wise Dept wise Month Wise 2026-2027 Actual.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2026-2027\\SMH Wise PU wise Dept wise Month Wise 2026-2027 Actual.xls",
+            "sizeBytes": 385536,
+            "lastModified": 1783793691.997
+          }
+        ],
+        "smhDemandBudget": [
+          {
+            "fileName": "SMH Wise 2026-2027 Budget.xls",
+            "localPath": "C:\\Users\\girish\\Dropbox\\Revenue PU Laibilities\\PPT\\DATA FILES\\2026-2027\\SMH Wise 2026-2027 Budget.xls",
+            "sizeBytes": 9216,
+            "lastModified": 1783704817.3995488
+          }
+        ]
+      }
+    }
+  }
+};

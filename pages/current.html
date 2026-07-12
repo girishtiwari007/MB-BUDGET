@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Current / Previous Year PU and Demand Analysis</title>
+  <link rel="stylesheet" href="../assets/current.css">
+</head>
+<body>
+<main class="wrap">
+    <h2 class="division-title">Moradabad Division Accounts</h2>
+    <div class="topbar">
+      <div class="tabs">
+        <button class="active" data-tab="demand" type="button">Demand / SMH</button>
+        <button data-tab="staff" type="button">PU Staff Current Year</button>
+        <button data-tab="nonstaff" type="button">PU Non-Staff Current Year</button>
+        <button data-tab="pu_prev" type="button">PU Wise Previous Year Comparison</button>
+        <button data-tab="demand_prev" type="button">Demand / SMH Wise Previous Year Comparison</button>
+        <button data-tab="analysis" type="button">Analysis View</button>
+        <button data-tab="upload" type="button">Upload Data</button>
+      </div>
+      <div class="actions">
+        <a class="export button-link" id="exportExcel" download="Current_Previous_Year_PU_Demand_Analysis.xls" href="../exports/Current_Previous_Year_PU_Demand_Analysis.xls">Export Excel</a>
+        <a class="export button-link" id="exportPdf" download="Current_Previous_Year_PU_Demand_Analysis.pdf" href="../exports/Current_Previous_Year_PU_Demand_Analysis.pdf">Generate PDF</a>
+        <a class="export button-link" id="exportPptx" download="Moradabad_Division_Current_Year_Budget_Analysis.pptx" href="../exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx">Export PPTX</a>
+      </div>
+    </div>
+    <section class="sheet">
+      <div class="hero"><h1 id="title"></h1></div>
+      <div class="table-wrap" id="tableHost"></div>
+    </section>
+    <div class="small">Remarks - Figures in '000' (thousands). OBA = Original Budget Allotment from BG_ISL, BP = Budget Proportion as BG_ISL / 12 * 3 for July quarter position, AE = Actual Expenditure up to June 2026.</div>
+  </main>
+  <script src="../data/current_payload.js"></script>
+  <script src="../data/year-sources.js"></script>
+  <script src="../assets/current.js"></script>
+</body>
+</html>
