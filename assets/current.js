@@ -15,6 +15,22 @@
       "currSmhBudget",
       "currSmhMonth"
     ];
+    const PREVIOUS_YEAR_REPO_ROLES = ["prevPuBudget", "prevPuMonth", "prevPuDeptDemandSmhBudget", "prevPuDeptDemandSmhActual", "prevSmhBudget", "prevSmhMonth"];
+    const SOURCE_ROLE_LABELS = {
+      currPuBudget: "PU Wise Budget",
+      currPuMonth: "PU Wise Month Actual",
+      currPuDeptDemandSmhBudget: "PU / Dept / Demand / SMH Budget",
+      currPuDeptDemandSmhActual: "PU / Dept / Demand / SMH Actual",
+      currSmhBudget: "Demand / SMH Budget",
+      currSmhMonth: "Demand / SMH Actual",
+      prevPuBudget: "Previous PU Wise Budget",
+      prevPuMonth: "Previous PU Wise Month Actual",
+      prevPuDeptDemandSmhBudget: "Previous PU / Dept / Demand / SMH Budget",
+      prevPuDeptDemandSmhActual: "Previous PU / Dept / Demand / SMH Actual",
+      prevSmhBudget: "Previous Demand / SMH Budget",
+      prevSmhMonth: "Previous Demand / SMH Actual",
+      fr: "FR Budget Status"
+    };
     const CURRENT_YEAR_UPLOAD_REQUIRED = new Set(CURRENT_YEAR_UPLOAD_ROLES);
     const CALCULATION_UPLOAD_ROLES = new Set(["currPuBudget", "currSmhBudget", "prevPuBudget", "prevSmhBudget"]);
     let activeTab = "demand";
@@ -252,37 +268,57 @@
     }
     function renderUpload() {
       const { year } = syncYearEntry();
-      document.getElementById("title").textContent = `Current Year Upload - ${year || "Configured Year"}`;
+      const currentRows = CURRENT_YEAR_UPLOAD_ROLES.map((role, index) => uploadCard(role, index + 1)).join("");
+      document.getElementById("title").textContent = `Data Upload and Repository Sources - ${year || "Configured Year"}`;
       document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "upload"));
       const panel = document.createElement("div");
       panel.className = "upload-panel";
       panel.innerHTML = `
-        <div class="note">Upload current-year source files only. Previous-year files are fixed snapshots loaded from the repository for comparison.</div>
-        <div class="sync-box">
-          <strong>Current Year Repository Sync</strong>
-          <span>On localhost, Store Current Year Files writes uploads into data/source-files/${htmlEscape(year || "2026-2027")} and keeps the last two backup snapshots for verification. On GitHub Pages, files remain read-only until committed and pushed from the repo.</span>
-          <div class="sync-actions">
-            <button class="export" id="storeCurrentUploads" type="button">Store Current Year Files</button>
-            <button class="export" id="syncRemote" type="button">Load Repo Sources</button>
-            <button class="export" id="showSourceConfig" type="button">Show Source Plan</button>
+        <div class="note upload-note">Use previous-year files as fixed repository reference. Upload only latest current-year files, verify, then confirm/store.</div>
+        <section class="upload-section">
+          <div class="upload-section-head">
+            <div><strong>1. Previous Year Repository Reference</strong><span>Static comparison files already kept in GitHub/repo folders. Load them for verification; do not monthly overwrite here.</span></div>
+            <div class="sync-actions">
+              <button class="export" id="syncRemote" type="button">Load Repo Sources</button>
+              <button class="export" id="showSourceConfig" type="button">Show Source Plan</button>
+            </div>
           </div>
-        </div>
-        <div class="upload-grid current-only">
-          <div class="upload-card"><strong>1. PU Wise Budget</strong><span>Primary Unit wise current-year budget.</span><input data-upload-role="currPuBudget" type="file" accept=".xls,.xlsx"><em data-status-role="currPuBudget">Waiting</em></div>
-          <div class="upload-card"><strong>2. PU Wise Month Actual</strong><span>Primary Unit wise actual expense up to latest month/date.</span><input data-upload-role="currPuMonth" type="file" accept=".xls,.xlsx"><em data-status-role="currPuMonth">Waiting</em></div>
-          <div class="upload-card"><strong>3. PU/Dept/Demand/SMH Budget</strong><span>PU wise, department wise, demand/SMH wise budget.</span><input data-upload-role="currPuDeptDemandSmhBudget" type="file" accept=".xls,.xlsx"><em data-status-role="currPuDeptDemandSmhBudget">Waiting</em></div>
-          <div class="upload-card"><strong>4. PU/Dept/Demand/SMH Actual</strong><span>PU wise, department wise, demand/SMH wise actual expense.</span><input data-upload-role="currPuDeptDemandSmhActual" type="file" accept=".xls,.xlsx"><em data-status-role="currPuDeptDemandSmhActual">Waiting</em></div>
-          <div class="upload-card"><strong>5. Demand/SMH Budget</strong><span>Demand/SMH wise current-year budget.</span><input data-upload-role="currSmhBudget" type="file" accept=".xls,.xlsx"><em data-status-role="currSmhBudget">Waiting</em></div>
-          <div class="upload-card"><strong>6. Demand/SMH Actual</strong><span>Demand/SMH wise current-year actual up to latest month/date.</span><input data-upload-role="currSmhMonth" type="file" accept=".xls,.xlsx"><em data-status-role="currSmhMonth">Waiting</em></div>
-        </div>
-        <button class="export" id="applyUpload" type="button">Verify And Recalculate</button>
-        <div id="uploadLog" class="log">Waiting for current-year files...</div>`;
+          <div class="source-plan compact">${sourcePlanTableHtml("previous")}</div>
+        </section>
+        <section class="upload-section current-update">
+          <div class="upload-section-head">
+            <div><strong>2. Current Year Monthly Update - ${htmlEscape(year || "2026-2027")}</strong><span>Upload latest six files first. Then Verify/Recalculate. Store only after figures are checked.</span></div>
+            <div class="sync-actions">
+              <button class="export" id="applyUpload" type="button">Verify / Recalculate</button>
+              <button class="export confirm-store" id="storeCurrentUploads" type="button">Confirm & Store Current Year Files</button>
+            </div>
+          </div>
+          <div class="upload-grid current-only">${currentRows}</div>
+        </section>
+        <section class="upload-section">
+          <div class="upload-section-head"><div><strong>Repository Availability / Action Log</strong><span>Load Repo Sources shows what is available before download. Store keeps last two backup copies.</span></div></div>
+          <div id="uploadLog" class="log">Waiting. Step 1: upload latest current-year files, or click Load Repo Sources to see repository availability.</div>
+        </section>`;
       document.getElementById("tableHost").replaceChildren(panel);
       document.querySelectorAll("[data-upload-role]").forEach(input => input.addEventListener("change", event => readUploadedFile(event.target.files[0], event.target.dataset.uploadRole, { keepFile: true })));
       document.getElementById("applyUpload").addEventListener("click", applyUploadedData);
       document.getElementById("storeCurrentUploads").addEventListener("click", storeCurrentYearUploads);
       document.getElementById("syncRemote").addEventListener("click", syncRemoteSources);
       document.getElementById("showSourceConfig").addEventListener("click", showSourceConfig);
+    }
+    function roleLabel(role) {
+      return SOURCE_ROLE_LABELS[role] || role;
+    }
+    function uploadCard(role, number) {
+      const details = {
+        currPuBudget: "Primary Unit wise current-year budget.",
+        currPuMonth: "Primary Unit wise actual expense up to latest month/date.",
+        currPuDeptDemandSmhBudget: "PU wise, department wise, demand/SMH wise budget.",
+        currPuDeptDemandSmhActual: "PU wise, department wise, demand/SMH wise actual expense.",
+        currSmhBudget: "Demand/SMH wise current-year budget.",
+        currSmhMonth: "Demand/SMH wise current-year actual up to latest month/date."
+      };
+      return `<div class="upload-card"><strong>${number}. ${htmlEscape(roleLabel(role))}</strong><span>${htmlEscape(details[role] || "")}</span><input data-upload-role="${role}" type="file" accept=".xls,.xlsx"><em data-status-role="${role}">No latest file selected</em></div>`;
     }
     function logUpload(message) {
       const log = document.getElementById("uploadLog");
@@ -326,6 +362,32 @@
         prevSmhBudget: files.prevSmhBudget || files.prevDemandSmhBudget || legacy.previousSmhBudget || "",
         prevSmhMonth: files.prevSmhMonth || files.prevDemandSmhActual || "",
       };
+    }
+    function sourceRoles(mode = "all") {
+      if (mode === "current") return CURRENT_YEAR_UPLOAD_ROLES;
+      if (mode === "previous") return PREVIOUS_YEAR_REPO_ROLES;
+      return [...PREVIOUS_YEAR_REPO_ROLES, ...CURRENT_YEAR_UPLOAD_ROLES];
+    }
+    function repoAvailabilityRows(mode = "all") {
+      const files = remoteFilesForSync();
+      return sourceRoles(mode).map(role => {
+        const url = normalizeRemoteUrl(files[role]);
+        return { role, label: roleLabel(role), available: !!url, url };
+      });
+    }
+    function sourcePlanTableHtml(mode = "all") {
+      const rows = repoAvailabilityRows(mode);
+      return `<table class="source-table"><thead><tr><th>Data File</th><th>Repo Status</th><th>Configured Source</th></tr></thead><tbody>${rows.map(row => `<tr class="${row.available ? "available" : "missing"}"><td>${htmlEscape(row.label)}</td><td>${row.available ? "Available" : "Not configured"}</td><td>${row.url ? htmlEscape(row.url) : "Not configured"}</td></tr>`).join("")}</tbody></table>`;
+    }
+    function sourcePlanText(mode = "all") {
+      const { year } = syncYearEntry();
+      const rows = repoAvailabilityRows(mode);
+      return [
+        `Active upload/sync year: ${year || "not set"}`,
+        `View: ${mode === "previous" ? "Previous year repository reference" : mode === "current" ? "Current year monthly update" : "All configured files"}`,
+        "",
+        ...rows.map(row => `${row.available ? "OK" : "MISSING"} - ${row.label}: ${row.url || "Not configured"}`)
+      ].join("\n");
     }
     function normalizeRemoteUrl(url) {
       let text = String(url || "").trim();
@@ -388,11 +450,17 @@
     async function storeCurrentYearUploads() {
       const missing = CURRENT_YEAR_UPLOAD_ROLES.filter(role => !UPLOAD_FILES[role]);
       if (missing.length) {
-        missing.forEach(role => setUploadStatus(role, "Required before store", false));
-        logUpload("Store failed: missing current-year files: " + missing.join(", "));
+        missing.forEach(role => setUploadStatus(role, "Upload latest file before store", false));
+        logUpload("Store failed: missing current-year files: " + missing.map(roleLabel).join(", "));
         return;
       }
       const { year } = syncYearEntry();
+      const fileList = CURRENT_YEAR_UPLOAD_ROLES.map(role => `${roleLabel(role)}: ${UPLOAD_FILES[role]?.name || currentYearRoleTarget(role)}`).join("\n");
+      const ok = window.confirm(`Confirm store/update for current year ${year || "2026-2027"}?\n\nThis will overwrite current-year repo files after creating a backup snapshot.\nThe system keeps the latest two backup copies.\n\n${fileList}`);
+      if (!ok) {
+        logUpload("Store cancelled. Current-year files remain uploaded in browser only.");
+        return;
+      }
       const form = new FormData();
       form.append("year", year || "2026-2027");
       CURRENT_YEAR_UPLOAD_ROLES.forEach(role => form.append(role, UPLOAD_FILES[role], currentYearRoleTarget(role)));
@@ -424,10 +492,14 @@
       });
       const log = document.getElementById("uploadLog");
       if (log) log.textContent = lines.join("\n");
+      const plan = document.querySelector(".source-plan");
+      if (plan) plan.innerHTML = sourcePlanTableHtml("all");
     }
     async function syncRemoteSources() {
       const log = document.getElementById("uploadLog");
-      if (log) log.textContent = "Remote sync started. Downloading configured files...";
+      if (log) log.textContent = "Repository availability before load:\n\n" + sourcePlanText("all") + "\n\nDownloading configured files...";
+      const plan = document.querySelector(".source-plan");
+      if (plan) plan.innerHTML = sourcePlanTableHtml("all");
       if (window.location.protocol === "file:") {
         logUpload("Note: this portal is open as a local file. Some browsers block Google Drive sync from file:// pages. If every file says Failed to fetch, open the portal from GitHub Pages or a local web server.");
       }
@@ -440,7 +512,7 @@
         return;
       }
       const missingRequired = required.filter(role => !files[role] && !UPLOAD_STATE[role]);
-      if (missingRequired.length) logUpload("Required remote links not configured yet: " + missingRequired.join(", "));
+      if (missingRequired.length) logUpload("Required remote links not configured yet: " + missingRequired.map(roleLabel).join(", "));
       for (const role of roles) {
         const url = normalizeRemoteUrl(files[role]);
         try {
@@ -570,7 +642,7 @@
             const html = await file.text();
             window.parent?.postMessage({ type: "fr-html", name: file.name, html }, "*");
             UPLOAD_STATE.fr = { fileName: file.name, type: "html" };
-            setUploadStatus(expectedRole, `OK: ${file.name}`, true);
+            setUploadStatus(expectedRole, `Latest file selected: ${file.name}`, true);
             logUpload(`FR HTML accepted: ${file.name}`);
             return;
           }
@@ -582,7 +654,7 @@
             const html = buildFrHtmlFromWorkbook(workbook, file.name);
             window.parent?.postMessage({ type: "fr-html", name: file.name, html }, "*");
             UPLOAD_STATE.fr = { fileName: file.name, type: "excel" };
-            setUploadStatus(expectedRole, `OK: ${file.name}`, true);
+            setUploadStatus(expectedRole, `Latest file selected: ${file.name}`, true);
             logUpload(`FR Excel accepted: ${file.name}`);
             return;
           }
@@ -593,7 +665,7 @@
             if (CALCULATION_UPLOAD_ROLES.has(expectedRole)) throw parseError;
             UPLOAD_STATE[expectedRole] = { fileName: file.name, type: "excel", storageOnly: true };
             if (options.keepFile && CURRENT_YEAR_UPLOAD_REQUIRED.has(expectedRole)) UPLOAD_FILES[expectedRole] = file;
-            setUploadStatus(expectedRole, `OK for storage: ${file.name}`, true);
+            setUploadStatus(expectedRole, `Latest file selected for storage: ${file.name}`, true);
             if (!options.quiet) logUpload(`${file.name} -> ${expectedRole} stored for source archive; calculation parser not applied.`);
             return;
           }
@@ -601,7 +673,7 @@
           if (!parsedRoleMatchesExpected(role, expectedRole)) throw new Error(`Sensed as ${role}, expected ${expectedRole}.`);
           UPLOAD_STATE[expectedRole] = parsed;
           if (options.keepFile && CURRENT_YEAR_UPLOAD_REQUIRED.has(expectedRole)) UPLOAD_FILES[expectedRole] = file;
-          setUploadStatus(expectedRole, `OK: ${file.name}`, true);
+          setUploadStatus(expectedRole, `Latest file selected: ${file.name}`, true);
           if (!options.quiet) logUpload(`${file.name} -> ${expectedRole}`);
         } catch (error) {
           delete UPLOAD_STATE[expectedRole];
@@ -704,8 +776,8 @@
         const requiredCurrent = ["currPuBudget", "currSmhBudget"];
         const missingCurrent = requiredCurrent.filter(role => !UPLOAD_STATE[role]);
         if (missingCurrent.length) {
-          missingCurrent.forEach(role => setUploadStatus(role, "Required before update", false));
-          throw new Error("Required current-year uploads missing: " + missingCurrent.join(", "));
+          missingCurrent.forEach(role => setUploadStatus(role, "Upload latest file before verify", false));
+          throw new Error("Required current-year uploads missing: " + missingCurrent.map(roleLabel).join(", "));
         }
         await ensureStaticPreviousSources();
         if (UPLOAD_STATE.currSmhBudget) DATA.demand = buildCurrentFromUpload(UPLOAD_STATE.currSmhBudget, "SMH", "Demand No. / SMH-Grant", "Demand / SMH Wise Current Year", true);
