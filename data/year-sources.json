@@ -1,76 +1,109 @@
-{
-  "note": "Use GitHub Raw URLs or CORS-enabled Google Drive direct links. The browser Sync button fetches these files, validates the sensed role, and rebuilds tables in the current browser session.",
-  "preferredRemoteSource": "github-raw",
-  "syncYear": "2026-2027",
-  "roles": {
-    "fr": "FR Budget Status workbook or HTML report",
-    "currPuBudget": "Primary Unit current year budget file with BG_ISL and Actuals",
-    "prevPuBudget": "Primary Unit previous year budget file with RG",
-    "currPuMonth": "Primary Unit current year month-wise actual file",
-    "prevPuMonth": "Primary Unit previous year month-wise actual file",
-    "currSmhBudget": "Demand / Sub Major Head current year budget file with BG_ISL and Actuals",
-    "prevSmhBudget": "Demand / Sub Major Head previous year budget file with RG",
-    "currSmhMonth": "Demand / Sub Major Head current year month-wise actual file",
-    "prevSmhMonth": "Demand / Sub Major Head previous year month-wise actual file"
-  },
-  "years": {
-    "2023-2024": {
-      "folder": "https://drive.google.com/drive/folders/18M7-iBIV1n2Qei0HHyJhLSkRQ6MVWXFK",
-      "files": {
-        "puBudget": "https://drive.usercontent.google.com/download?id=1_gtY9-97xz4HrBPNJHDSnVFMMt-DI94K&export=download",
-        "puMonthActual": "https://drive.usercontent.google.com/download?id=1hFE8pHoFJ6s5d-UAoqpTmSTm2OPy46nC&export=download",
-        "smhDemandBudget": "https://drive.usercontent.google.com/download?id=1HBCEq9m4RLZrykJAAcA4axDgQoobUTmZ&export=download",
-        "smhDemandMonthActual": "https://drive.usercontent.google.com/download?id=13PNQSwgI7it-BVlLIswl5S0uwITiu2uV&export=download",
-        "puDemandDept": "https://drive.usercontent.google.com/download?id=1pbmB_MhC9LNrSibqHRPrkR0VANKsRVWF&export=download"
-      }
-    },
-    "2024-2025": {
-      "folder": "https://drive.google.com/drive/folders/1RzjrCmplr3gxZ_gSCbl-y60Kkm9lZyrH",
-      "files": {
-        "puBudget": "https://drive.usercontent.google.com/download?id=1mZVrMIkvRBoLiaO5hnilFZ1GBGn9BmsA&export=download",
-        "puMonthActual": "https://drive.usercontent.google.com/download?id=1KiIbgP4GAFtGZQrgzIrQ-Z_9i871ObFc&export=download",
-        "smhDemandBudget": "https://drive.usercontent.google.com/download?id=1MOrI9u3YsUzguMIWSUQw16viKCg9MHR4&export=download",
-        "smhDemandMonthActual": "https://drive.usercontent.google.com/download?id=1-Wk-WdCJdIUgkE7NtLGHBqiUzhl0v5S8&export=download",
-        "puDemandDept": "https://drive.usercontent.google.com/download?id=1zHhqWaxeJ0gHXBQUHQCjiQawp7JphgGG&export=download"
-      }
-    },
-    "2025-2026": {
-      "folder": "https://drive.google.com/drive/folders/1iCzwwphM7eetiYt08M5fLkgJh2wpagFL",
-      "files": {
-        "puBudget": "https://drive.usercontent.google.com/download?id=1WqUnk1J9MaySQTTEof4Ah30NVeQvFqIL&export=download",
-        "puMonthActual": "https://drive.usercontent.google.com/download?id=12776stPwsbQQHx22SPk0GgGJ5JlQTdn9&export=download",
-        "smhDemandBudget": "https://drive.usercontent.google.com/download?id=1tXBX4MiqCrcNv4ZKIGG221qd8tEmCA9C&export=download",
-        "smhDemandActual": "https://drive.usercontent.google.com/download?id=1JL-JWwXuz6HXeaVcn_mb1C2YlO8PyIQ5&export=download",
-        "smhDemandMonthActual": "https://drive.usercontent.google.com/download?id=1Eig5RGYq64FD2bKbkeb_5xwVZNxfjSTz&export=download"
-      }
-    },
-    "2026-2027": {
-      "folder": "https://drive.google.com/drive/folders/1fkhGROjjhScxGGY_ylP265tQjbqvmIPj",
-      "files": {
-        "fr": "https://drive.usercontent.google.com/download?id=1dK95Uvu-okt8o8mWUaUUxjWRKRWXu3WN&export=download",
-        "currPuBudget": "https://drive.usercontent.google.com/download?id=1PHtnqX6dZXDuXuVgufwU1K6kfpav43ok&export=download",
-        "prevPuBudget": "https://drive.usercontent.google.com/download?id=1WqUnk1J9MaySQTTEof4Ah30NVeQvFqIL&export=download",
-        "currPuMonth": "https://drive.usercontent.google.com/download?id=1MUyUxNibvuMYtCTLl7QV89iohlTzGCBO&export=download",
-        "prevPuMonth": "https://drive.usercontent.google.com/download?id=12776stPwsbQQHx22SPk0GgGJ5JlQTdn9&export=download",
-        "currSmhBudget": "https://drive.usercontent.google.com/download?id=1AbHaRepXBoETOg7VdFjC8ZLyCw3jH_R3&export=download",
-        "prevSmhBudget": "https://drive.usercontent.google.com/download?id=1tXBX4MiqCrcNv4ZKIGG221qd8tEmCA9C&export=download",
-        "currSmhMonth": "https://drive.usercontent.google.com/download?id=1_iMNp-05iFI43onaCV-agpttFsyfPDq0&export=download",
-        "prevSmhMonth": "https://drive.usercontent.google.com/download?id=1Eig5RGYq64FD2bKbkeb_5xwVZNxfjSTz&export=download"
-      },
-      "legacyKeys": {
-        "currentPayload": "current_payload.js",
-        "currentPuBudget": "https://drive.usercontent.google.com/download?id=1PHtnqX6dZXDuXuVgufwU1K6kfpav43ok&export=download",
-        "previousPuBudget": "https://drive.usercontent.google.com/download?id=1WqUnk1J9MaySQTTEof4Ah30NVeQvFqIL&export=download",
-        "currentSmhBudget": "https://drive.usercontent.google.com/download?id=1AbHaRepXBoETOg7VdFjC8ZLyCw3jH_R3&export=download",
-        "previousSmhBudget": "https://drive.usercontent.google.com/download?id=1tXBX4MiqCrcNv4ZKIGG221qd8tEmCA9C&export=download",
-        "frBudgetStatus": "https://drive.usercontent.google.com/download?id=1dK95Uvu-okt8o8mWUaUUxjWRKRWXu3WN&export=download"
-      }
-    },
-    "FR": {
-      "folder": "https://drive.google.com/drive/folders/1StFkEW9rLIP6PfKrnYzOLnLO-X5zCAri",
-      "files": {
-        "fr": "https://drive.usercontent.google.com/download?id=1dK95Uvu-okt8o8mWUaUUxjWRKRWXu3WN&export=download"
-      }
-    }
-  }
+﻿{
+    "note":  "GitHub-hosted source files. Previous years are static snapshots; the current year folder is replaced monthly as new actual data is available.",
+    "preferredRemoteSource":  "repo-relative",
+    "syncYear":  "2026-2027",
+    "roles":  {
+                  "puBudget":  "Primary Unit wise budget for the selected year.",
+                  "puMonthActual":  "Primary Unit wise month-wise actual expense for the selected year.",
+                  "puDeptDemandSmhBudget":  "PU wise, department wise, demand/SMH wise budget.",
+                  "puDeptDemandSmhActual":  "PU wise, department wise, demand/SMH wise actual expense.",
+                  "demandSmhBudget":  "Demand/SMH wise budget.",
+                  "demandSmhActual":  "Demand/SMH wise actual expense.",
+                  "currPuBudget":  "Current year primary unit wise budget.",
+                  "currPuMonth":  "Current year primary unit wise actual up to the latest updated month/date.",
+                  "currPuDeptDemandSmhBudget":  "Current year PU, department, demand/SMH wise budget.",
+                  "currPuDeptDemandSmhActual":  "Current year PU, department, demand/SMH wise actual up to the latest updated month/date.",
+                  "currDemandSmhBudget":  "Current year demand/SMH wise budget.",
+                  "currDemandSmhActual":  "Current year demand/SMH wise actual up to the latest updated month/date.",
+                  "prevPuBudget":  "Previous year primary unit wise budget.",
+                  "prevPuMonth":  "Previous year primary unit wise month-wise actual.",
+                  "prevPuDeptDemandSmhBudget":  "Previous year PU, department, demand/SMH wise budget.",
+                  "prevPuDeptDemandSmhActual":  "Previous year PU, department, demand/SMH wise actual.",
+                  "prevDemandSmhBudget":  "Previous year demand/SMH wise budget.",
+                  "prevDemandSmhActual":  "Previous year demand/SMH wise actual.",
+                  "currSmhBudget":  "Compatibility key for current year demand/SMH budget sync.",
+                  "currSmhMonth":  "Compatibility key for current year demand/SMH actual sync.",
+                  "prevSmhBudget":  "Compatibility key for previous year demand/SMH budget sync.",
+                  "prevSmhMonth":  "Compatibility key for previous year demand/SMH actual sync."
+              },
+    "years":  {
+                  "2023-2024":  {
+                                    "status":  "static",
+                                    "folder":  "../data/source-files/2023-2024/",
+                                    "files":  {
+                                                  "puBudget":  "../data/source-files/2023-2024/pu-budget.xls",
+                                                  "puMonthActual":  "../data/source-files/2023-2024/pu-month-actual.xls",
+                                                  "puDeptDemandSmhBudget":  "../data/source-files/2023-2024/pu-dept-demand-smh-budget.xls",
+                                                  "puDeptDemandSmhActual":  "../data/source-files/2023-2024/pu-dept-demand-smh-actual.xls",
+                                                  "demandSmhBudget":  "../data/source-files/2023-2024/demand-smh-budget.xls",
+                                                  "demandSmhActual":  "../data/source-files/2023-2024/demand-smh-actual.xls",
+                                                  "smhDemandBudget":  "../data/source-files/2023-2024/demand-smh-budget.xls",
+                                                  "smhDemandActual":  "../data/source-files/2023-2024/demand-smh-actual.xls",
+                                                  "smhDemandMonthActual":  "../data/source-files/2023-2024/pu-dept-demand-smh-actual.xls",
+                                                  "puDemandDept":  "../data/source-files/2023-2024/pu-dept-demand-smh-budget.xls"
+                                              }
+                                },
+                  "2024-2025":  {
+                                    "status":  "static",
+                                    "folder":  "../data/source-files/2024-2025/",
+                                    "files":  {
+                                                  "puBudget":  "../data/source-files/2024-2025/pu-budget.xls",
+                                                  "puMonthActual":  "../data/source-files/2024-2025/pu-month-actual.xls",
+                                                  "puDeptDemandSmhBudget":  "../data/source-files/2024-2025/pu-dept-demand-smh-budget.xls",
+                                                  "puDeptDemandSmhActual":  "../data/source-files/2024-2025/pu-dept-demand-smh-actual.xls",
+                                                  "demandSmhBudget":  "../data/source-files/2024-2025/demand-smh-budget.xls",
+                                                  "demandSmhActual":  "../data/source-files/2024-2025/demand-smh-actual.xls",
+                                                  "smhDemandBudget":  "../data/source-files/2024-2025/demand-smh-budget.xls",
+                                                  "smhDemandActual":  "../data/source-files/2024-2025/demand-smh-actual.xls",
+                                                  "smhDemandMonthActual":  "../data/source-files/2024-2025/pu-dept-demand-smh-actual.xls",
+                                                  "puDemandDept":  "../data/source-files/2024-2025/pu-dept-demand-smh-budget.xls"
+                                              }
+                                },
+                  "2025-2026":  {
+                                    "status":  "static",
+                                    "folder":  "../data/source-files/2025-2026/",
+                                    "files":  {
+                                                  "puBudget":  "../data/source-files/2025-2026/pu-budget.xls",
+                                                  "puMonthActual":  "../data/source-files/2025-2026/pu-month-actual.xls",
+                                                  "puDeptDemandSmhBudget":  "../data/source-files/2025-2026/pu-dept-demand-smh-budget.xls",
+                                                  "puDeptDemandSmhActual":  "../data/source-files/2025-2026/pu-dept-demand-smh-actual.xls",
+                                                  "demandSmhBudget":  "../data/source-files/2025-2026/demand-smh-budget.xls",
+                                                  "demandSmhActual":  "../data/source-files/2025-2026/demand-smh-actual.xls",
+                                                  "smhDemandBudget":  "../data/source-files/2025-2026/demand-smh-budget.xls",
+                                                  "smhDemandActual":  "../data/source-files/2025-2026/demand-smh-actual.xls",
+                                                  "smhDemandMonthActual":  "../data/source-files/2025-2026/pu-dept-demand-smh-actual.xls",
+                                                  "puDemandDept":  "../data/source-files/2025-2026/pu-dept-demand-smh-budget.xls"
+                                              }
+                                },
+                  "2026-2027":  {
+                                    "status":  "monthly-current",
+                                    "updateCadence":  "Replace files in data/source-files/2026-2027 after each monthly update; previous years remain static.",
+                                    "folder":  "../data/source-files/2026-2027/",
+                                    "files":  {
+                                                  "currPuBudget":  "../data/source-files/2026-2027/pu-budget.xls",
+                                                  "currPuMonth":  "../data/source-files/2026-2027/pu-month-actual.xls",
+                                                  "currPuDeptDemandSmhBudget":  "../data/source-files/2026-2027/pu-dept-demand-smh-budget.xls",
+                                                  "currPuDeptDemandSmhActual":  "../data/source-files/2026-2027/pu-dept-demand-smh-actual.xls",
+                                                  "currSmhBudget":  "../data/source-files/2026-2027/demand-smh-budget.xls",
+                                                  "currSmhMonth":  "../data/source-files/2026-2027/demand-smh-actual.xls",
+                                                  "currDemandSmhBudget":  "../data/source-files/2026-2027/demand-smh-budget.xls",
+                                                  "currDemandSmhActual":  "../data/source-files/2026-2027/demand-smh-actual.xls",
+                                                  "prevPuBudget":  "../data/source-files/2025-2026/pu-budget.xls",
+                                                  "prevPuMonth":  "../data/source-files/2025-2026/pu-month-actual.xls",
+                                                  "prevPuDeptDemandSmhBudget":  "../data/source-files/2025-2026/pu-dept-demand-smh-budget.xls",
+                                                  "prevPuDeptDemandSmhActual":  "../data/source-files/2025-2026/pu-dept-demand-smh-actual.xls",
+                                                  "prevSmhBudget":  "../data/source-files/2025-2026/demand-smh-budget.xls",
+                                                  "prevSmhMonth":  "../data/source-files/2025-2026/demand-smh-actual.xls",
+                                                  "prevDemandSmhBudget":  "../data/source-files/2025-2026/demand-smh-budget.xls",
+                                                  "prevDemandSmhActual":  "../data/source-files/2025-2026/demand-smh-actual.xls"
+                                              },
+                                    "legacyKeys":  {
+                                                       "currentPayload":  "current_payload.js",
+                                                       "currentPuBudget":  "../data/source-files/2026-2027/pu-budget.xls",
+                                                       "previousPuBudget":  "../data/source-files/2025-2026/pu-budget.xls",
+                                                       "currentSmhBudget":  "../data/source-files/2026-2027/demand-smh-budget.xls",
+                                                       "previousSmhBudget":  "../data/source-files/2025-2026/demand-smh-budget.xls"
+                                                   }
+                                }
+              }
 }

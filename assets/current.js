@@ -1,14 +1,46 @@
-const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+﻿const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
     let DATA = window.CURRENT_PAYLOAD || {};
     const DATA_SOURCE_CONFIG = window.YEAR_DATA_SOURCES || {};
     let TAB_ORDER = ["demand", "staff", "nonstaff", "pu_prev", "demand_prev"].filter(key => DATA[key]);
     const STAFF_CODES = new Set(["01", "02", "03", "04", "07", "08", "10", "11", "12", "13", "14", "15", "16", "17", "20", "25", "26", "29", "34", "39", "40", "42", "43", "44", "53", "54", "63"]);
+    const IMPORTANT_PU_CODES = new Set(["27", "28", "30", "32", "60"]);
     const UPLOAD_PASSWORD = "Moradabad@2026";
     const UPLOAD_STATE = {};
+    const UPLOAD_FILES = {};
+    const CURRENT_YEAR_UPLOAD_ROLES = [
+      "currPuBudget",
+      "currPuMonth",
+      "currPuDeptDemandSmhBudget",
+      "currPuDeptDemandSmhActual",
+      "currSmhBudget",
+      "currSmhMonth"
+    ];
+    const CURRENT_YEAR_UPLOAD_REQUIRED = new Set(CURRENT_YEAR_UPLOAD_ROLES);
+    const CALCULATION_UPLOAD_ROLES = new Set(["currPuBudget", "currSmhBudget", "prevPuBudget", "prevSmhBudget"]);
     let activeTab = "demand";
     let prevPuMode = "all";
+    const puFocus = { mode:"all", item:"" };
     const compareState = { entity:"pu", years:"1", metric:"ae", chart:"bar", item:"__total" };
     let uploadUnlocked = false;
+    function normalizePuCurrentColumns() {
+      ["staff", "nonstaff"].forEach(key => {
+        const tab = DATA[key];
+        if (!tab?.columns?.length) return;
+        const shifted = tab.columns[1]?.key === "Department" && tab.columns[1]?.label?.includes("BG_ISL");
+        if (!shifted) return;
+        tab.columns = [
+          { key:"Name", label:"PU", format:"text" },
+          { key:"OBA", label:"A\nOBA\nBG_ISL 2026-27", format:"money" },
+          { key:"BP", label:"B\nBP\nBP UPTO JUL 2026", format:"money" },
+          { key:"AE", label:"C\nAE\nActuals Upto JUL 2026", format:"money" },
+          { key:"Variation", label:"D\nVariation\nC - B", format:"money" },
+          { key:"BPPercent", label:"E\n% BP\nC / B", format:"int" },
+          { key:"Remaining", label:"F\nBudget Remaining\nA - C", format:"money" },
+          { key:"OBAPercent", label:"G\n% OBA Utilized\nC / A", format:"int" }
+        ];
+      });
+    }
+    normalizePuCurrentColumns();
     function formatNumber(value, decimals = 0) { return Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }); }
     function formatCell(value, format) { if (format === "money") return formatNumber(value); if (format === "int") return Math.round(Number(value || 0)).toLocaleString("en-IN"); return value ?? ""; }
     function splitHeader(label) {
@@ -29,6 +61,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       }
       document.getElementById("title").textContent = tab.title;
       const subMenu = tabKey === "pu_prev" ? renderPrevPuSubtabs() : null;
+      const puTools = isPuTable(tabKey) ? renderPuFocusControls(tabKey) : null;
       const note = document.createElement("div"); note.className = "note"; note.textContent = tabKey === "pu_prev" || tabKey === "demand_prev" ? "Remarks - Figures in '000' (thousands). Previous year RG is treated as OBA; current year BG_ISL is treated as OBA until current-year RG is available." : "Remarks - Figures in '000' (thousands)";
       const table = document.createElement("table");
       if (tab.columns.length > 8) table.className = "wide";
@@ -36,20 +69,49 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       tab.columns.forEach(col => { const split = splitHeader(col.label); const letterTh = document.createElement("th"); letterTh.textContent = split.letter; letterRow.appendChild(letterTh); const labelTh = document.createElement("th"); labelTh.textContent = split.text; labelRow.appendChild(labelTh); });
       thead.appendChild(letterRow); thead.appendChild(labelRow); table.appendChild(thead);
       const tbody = document.createElement("tbody");
-      tab.rows.forEach(row => { const tr = document.createElement("tr"); if (String(row.Name).toLowerCase() === "total") tr.className = "total"; tab.columns.forEach(col => { const td = document.createElement("td"); if (col.key === "OBAPercent" || col.key === "BPPercent") { const dot = document.createElement("span"); dot.className = "dot " + utilizationClass(row[col.key]); td.appendChild(dot); td.append(document.createTextNode(formatCell(row[col.key], col.format))); } else { td.textContent = formatCell(row[col.key], col.format); } tr.appendChild(td); }); tbody.appendChild(tr); });
+      tab.rows.forEach(row => { const tr = document.createElement("tr"); if (String(row.Name).toLowerCase() === "total") tr.className = "total"; if (isImportantPuRow(row)) tr.classList.add("important-pu"); tab.columns.forEach(col => { const td = document.createElement("td"); if (col.key === "OBAPercent" || col.key === "BPPercent") { const dot = document.createElement("span"); dot.className = "dot " + utilizationClass(row[col.key]); td.appendChild(dot); td.append(document.createTextNode(formatCell(row[col.key], col.format))); } else { td.textContent = formatCell(row[col.key], col.format); } tr.appendChild(td); }); tbody.appendChild(tr); });
       table.appendChild(tbody);
-      const children = subMenu ? [subMenu, note, table] : [note, table];
+      const children = [subMenu, puTools, note, table].filter(Boolean);
       document.getElementById("tableHost").replaceChildren(...children);
     }
     function puCode(row) { return codeFromLabel(rowName(row), "PU"); }
-    function tableForView(tabKey) {
+    function isImportantPuRow(row) { return IMPORTANT_PU_CODES.has(puCode(row)); }
+    function isPuTable(tabKey) { return ["staff", "nonstaff", "pu_prev"].includes(tabKey); }
+    function applyPuFocus(rows) {
+      if (puFocus.mode === "important") return rows.filter(isImportantPuRow);
+      if (puFocus.mode === "specific" && puFocus.item) return rows.filter(row => rowName(row) === puFocus.item);
+      return rows;
+    }
+    function puFocusOptions(tabKey) {
+      const tab = tableForView(tabKey, { skipFocus:true });
+      return (tab?.rows || []).filter(row => rowName(row) && String(rowName(row)).toLowerCase() !== "total").map(rowName);
+    }
+    function renderPuFocusControls(tabKey) {
+      const wrap = document.createElement("div");
+      wrap.className = "pu-focus";
+      const label = document.createElement("span");
+      label.textContent = "PU Filter";
+      const mode = document.createElement("select");
+      mode.innerHTML = '<option value="all">All PU</option><option value="important">Show Important PU only (27, 28, 30, 32, 60)</option><option value="specific">Select one PU</option>';
+      mode.value = puFocus.mode;
+      const item = document.createElement("select");
+      item.innerHTML = puFocusOptions(tabKey).map(name => `<option value="${htmlEscape(name)}">${htmlEscape(name)}${IMPORTANT_PU_CODES.has(codeFromLabel(name, "PU")) ? " *" : ""}</option>`).join("");
+      item.value = puFocus.item && Array.from(item.options).some(option => option.value === puFocus.item) ? puFocus.item : item.options[0]?.value || "";
+      item.disabled = puFocus.mode !== "specific";
+      mode.addEventListener("change", () => { puFocus.mode = mode.value; if (puFocus.mode === "specific") puFocus.item = item.value; render(tabKey); });
+      item.addEventListener("change", () => { puFocus.item = item.value; render(tabKey); });
+      wrap.append(label, mode, item);
+      return wrap;
+    }
+    function tableForView(tabKey, options = {}) {
       const tab = DATA[tabKey];
-      if (tabKey !== "pu_prev" || !tab?.rows) return tab;
-      if (prevPuMode === "all") return tab;
+      if (!tab?.rows) return tab;
+      if (!isPuTable(tabKey)) return tab;
       const detailRows = tab.rows.filter(row => String(rowName(row)).toLowerCase() !== "total");
-      const rows = detailRows.filter(row => prevPuMode === "staff" ? STAFF_CODES.has(puCode(row)) : !STAFF_CODES.has(puCode(row)));
-      const suffix = prevPuMode === "staff" ? " - Staff" : " - Non-Staff";
-      return { ...tab, title: tab.title + suffix, rows: addTotal(rows, true) };
+      const splitRows = tabKey === "pu_prev" && prevPuMode !== "all" ? detailRows.filter(row => prevPuMode === "staff" ? STAFF_CODES.has(puCode(row)) : !STAFF_CODES.has(puCode(row))) : detailRows;
+      const rows = options.skipFocus ? splitRows : applyPuFocus(splitRows);
+      const suffix = tabKey === "pu_prev" && prevPuMode !== "all" ? (prevPuMode === "staff" ? " - Staff" : " - Non-Staff") : "";
+      return { ...tab, title: tab.title + suffix, rows: addTotal(rows, tabKey === "pu_prev") };
     }
     function renderPrevPuSubtabs() {
       const wrap = document.createElement("div");
@@ -189,36 +251,36 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       return `<section class="chart-panel"><h3>Pie Chart</h3><div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops})"></div><div class="legend">${parts.map((item, index) => `<div><span style="background:${colors[index]}"></span>${htmlEscape(item.label)}: ${formatNumber(item.value)} (${formatNumber(item.abs / total * 100, 1)}%)</div>`).join("")}</div></div></section>`;
     }
     function renderUpload() {
-      document.getElementById("title").textContent = "Upload Data And Rebuild Tables";
+      const { year } = syncYearEntry();
+      document.getElementById("title").textContent = `Current Year Upload - ${year || "Configured Year"}`;
       document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "upload"));
       const panel = document.createElement("div");
       panel.className = "upload-panel";
       panel.innerHTML = `
-        <div class="note">Upload each source file separately or sync from configured GitHub / Google Drive links. Every file is parsed and validated before tables are updated.</div>
+        <div class="note">Upload current-year source files only. Previous-year files are fixed snapshots loaded from the repository for comparison.</div>
         <div class="sync-box">
-          <strong>Linked Data Source Sync</strong>
-          <span>Reads URLs from data/year-sources.json. Use GitHub Raw links or CORS-enabled direct Google Drive links for Excel / HTML files.</span>
+          <strong>Current Year Repository Sync</strong>
+          <span>On localhost, Store Current Year Files writes uploads into data/source-files/${htmlEscape(year || "2026-2027")} and keeps the last two backup snapshots for verification. On GitHub Pages, files remain read-only until committed and pushed from the repo.</span>
           <div class="sync-actions">
-            <button class="export" id="syncRemote" type="button">Sync / Refresh From Link</button>
+            <button class="export" id="storeCurrentUploads" type="button">Store Current Year Files</button>
+            <button class="export" id="syncRemote" type="button">Load Repo Sources</button>
             <button class="export" id="showSourceConfig" type="button">Show Source Plan</button>
           </div>
         </div>
-        <div class="upload-grid">
-          <div class="upload-card"><strong>FR Analysis Excel / HTML</strong><span>FR workbook or HTML report.</span><input data-upload-role="fr" type="file" accept=".xls,.xlsx,.html,.htm"><em data-status-role="fr">Waiting</em></div>
-          <div class="upload-card"><strong>PU Current Year Budget</strong><span>PU file with BG_ISL 2026-2027 and actuals.</span><input data-upload-role="currPuBudget" type="file" accept=".xls,.xlsx"><em data-status-role="currPuBudget">Waiting</em></div>
-          <div class="upload-card"><strong>PU Previous Year Budget</strong><span>PU file with RG 2025-2026.</span><input data-upload-role="prevPuBudget" type="file" accept=".xls,.xlsx"><em data-status-role="prevPuBudget">Waiting</em></div>
-          <div class="upload-card"><strong>PU Current Year Month</strong><span>PU month-wise actual file for current year.</span><input data-upload-role="currPuMonth" type="file" accept=".xls,.xlsx"><em data-status-role="currPuMonth">Optional</em></div>
-          <div class="upload-card"><strong>PU Previous Year Month</strong><span>PU month-wise actual file for previous year.</span><input data-upload-role="prevPuMonth" type="file" accept=".xls,.xlsx"><em data-status-role="prevPuMonth">Optional</em></div>
-          <div class="upload-card"><strong>SMH/Demand Current Year Budget</strong><span>SMH file with BG_ISL 2026-2027 and actuals.</span><input data-upload-role="currSmhBudget" type="file" accept=".xls,.xlsx"><em data-status-role="currSmhBudget">Waiting</em></div>
-          <div class="upload-card"><strong>SMH/Demand Previous Year Budget</strong><span>SMH file with RG 2025-2026.</span><input data-upload-role="prevSmhBudget" type="file" accept=".xls,.xlsx"><em data-status-role="prevSmhBudget">Waiting</em></div>
-          <div class="upload-card"><strong>SMH/Demand Current Year Month</strong><span>SMH month-wise actual file for current year.</span><input data-upload-role="currSmhMonth" type="file" accept=".xls,.xlsx"><em data-status-role="currSmhMonth">Optional</em></div>
-          <div class="upload-card"><strong>SMH/Demand Previous Year Month</strong><span>SMH month-wise actual file for previous year.</span><input data-upload-role="prevSmhMonth" type="file" accept=".xls,.xlsx"><em data-status-role="prevSmhMonth">Optional</em></div>
+        <div class="upload-grid current-only">
+          <div class="upload-card"><strong>1. PU Wise Budget</strong><span>Primary Unit wise current-year budget.</span><input data-upload-role="currPuBudget" type="file" accept=".xls,.xlsx"><em data-status-role="currPuBudget">Waiting</em></div>
+          <div class="upload-card"><strong>2. PU Wise Month Actual</strong><span>Primary Unit wise actual expense up to latest month/date.</span><input data-upload-role="currPuMonth" type="file" accept=".xls,.xlsx"><em data-status-role="currPuMonth">Waiting</em></div>
+          <div class="upload-card"><strong>3. PU/Dept/Demand/SMH Budget</strong><span>PU wise, department wise, demand/SMH wise budget.</span><input data-upload-role="currPuDeptDemandSmhBudget" type="file" accept=".xls,.xlsx"><em data-status-role="currPuDeptDemandSmhBudget">Waiting</em></div>
+          <div class="upload-card"><strong>4. PU/Dept/Demand/SMH Actual</strong><span>PU wise, department wise, demand/SMH wise actual expense.</span><input data-upload-role="currPuDeptDemandSmhActual" type="file" accept=".xls,.xlsx"><em data-status-role="currPuDeptDemandSmhActual">Waiting</em></div>
+          <div class="upload-card"><strong>5. Demand/SMH Budget</strong><span>Demand/SMH wise current-year budget.</span><input data-upload-role="currSmhBudget" type="file" accept=".xls,.xlsx"><em data-status-role="currSmhBudget">Waiting</em></div>
+          <div class="upload-card"><strong>6. Demand/SMH Actual</strong><span>Demand/SMH wise current-year actual up to latest month/date.</span><input data-upload-role="currSmhMonth" type="file" accept=".xls,.xlsx"><em data-status-role="currSmhMonth">Waiting</em></div>
         </div>
-        <button class="export" id="applyUpload" type="button">Sense And Update Tables</button>
-        <div id="uploadLog" class="log">Waiting for individual files...</div>`;
+        <button class="export" id="applyUpload" type="button">Verify And Recalculate</button>
+        <div id="uploadLog" class="log">Waiting for current-year files...</div>`;
       document.getElementById("tableHost").replaceChildren(panel);
-      document.querySelectorAll("[data-upload-role]").forEach(input => input.addEventListener("change", event => readUploadedFile(event.target.files[0], event.target.dataset.uploadRole)));
+      document.querySelectorAll("[data-upload-role]").forEach(input => input.addEventListener("change", event => readUploadedFile(event.target.files[0], event.target.dataset.uploadRole, { keepFile: true })));
       document.getElementById("applyUpload").addEventListener("click", applyUploadedData);
+      document.getElementById("storeCurrentUploads").addEventListener("click", storeCurrentYearUploads);
       document.getElementById("syncRemote").addEventListener("click", syncRemoteSources);
       document.getElementById("showSourceConfig").addEventListener("click", showSourceConfig);
     }
@@ -252,13 +314,17 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       return {
         fr: files.fr || legacy.frBudgetStatus || "",
         currPuBudget: files.currPuBudget || legacy.currentPuBudget || "",
-        prevPuBudget: files.prevPuBudget || legacy.previousPuBudget || "",
         currPuMonth: files.currPuMonth || "",
+        currPuDeptDemandSmhBudget: files.currPuDeptDemandSmhBudget || "",
+        currPuDeptDemandSmhActual: files.currPuDeptDemandSmhActual || "",
+        currSmhBudget: files.currSmhBudget || files.currDemandSmhBudget || legacy.currentSmhBudget || "",
+        currSmhMonth: files.currSmhMonth || files.currDemandSmhActual || "",
+        prevPuBudget: files.prevPuBudget || legacy.previousPuBudget || "",
         prevPuMonth: files.prevPuMonth || "",
-        currSmhBudget: files.currSmhBudget || legacy.currentSmhBudget || "",
-        prevSmhBudget: files.prevSmhBudget || legacy.previousSmhBudget || "",
-        currSmhMonth: files.currSmhMonth || "",
-        prevSmhMonth: files.prevSmhMonth || "",
+        prevPuDeptDemandSmhBudget: files.prevPuDeptDemandSmhBudget || "",
+        prevPuDeptDemandSmhActual: files.prevPuDeptDemandSmhActual || "",
+        prevSmhBudget: files.prevSmhBudget || files.prevDemandSmhBudget || legacy.previousSmhBudget || "",
+        prevSmhMonth: files.prevSmhMonth || files.prevDemandSmhActual || "",
       };
     }
     function normalizeRemoteUrl(url) {
@@ -282,12 +348,82 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
         return `${role}.xlsx`;
       }
     }
-    function showSourceConfig() {
-      const { year } = syncYearEntry();
+    function currentYearRoleTarget(role) {
+      return {
+        currPuBudget: "pu-budget.xls",
+        currPuMonth: "pu-month-actual.xls",
+        currPuDeptDemandSmhBudget: "pu-dept-demand-smh-budget.xls",
+        currPuDeptDemandSmhActual: "pu-dept-demand-smh-actual.xls",
+        currSmhBudget: "demand-smh-budget.xls",
+        currSmhMonth: "demand-smh-actual.xls"
+      }[role] || "";
+    }
+    function parsedRoleMatchesExpected(parsedRole, expectedRole) {
+      if (parsedRole === expectedRole) return true;
+      const compatible = {
+        currPuDeptDemandSmhBudget: ["currPuBudget", "currSmhBudget"],
+        currPuDeptDemandSmhActual: ["currPuMonth", "currSmhMonth"],
+        currSmhMonth: ["currPuMonth"]
+      };
+      return (compatible[expectedRole] || []).includes(parsedRole);
+    }
+    async function fetchConfiguredRole(role) {
       const files = remoteFilesForSync();
-      const lines = Object.entries(files).map(([role, url]) => `${role}: ${url ? normalizeRemoteUrl(url) : "Not configured"}`);
+      const url = normalizeRemoteUrl(files[role]);
+      if (!url) throw new Error(`${role} is not configured in data/year-sources.json.`);
+      setUploadStatus(role, "Loading static source...", null);
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) throw new Error(`${role} fetch failed: HTTP ${response.status}`);
+      const blob = await response.blob();
+      const file = new File([blob], fileNameFromUrl(url, role), { type: blob.type || "application/octet-stream" });
+      await readUploadedFile(file, role, { keepFile: false, quiet: true });
+      logUpload(`${role} loaded from repository source.`);
+    }
+    async function ensureStaticPreviousSources() {
+      const previousRoles = ["prevPuBudget", "prevSmhBudget"];
+      for (const role of previousRoles) {
+        if (!UPLOAD_STATE[role]) await fetchConfiguredRole(role);
+      }
+    }
+    async function storeCurrentYearUploads() {
+      const missing = CURRENT_YEAR_UPLOAD_ROLES.filter(role => !UPLOAD_FILES[role]);
+      if (missing.length) {
+        missing.forEach(role => setUploadStatus(role, "Required before store", false));
+        logUpload("Store failed: missing current-year files: " + missing.join(", "));
+        return;
+      }
+      const { year } = syncYearEntry();
+      const form = new FormData();
+      form.append("year", year || "2026-2027");
+      CURRENT_YEAR_UPLOAD_ROLES.forEach(role => form.append(role, UPLOAD_FILES[role], currentYearRoleTarget(role)));
+      try {
+        logUpload("Saving current-year files into repository folder...");
+        const response = await fetch("/api/current-year-upload", { method: "POST", body: form });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+        logUpload(`Stored ${payload.saved?.length || CURRENT_YEAR_UPLOAD_ROLES.length} files for ${payload.year}. Backup: ${payload.backup || "not needed"}.`);
+      } catch (error) {
+        logUpload("Store failed: " + error.message + " Start the local upload server with scripts\\local-upload-server.py; GitHub Pages cannot write repository files directly.");
+      }
+    }
+    function showSourceConfig() {
+      const config = syncConfig();
+      const years = config.years || {};
+      const lines = [
+        `Preferred source: ${config.preferredRemoteSource || "not set"}`,
+        `Active upload/sync year: ${config.syncYear || "not set"}`,
+        "",
+        "Configured repository source files:"
+      ];
+      Object.keys(years).sort().forEach(year => {
+        const entry = years[year] || {};
+        const files = entry.files || {};
+        lines.push("", `${year} - ${entry.status || "configured"}`);
+        if (entry.updateCadence) lines.push(`  update: ${entry.updateCadence}`);
+        Object.entries(files).forEach(([role, url]) => lines.push(`  ${role}: ${url ? normalizeRemoteUrl(url) : "Not configured"}`));
+      });
       const log = document.getElementById("uploadLog");
-      if (log) log.textContent = `Remote source year: ${year || "Not set"}\n${lines.join("\n")}`;
+      if (log) log.textContent = lines.join("\n");
     }
     async function syncRemoteSources() {
       const log = document.getElementById("uploadLog");
@@ -296,8 +432,8 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
         logUpload("Note: this portal is open as a local file. Some browsers block Google Drive sync from file:// pages. If every file says Failed to fetch, open the portal from GitHub Pages or a local web server.");
       }
       const files = remoteFilesForSync();
-      const required = ["currPuBudget", "prevPuBudget", "currSmhBudget", "prevSmhBudget"];
-      const syncOrder = ["currPuBudget", "prevPuBudget", "currSmhBudget", "prevSmhBudget", "currPuMonth", "prevPuMonth", "currSmhMonth", "prevSmhMonth", "fr"];
+      const required = ["currPuBudget", "currSmhBudget"];
+      const syncOrder = ["currPuBudget", "currPuMonth", "currPuDeptDemandSmhBudget", "currPuDeptDemandSmhActual", "currSmhBudget", "currSmhMonth", "prevPuBudget", "prevSmhBudget"];
       const roles = syncOrder.filter(role => String(files[role] || "").trim());
       if (!roles.length) {
         logUpload("No remote URLs configured. Add links in data/year-sources.json under years -> 2026-2027 -> files.");
@@ -320,8 +456,8 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
           logUpload(`${role} sync failed: ${error.message}.${localHint}`);
         }
       }
-      logUpload("Remote sync finished. Rebuilding tables from synced files...");
-      applyUploadedData();
+      logUpload("Repo sources loaded. Refreshing calculation data while staying on Upload page...");
+      await applyUploadedData({ stayOnUpload: true });
     }
     function ensureSheetJS() {
       if (window.XLSX) return Promise.resolve();
@@ -357,6 +493,12 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       const exact = headers.findIndex(header => header.includes("COPPY") && header.includes("UPTO") && header.includes(period.month) && header.includes(prevYear));
       if (exact >= 0) return exact;
       return colIndex(headers, ["COPPY", "UPTO", period.month]);
+    }
+    function findBpForPeriod(headers, period) {
+      const exact = headers.findIndex(header => header.includes("BP") && header.includes("UPTO") && header.includes(period.month) && header.includes(String(period.year)));
+      if (exact >= 0) return exact;
+      const monthOnly = headers.findIndex(header => header.includes("BP") && header.includes("UPTO") && header.includes(period.month));
+      return monthOnly >= 0 ? monthOnly : -1;
     }
     function colIndex(headers, needles) {
       const upper = needles.map(cleanHeader);
@@ -416,10 +558,10 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       if (hasSmh && joined.includes("APR 2025")) return "prevSmhMonth";
       return "unknown";
     }
-    async function readUploadedFile(file, expectedRole) {
+    async function readUploadedFile(file, expectedRole, options = {}) {
       if (!file) return;
       const log = document.getElementById("uploadLog");
-      if (log && log.textContent === "Waiting for individual files...") log.textContent = "Validation log:";
+      if (log && /^Waiting/.test(log.textContent)) log.textContent = "Validation log:";
       setUploadStatus(expectedRole, "Parsing...", null);
         const lower = file.name.toLowerCase();
         try {
@@ -444,14 +586,26 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
             logUpload(`FR Excel accepted: ${file.name}`);
             return;
           }
-          const parsed = rowsFromWorkbook(workbook);
+          let parsed = null;
+          try {
+            parsed = rowsFromWorkbook(workbook);
+          } catch (parseError) {
+            if (CALCULATION_UPLOAD_ROLES.has(expectedRole)) throw parseError;
+            UPLOAD_STATE[expectedRole] = { fileName: file.name, type: "excel", storageOnly: true };
+            if (options.keepFile && CURRENT_YEAR_UPLOAD_REQUIRED.has(expectedRole)) UPLOAD_FILES[expectedRole] = file;
+            setUploadStatus(expectedRole, `OK for storage: ${file.name}`, true);
+            if (!options.quiet) logUpload(`${file.name} -> ${expectedRole} stored for source archive; calculation parser not applied.`);
+            return;
+          }
           const role = senseRole(file.name, parsed.headers);
-          if (role !== expectedRole) throw new Error(`Sensed as ${role}, expected ${expectedRole}.`);
-          UPLOAD_STATE[role] = parsed;
+          if (!parsedRoleMatchesExpected(role, expectedRole)) throw new Error(`Sensed as ${role}, expected ${expectedRole}.`);
+          UPLOAD_STATE[expectedRole] = parsed;
+          if (options.keepFile && CURRENT_YEAR_UPLOAD_REQUIRED.has(expectedRole)) UPLOAD_FILES[expectedRole] = file;
           setUploadStatus(expectedRole, `OK: ${file.name}`, true);
-          logUpload(`${file.name} -> ${role}`);
+          if (!options.quiet) logUpload(`${file.name} -> ${expectedRole}`);
         } catch (error) {
           delete UPLOAD_STATE[expectedRole];
+          delete UPLOAD_FILES[expectedRole];
           setUploadStatus(expectedRole, `ERROR: ${error.message}`, false);
           logUpload(`${file.name} -> ERROR: ${error.message}`);
         }
@@ -480,8 +634,8 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       table.rows.forEach(row => { const name = String(row[nameIdx] || "").trim(); if (name && name.toUpperCase() !== "TOTAL") out[name] = monthIdx.reduce((sum, idx) => sum + numberValue(row[idx]), 0); });
       return out;
     }
-    function summaryRow(label, oba, ae, months = 3) {
-      const bp = oba / 12 * months;
+    function summaryRow(label, oba, ae, months = 3, bpOverride = null) {
+      const bp = bpOverride === null || bpOverride === undefined ? oba / 12 * months : numberValue(bpOverride);
       return { Name: label, OBA: oba, BP: bp, AE: ae, Variation: ae - bp, BPPercent: bp ? ae / bp * 100 : 0, Remaining: oba - ae, OBAPercent: oba ? ae / oba * 100 : 0 };
     }
     function bgIslMap(table, field) {
@@ -500,25 +654,28 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       const oba = rows.reduce((sum, row) => sum + numberValue(row.OBA), 0);
       const months = rows[0]?.Months || 3;
       if (previous) return rows.concat(prevRow("Total", rows.reduce((sum, row) => sum + numberValue(row.PreviousOBA), 0), oba, rows.reduce((s, r) => s + numberValue(r.AECurrent), 0), rows.reduce((s, r) => s + numberValue(r.AEPrevious), 0), months));
-      return rows.concat(summaryRow("Total", oba, rows.reduce((sum, row) => sum + numberValue(row.AE), 0), months));
+      return rows.concat(summaryRow("Total", oba, rows.reduce((sum, row) => sum + numberValue(row.AE), 0), months, rows.reduce((sum, row) => sum + numberValue(row.BP), 0)));
     }
     function buildCurrentFromUpload(table, field, firstLabel, title, demand=false) {
       const nameIdx = colIndex(table.headers, [field]);
       const obaIdx = colIndex(table.headers, ["BG_ISL", "2026-2027"]);
       const period = detectActualPeriod(table.headers);
       const aeIdx = period.idx;
+      const bpIdx = findBpForPeriod(table.headers, period);
+      const bpLabel = bpIdx >= 0 ? `B\nBP\n${table.headers[bpIdx]}` : `B\nBP\nA / 12 * ${period.count}`;
       const columns = [
         { key:"Name", label:firstLabel, format:"text" }, ...(demand ? [{ key:"Department", label:"Department", format:"text" }] : []), { key:"OBA", label:"A\nOBA\nBG_ISL 2026-27", format:"money" },
-        { key:"BP", label:`B\nBP\nA / 12 * ${period.count}`, format:"money" }, { key:"AE", label:`C\nAE\nActuals Upto ${period.label}`, format:"money" },
+        { key:"BP", label:bpLabel, format:"money" }, { key:"AE", label:`C\nAE\nActuals Upto ${period.label}`, format:"money" },
         { key:"Variation", label:"D\nVariation\nC - B", format:"money" }, { key:"BPPercent", label:"E\n% BP\nC / B", format:"int" },
         { key:"Remaining", label:"F\nBudget Remaining\nA - C", format:"money" }, { key:"OBAPercent", label:"G\n% OBA Utilized\nC / A", format:"int" }
       ];
-      const rows = table.rows.map(row => String(row[nameIdx] || "").trim()).filter(Boolean).map((name, i) => {
-        const source = table.rows[i];
-        const built = summaryRow(demand ? demandFromSmh(name) : name, numberValue(source[obaIdx]), numberValue(source[aeIdx]), period.count);
+      const rows = table.rows.map(row => {
+        const name = String(row[nameIdx] || "").trim();
+        if (!name || name.toUpperCase() === "TOTAL") return null;
+        const built = summaryRow(demand ? demandFromSmh(name) : name, numberValue(row[obaIdx]), numberValue(row[aeIdx]), period.count, bpIdx >= 0 ? row[bpIdx] : null);
         built.Months = period.count;
         return demand ? withDemandDepartment(built) : built;
-      }).filter(row => row.Name.toUpperCase() !== "TOTAL");
+      }).filter(Boolean);
       return { title, columns, rows: addTotal(rows) };
     }
     function buildPreviousFromUpload(prevBudget, currBudget, field, firstLabel, title, demand=false) {
@@ -542,24 +699,30 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       });
       return { title, columns, rows: addTotal(rows, true) };
     }
-    function applyUploadedData() {
+    async function applyUploadedData(options = {}) {
       try {
-        const required = ["currPuBudget", "prevPuBudget", "currSmhBudget", "prevSmhBudget"];
-        const missing = required.filter(role => !UPLOAD_STATE[role]);
-        if (missing.length) {
-          missing.forEach(role => setUploadStatus(role, "Required before update", false));
-          throw new Error("Required uploads missing: " + missing.join(", "));
+        const requiredCurrent = ["currPuBudget", "currSmhBudget"];
+        const missingCurrent = requiredCurrent.filter(role => !UPLOAD_STATE[role]);
+        if (missingCurrent.length) {
+          missingCurrent.forEach(role => setUploadStatus(role, "Required before update", false));
+          throw new Error("Required current-year uploads missing: " + missingCurrent.join(", "));
         }
+        await ensureStaticPreviousSources();
         if (UPLOAD_STATE.currSmhBudget) DATA.demand = buildCurrentFromUpload(UPLOAD_STATE.currSmhBudget, "SMH", "Demand No. / SMH-Grant", "Demand / SMH Wise Current Year", true);
         if (UPLOAD_STATE.currPuBudget) {
-          const all = buildCurrentFromUpload(UPLOAD_STATE.currPuBudget, "PUCODE", "PU", "PU Wise Current Year", false).rows.filter(row => row.Name !== "Total");
-          DATA.staff = { ...DATA.staff, rows: addTotal(all.filter(row => STAFF_CODES.has(codeFromLabel(row.Name, "PU")))) };
-          DATA.nonstaff = { ...DATA.nonstaff, rows: addTotal(all.filter(row => !STAFF_CODES.has(codeFromLabel(row.Name, "PU")))) };
+          const puCurrent = buildCurrentFromUpload(UPLOAD_STATE.currPuBudget, "PUCODE", "PU", "PU Wise Current Year", false);
+          const all = puCurrent.rows.filter(row => row.Name !== "Total");
+          DATA.staff = { title: "PU Staff Current Year", columns: puCurrent.columns, rows: addTotal(all.filter(row => STAFF_CODES.has(codeFromLabel(row.Name, "PU")))) };
+          DATA.nonstaff = { title: "PU Non-Staff Current Year", columns: puCurrent.columns, rows: addTotal(all.filter(row => !STAFF_CODES.has(codeFromLabel(row.Name, "PU")))) };
         }
         if (UPLOAD_STATE.prevPuBudget && UPLOAD_STATE.currPuBudget) DATA.pu_prev = buildPreviousFromUpload(UPLOAD_STATE.prevPuBudget, UPLOAD_STATE.currPuBudget, "PUCODE", "PU", "PU Wise Previous Year Comparison");
         if (UPLOAD_STATE.prevSmhBudget && UPLOAD_STATE.currSmhBudget) DATA.demand_prev = buildPreviousFromUpload(UPLOAD_STATE.prevSmhBudget, UPLOAD_STATE.currSmhBudget, "SMH", "Demand No. / SMH-Grant", "Demand / SMH Wise Previous Year Comparison", true);
         TAB_ORDER = ["demand", "staff", "nonstaff", "pu_prev", "demand_prev"].filter(key => DATA[key]);
-        logUpload("Tables updated in this browser session. Use Export buttons to save the updated tables.");
+        logUpload("Tables updated in this browser session. Upload page is still open for verification.");
+        if (options.stayOnUpload) {
+          document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "upload"));
+          return;
+        }
         render("demand");
       } catch (error) {
         logUpload("Update failed: " + error.message);
@@ -579,3 +742,9 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     document.querySelectorAll(".tabs button").forEach(btn => btn.addEventListener("click", () => openTab(btn.dataset.tab)));
     window.addEventListener("message", event => { if (event.data?.type === "open-current-tab" && (DATA[event.data.tab] || event.data.tab === "analysis")) render(event.data.tab); });
     render(activeTab);
+
+
+
+
+
+

@@ -6,6 +6,7 @@ const DATA = window.REPORTS_DATA || {
 };
 
 const colors = ["#1f4e79", "#b94b4b", "#78a641", "#735999", "#126a66", "#d19a2a"];
+const IMPORTANT_PU_CODES = new Set(["27", "28", "30", "32", "60"]);
 const REPORTS = {
   pu_month: {
     label: "PRIMARY UNIT MONTH-WISE",
@@ -49,7 +50,7 @@ const REPORTS = {
   },
 };
 
-const state = { report: "pu_month", scope: "pu", item: "", metric: "ae_monthwise", month: "APR", chart: "grouped" };
+const state = { report: "pu_month", scope: "pu", item: "", metric: "ae_monthwise", month: "APR", chart: "grouped", importantPuOnly: false };
 const $ = (id) => document.getElementById(id);
 
 function fmt(value, decimals = 0) {
@@ -67,20 +68,42 @@ function years() {
 
 function itemsFor(scope) {
   if (scope === "yearly") return ["All"];
-  return Object.keys(DATA.monthly?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL").sort();
+  const items = Object.keys(DATA.monthly?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL").sort();
+  return scope === "pu" && state.importantPuOnly ? items.filter(isImportantPuName) : items;
 }
 
 function series(scope, item) {
   if (scope === "yearly") {
     const out = {};
+    const puRows = Object.entries(DATA.monthly.pu || {}).filter(([name]) => !state.importantPuOnly || isImportantPuName(name)).map(([, row]) => row);
     for (const fy of years()) {
       out[fy] = DATA.months.map((_, index) =>
-        Object.values(DATA.monthly.pu || {}).reduce((sum, row) => sum + Number(row?.[fy]?.[index] || 0), 0),
+        puRows.reduce((sum, row) => sum + Number(row?.[fy]?.[index] || 0), 0),
       );
     }
     return out;
   }
   return DATA.monthly?.[scope]?.[item] || {};
+}
+
+function puCodeFromName(name) {
+  const match = String(name || "").match(/PU\s*-\s*([0-9A-Z]+)/i);
+  return match ? match[1].toUpperCase() : "";
+}
+
+function isImportantPuName(name) {
+  return IMPORTANT_PU_CODES.has(puCodeFromName(name));
+}
+
+function importantPuNames() {
+  return Object.keys(DATA.monthly?.pu || {})
+    .filter((name) => name.toUpperCase() !== "TOTAL" && isImportantPuName(name))
+    .sort((a, b) => Number(puCodeFromName(a)) - Number(puCodeFromName(b)));
+}
+
+function selectedImportantPuNames() {
+  if (state.scope === "pu" && state.item && isImportantPuName(state.item)) return [state.item];
+  return importantPuNames();
 }
 
 function hasSeriesYear(s, fy) {
@@ -131,11 +154,13 @@ function optionLabel(option) {
 
 function setControlVisibility() {
   const chartAllowed = state.report !== "demand_budget" || state.metric !== "ae_monthwise";
+  const importantAllowed = state.scope === "pu" || state.report === "yearly";
   $("monthWrap").classList.toggle("hide", state.metric !== "specific_month");
   $("itemWrap").classList.toggle("hide", state.scope === "yearly");
   $("scopeWrap").classList.toggle("hide", !["bp_ae"].includes(state.report));
   $("metricWrap").classList.toggle("hide", !["pu_month", "demand_budget", "bp_ae"].includes(state.report));
   $("chartWrap").classList.toggle("hide", !chartAllowed);
+  $("importantPuWrap").classList.toggle("hide", !importantAllowed);
 }
 
 function reportMenuHtml() {
@@ -172,6 +197,11 @@ function setup() {
       render();
     }),
   );
+  $("importantPuOnly").addEventListener("change", (event) => {
+    state.importantPuOnly = event.target.checked;
+    state.item = "";
+    render();
+  });
   render();
 }
 
@@ -184,6 +214,7 @@ function syncControls() {
   const options = itemsFor(state.scope);
   if (!state.item || !options.includes(state.item)) state.item = options[0] || "";
   setOptions($("item"), options, state.item);
+  $("importantPuOnly").checked = state.importantPuOnly;
   setControlVisibility();
 }
 
@@ -239,7 +270,7 @@ function summaryHtml() {
   const availableYears = years().filter((year) => hasSeriesYear(s, year)).length || vals.filter((item) => item.value !== null).length;
   return `<div class="summary">
     <div class="card"><span>Report Mode</span><strong>${esc(REPORTS[state.report].label)}</strong></div>
-    <div class="card"><span>Selected Item</span><strong>${esc(state.scope === "yearly" ? "ALL PRIMARY UNIT" : optionLabel(state.item || "All"))}</strong></div>
+    <div class="card"><span>Selected Item</span><strong>${esc(state.scope === "yearly" ? (state.importantPuOnly ? "IMPORTANT PRIMARY UNITS" : "ALL PRIMARY UNIT") : optionLabel(state.item || "All"))}</strong></div>
     <div class="card"><span>Metric</span><strong>${esc(metricLabel())}</strong></div>
     <div class="card"><span>Latest Year Total</span><strong>${fmt(latestTotal)}</strong></div>
     <div class="card"><span>Highest Value</span><strong>${fmt(maxItem?.value)}</strong></div>
@@ -273,7 +304,7 @@ function groupedChart() {
 function barChart() {
   const vals = valuesForCurrent();
   const max = Math.max(...vals.map((item) => Math.abs(item.value || 0)), 1);
-  return `<section class="chart"><div class="section-head"><h2>${esc(metricLabel())}</h2><span>${remarksText()}</span></div>${vals.map((item, index) => `<div class="bar-row"><strong>${esc(item.label)}</strong><div class="track"><div class="fill y${index % 4 + 1}" style="width:${item.value === null ? 0 : Math.abs(item.value) / max * 100}%"></div></div><span>${fmt(item.value)}</span></div>`).join("")}</section>`;
+  return `<section class="chart"><div class="section-head"><h2>${esc(metricLabel())}</h2><span>${remarksText()}</span></div>${vals.map((item, index) => `<div class="bar-row ${isImportantPuName(item.label) ? "important-pu" : ""}"><strong>${esc(item.label)}</strong><div class="track"><div class="fill y${index % 4 + 1}" style="width:${item.value === null ? 0 : Math.abs(item.value) / max * 100}%"></div></div><span>${fmt(item.value)}</span></div>`).join("")}</section>`;
 }
 
 function pieChart() {
@@ -309,6 +340,47 @@ function tableHtml() {
   return `<section class="tablebox"><div class="section-head"><h2>DATA TABLE</h2><span>${remarksText()}</span></div><table class="data-table"><thead><tr><th>FINANCIAL YEAR</th>${DATA.months.map((month) => `<th>${month}</th>`).join("")}<th>Total</th></tr></thead><tbody>${fy.map((year) => `<tr><td>${esc(year)}</td>${DATA.months.map((month, index) => `<td>${fmt(monthValue(s, year, index))}</td>`).join("")}<td>${fmt(total(s[year]))}</td></tr>`).join("")}</tbody></table></section>`;
 }
 
+function importantYearlyBreakdownHtml() {
+  if (!state.importantPuOnly || state.report !== "yearly") return "";
+  const fy = years();
+  const rows = importantPuNames().map((name) => {
+    const s = series("pu", name);
+    const values = fy.map((year) => total(s[year]));
+    const grandTotal = values.reduce((sum, value) => sum + Number(value || 0), 0);
+    return `<tr class="important-row"><td>${esc(optionLabel(name))}</td>${values.map((value) => `<td>${fmt(value)}</td>`).join("")}<td>${fmt(grandTotal)}</td></tr>`;
+  }).join("");
+  return `<section class="tablebox focus-table"><div class="section-head"><h2>IMPORTANT PU YEAR-WISE BREAKUP</h2><span>PU 27, 28, 30, 32, 60 shown separately</span></div><table class="data-table"><thead><tr><th>PRIMARY UNIT</th>${fy.map((year) => `<th>${esc(year)}</th>`).join("")}<th>Total</th></tr></thead><tbody>${rows || `<tr><td colspan="${fy.length + 2}">No important PU data available.</td></tr>`}</tbody></table></section>`;
+}
+
+function importantBudgetBreakdownHtml() {
+  if (!state.importantPuOnly || state.report !== "bp_ae" || state.scope !== "pu") return "";
+  const fy = years();
+  const names = selectedImportantPuNames();
+  const rows = names.flatMap((name) => {
+    const s = series("pu", name);
+    const b = budget("pu", name);
+    return fy.map((year) => {
+      const oba = b[year] ? Number(b[year].oba || 0) : null;
+      const bp = b[year] ? Number(b[year].bp || 0) : null;
+      const ae = b[year] ? Number(b[year].ae || total(s[year]) || 0) : total(s[year]);
+      const bpPercent = bp ? ae / bp * 100 : null;
+      const obaPercent = oba ? ae / oba * 100 : null;
+      return `<tr class="important-row"><td>${esc(optionLabel(name))}</td><td>${esc(year)}</td><td>${fmt(oba)}</td><td>${fmt(bp)}</td><td>${fmt(ae)}</td><td>${fmt(ae === null || bp === null ? null : ae - bp)}</td><td>${fmt(bpPercent, 1)}</td><td>${fmt(obaPercent, 1)}</td></tr>`;
+    });
+  }).join("");
+  const scopeText = names.length === 1 ? "selected important PU" : "each important PU";
+  return `<section class="tablebox focus-table"><div class="section-head"><h2>IMPORTANT PU UTILIZATION BREAKUP</h2><span>OBA, Budget Proportion and Actual Expenditure for ${scopeText}</span></div><table class="data-table"><thead><tr><th>PRIMARY UNIT</th><th>FINANCIAL YEAR</th><th>OBA</th><th>BP</th><th>AE</th><th>AE - BP</th><th>% BP Utilized</th><th>% OBA Utilized</th></tr></thead><tbody>${rows || `<tr><td colspan="8">No important PU budget data available.</td></tr>`}</tbody></table></section>`;
+}
+
+function importantModeNoteHtml() {
+  if (!state.importantPuOnly || state.report !== "pu_month" || state.scope !== "pu") return "";
+  return `<div class="warn">Important PU Only is active. The Primary Unit selector is limited to PU 27, 28, 30, 32 and 60.</div>`;
+}
+
+function importantBreakdownHtml() {
+  return `${importantModeNoteHtml()}${importantYearlyBreakdownHtml()}${importantBudgetBreakdownHtml()}`;
+}
+
 function remarksText() {
   return "Remarks - Figures in '000' (thousands)";
 }
@@ -324,7 +396,7 @@ function render() {
   syncControls();
   const report = REPORTS[state.report];
   $("reportTitle").textContent = report.title;
-  $("host").innerHTML = `<p class="note">${remarksText()}. ${esc(report.note)}</p>${availabilityNote()}${summaryHtml()}<div class="report-layout">${insightHtml()}${renderChart()}</div>${tableHtml()}`;
+  $("host").innerHTML = `<p class="note">${remarksText()}. ${esc(report.note)}</p>${availabilityNote()}${summaryHtml()}<div class="report-layout">${insightHtml()}${renderChart()}</div>${tableHtml()}${importantBreakdownHtml()}`;
 }
 
 document.addEventListener("DOMContentLoaded", setup);
