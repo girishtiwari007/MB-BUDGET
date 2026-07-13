@@ -735,11 +735,78 @@
       if (entered !== null) window.alert("Incorrect password.");
       return false;
     }
+    function exportFileName(prefix, extension) {
+      const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      return `${prefix}_${stamp}.${extension}`;
+    }
+    function downloadHtmlFile(html, fileName, mimeType) {
+      const blob = new Blob([html], { type: mimeType });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      URL.revokeObjectURL(link.href);
+      link.remove();
+    }
+    function exportTableHtml(tabKey) {
+      const tab = tableForView(tabKey, { skipFocus: true });
+      if (!tab?.rows?.length) return "";
+      const headers = tab.columns.map(col => `<th>${htmlEscape(String(col.label || "").replace(/\n/g, " "))}</th>`).join("");
+      const rows = tab.rows.map(row => `<tr class="${String(rowName(row)).toLowerCase() === "total" ? "total" : isImportantPuRow(row) ? "important" : ""}">${tab.columns.map(col => `<td>${htmlEscape(formatCell(row[col.key], col.format))}</td>`).join("")}</tr>`).join("");
+      return `<section class="export-section"><h2>${htmlEscape(tab.title)}</h2><table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></section>`;
+    }
+    function currentExportStyles(mode) {
+      return `<style>
+        @page{size:A4 landscape;margin:10mm}
+        body{font-family:Calibri,Arial,sans-serif;color:#17212b;margin:0;background:#fff}
+        main{width:100%;margin:0 auto}
+        h1{font-size:20px;text-align:center;margin:0 0 4px;color:#1f4e79}
+        h2{font-size:15px;margin:12px 0 5px;color:#1f4e79}
+        .meta{font-size:11px;text-align:right;margin:0 0 8px;font-weight:700}
+        .export-section{break-after:page;page-break-after:always}
+        .export-section:last-child{break-after:auto;page-break-after:auto}
+        table{width:100%;border-collapse:collapse;font-size:10px;table-layout:auto}
+        th,td{border:1px solid #9fb0bf;padding:3px 4px;vertical-align:middle;white-space:normal;word-break:normal;overflow-wrap:anywhere}
+        th{background:#1f4e79;color:#fff;text-align:center}
+        td{text-align:right}
+        td:first-child,th:first-child{text-align:left}
+        tbody tr:nth-child(even) td{background:#e8f2f8}
+        tr.total td{background:#c8d6e8;font-weight:700}
+        tr.important td{background:#fff4cc;font-weight:700}
+        .analysis-copy{margin-top:12px;break-before:page;page-break-before:always}
+        .analysis-copy .note,.analysis-copy .dot{display:none}
+        .analysis-copy table{margin-bottom:10px}
+        ${mode === "excel" ? ".export-section{page-break-after:auto}.analysis-copy{page-break-before:auto}" : ""}
+      </style>`;
+    }
+    function currentExportDocument(mode) {
+      const tables = TAB_ORDER.map(exportTableHtml).join("");
+      const currentTab = activeTab;
+      renderAnalysis();
+      const analysisHtml = document.getElementById("tableHost").innerHTML;
+      render(currentTab);
+      return `<!doctype html><html><head><meta charset="utf-8"><title>Current Previous Analysis Export</title>${currentExportStyles(mode)}</head><body><main><h1>Current / Previous Year PU and Demand Analysis</h1><p class="meta">Remarks - Figures in '000' (thousands). Generated ${new Date().toLocaleString("en-IN")}.</p>${tables}<section class="analysis-copy"><h2>Analysis View</h2>${analysisHtml}</section></main></body></html>`;
+    }
+    function exportCurrentExcel() {
+      downloadHtmlFile(currentExportDocument("excel"), exportFileName("Current_Previous_Year_PU_Demand_Analysis", "xls"), "application/vnd.ms-excel;charset=utf-8");
+    }
+    function exportCurrentPdf() {
+      const win = window.open("", "_blank");
+      if (!win) { window.alert("Please allow popups to generate PDF."); return; }
+      win.document.open();
+      win.document.write(currentExportDocument("pdf"));
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 350);
+    }
     function openTab(tabKey) {
       if (tabKey === "upload" && !requestUploadPassword()) return;
       render(tabKey);
     }
     document.querySelectorAll(".tabs button").forEach(btn => btn.addEventListener("click", () => openTab(btn.dataset.tab)));
+    document.getElementById("exportExcel")?.addEventListener("click", exportCurrentExcel);
+    document.getElementById("exportPdf")?.addEventListener("click", exportCurrentPdf);
     window.addEventListener("message", event => { if (event.data?.type === "open-current-tab" && (DATA[event.data.tab] || event.data.tab === "analysis")) render(event.data.tab); });
     render(activeTab);
 

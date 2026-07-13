@@ -202,6 +202,8 @@ function setup() {
     state.item = "";
     render();
   });
+  $("exportReportExcel")?.addEventListener("click", exportReportExcel);
+  $("exportReportPdf")?.addEventListener("click", exportReportPdf);
   render();
 }
 
@@ -379,6 +381,99 @@ function importantModeNoteHtml() {
 
 function importantBreakdownHtml() {
   return `${importantModeNoteHtml()}${importantYearlyBreakdownHtml()}${importantBudgetBreakdownHtml()}`;
+}
+
+function exportFileName(prefix, extension) {
+  const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  return `${prefix}_${stamp}.${extension}`;
+}
+
+function downloadHtmlFile(html, fileName, mimeType) {
+  const blob = new Blob([html], { type: mimeType });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  URL.revokeObjectURL(link.href);
+  link.remove();
+}
+
+function reportExportStyles(mode) {
+  return `<style>
+    @page{size:A4 landscape;margin:10mm}
+    body{font-family:Calibri,Arial,sans-serif;color:#17212b;margin:0;background:#fff}
+    main{width:100%;margin:0 auto}
+    h1{font-size:20px;text-align:center;margin:0 0 4px;color:#1f4e79}
+    h2{font-size:15px;margin:12px 0 5px;color:#1f4e79}
+    h3{font-size:13px;margin:8px 0 4px;color:#1f4e79}
+    .meta{font-size:11px;text-align:right;margin:0 0 8px;font-weight:700}
+    .export-section{break-after:page;page-break-after:always}
+    .export-section:last-child{break-after:auto;page-break-after:auto}
+    table{width:100%;border-collapse:collapse;font-size:9.5px;table-layout:auto}
+    th,td{border:1px solid #9fb0bf;padding:3px 4px;vertical-align:middle;white-space:normal;overflow-wrap:anywhere}
+    th{background:#1f4e79;color:#fff;text-align:center}
+    td{text-align:right}
+    td:first-child,th:first-child{text-align:left}
+    tbody tr:nth-child(even) td{background:#e8f2f8}
+    .important-row td,.important-pu td{background:#fff4cc;font-weight:700}
+    .summary,.report-layout{display:block}
+    .card,.chart,.tablebox,.insights{border:1px solid #c8d6e2;margin:0 0 8px;padding:7px}
+    .bar-row{display:grid;grid-template-columns:165px 1fr 105px;gap:8px;align-items:center;margin:5px 0;font-size:10px}
+    .track{height:14px;background:#edf4f8;border:1px solid #dbe6ee}
+    .fill{height:100%;background:#1f4e79}
+    .month-grid,.pie-wrap,.legend,.toolbar,.report-menu,.actions{display:none!important}
+    ${mode === "excel" ? ".export-section{page-break-after:auto}.chart{display:none}" : ""}
+  </style>`;
+}
+
+function monthlySourceTable(scope, title) {
+  const items = Object.keys(DATA.monthly?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL").sort();
+  const rows = items.flatMap((item) => years().map((year) => {
+    const arr = DATA.monthly?.[scope]?.[item]?.[year];
+    return `<tr class="${isImportantPuName(item) ? "important-row" : ""}"><td>${esc(optionLabel(item))}</td><td>${esc(year)}</td>${DATA.months.map((_, index) => `<td>${fmt(monthValue({ [year]: arr }, year, index))}</td>`).join("")}<td>${fmt(total(arr))}</td></tr>`;
+  })).join("");
+  return `<section class="export-section"><h2>${esc(title)}</h2><table><thead><tr><th>ITEM</th><th>FINANCIAL YEAR</th>${DATA.months.map((month) => `<th>${esc(month)}</th>`).join("")}<th>Total</th></tr></thead><tbody>${rows}</tbody></table></section>`;
+}
+
+function budgetSourceTable(scope, title) {
+  const items = Object.keys(DATA.budget?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL").sort();
+  const rows = items.flatMap((item) => years().map((year) => {
+    const b = DATA.budget?.[scope]?.[item]?.[year] || {};
+    const s = DATA.monthly?.[scope]?.[item] || {};
+    const oba = b.oba === undefined ? null : Number(b.oba || 0);
+    const bp = b.bp === undefined ? null : Number(b.bp || 0);
+    const ae = b.ae === undefined ? total(s[year]) : Number(b.ae || 0);
+    return `<tr class="${isImportantPuName(item) ? "important-row" : ""}"><td>${esc(optionLabel(item))}</td><td>${esc(year)}</td><td>${fmt(oba)}</td><td>${fmt(bp)}</td><td>${fmt(ae)}</td><td>${fmt(ae === null || bp === null ? null : ae - bp)}</td><td>${fmt(bp ? ae / bp * 100 : null, 1)}</td><td>${fmt(oba ? ae / oba * 100 : null, 1)}</td></tr>`;
+  })).join("");
+  return `<section class="export-section"><h2>${esc(title)}</h2><table><thead><tr><th>ITEM</th><th>FINANCIAL YEAR</th><th>OBA</th><th>BP</th><th>AE</th><th>AE - BP</th><th>% BP Utilized</th><th>% OBA Utilized</th></tr></thead><tbody>${rows}</tbody></table></section>`;
+}
+
+function reportExportDocument(mode) {
+  const report = REPORTS[state.report];
+  const selectedView = `<section class="export-section"><h2>${esc(report.title)}</h2><p class="meta">${remarksText()}. ${esc(report.note)}</p>${summaryHtml()}${insightHtml()}${renderChart()}${tableHtml()}${importantBreakdownHtml()}</section>`;
+  const appendices = [
+    monthlySourceTable("pu", "Appendix A - Primary Unit Month-Wise Actual Expenditure"),
+    monthlySourceTable("demand", "Appendix B - Demand / SMH Month-Wise Actual Expenditure"),
+    monthlySourceTable("dept", "Appendix C - Department Month-Wise Actual Expenditure"),
+    budgetSourceTable("pu", "Appendix D - Primary Unit Budget Proportion vs Actual Expenditure"),
+    budgetSourceTable("demand", "Appendix E - Demand / SMH Budget Proportion vs Actual Expenditure"),
+  ].join("");
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Advanced Report and Chart Analysis Export</title>${reportExportStyles(mode)}</head><body><main><h1>Advanced Report and Chart Analysis</h1><p class="meta">Selected report: ${esc(report.label)}. Generated ${new Date().toLocaleString("en-IN")}.</p>${selectedView}${appendices}</main></body></html>`;
+}
+
+function exportReportExcel() {
+  downloadHtmlFile(reportExportDocument("excel"), exportFileName("Advanced_Report_Chart_Analysis", "xls"), "application/vnd.ms-excel;charset=utf-8");
+}
+
+function exportReportPdf() {
+  const win = window.open("", "_blank");
+  if (!win) { window.alert("Please allow popups to generate PDF."); return; }
+  win.document.open();
+  win.document.write(reportExportDocument("pdf"));
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 350);
 }
 
 function remarksText() {
