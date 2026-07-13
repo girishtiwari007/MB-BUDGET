@@ -178,7 +178,6 @@
       const subMenu = tabKey === "pu_prev" ? renderPrevPuSubtabs() : null;
       const puTools = isPuTable(tabKey) ? renderPuFocusControls(tabKey) : null;
       const note = document.createElement("div"); note.className = "note"; note.textContent = tabKey === "pu_prev" || tabKey === "demand_prev" ? "Remarks - Figures in '000' (thousands). Default projection uses completed actuals up to JUN 2026 (03 months). Previous year RG is treated as OBA; current year BG_ISL is treated as OBA until current-year RG is available." : "Remarks - Figures in '000' (thousands). Default projection uses completed actuals up to JUN 2026 (03 months). July is shown separately in Till Date / Running Month.";
-      const formula = formulaRemarks(tabKey, tab);
       const table = document.createElement("table");
       if (tab.columns.length > 8) table.className = "wide";
       const thead = document.createElement("thead"); const letterRow = document.createElement("tr"); letterRow.className = "letter-row"; const labelRow = document.createElement("tr");
@@ -187,7 +186,7 @@
       const tbody = document.createElement("tbody");
       tab.rows.forEach(row => { const tr = document.createElement("tr"); if (String(row.Name).toLowerCase() === "total") tr.className = "total"; if (isImportantPuRow(row)) tr.classList.add("important-pu"); tab.columns.forEach(col => { const td = document.createElement("td"); if (col.key === "OBAPercent" || col.key === "BPPercent") { const dot = document.createElement("span"); dot.className = "dot " + utilizationClass(row[col.key]); td.appendChild(dot); td.append(document.createTextNode(formatCell(row[col.key], col.format))); } else { td.textContent = formatCell(row[col.key], col.format); } tr.appendChild(td); }); tbody.appendChild(tr); });
       table.appendChild(tbody);
-      const children = [subMenu, puTools, note, formula, table].filter(Boolean);
+      const children = [subMenu, puTools, note, table].filter(Boolean);
       document.getElementById("tableHost").replaceChildren(...children);
     }
     function renderTillDate() {
@@ -202,42 +201,7 @@
       const rows = tab.rows;
       const header = `<thead><tr>${tab.columns.map(col => `<th>${htmlEscape(String(col.label || "").replace(/\n/g, " "))}</th>`).join("")}</tr></thead>`;
       const body = rows.map(row => `<tr class="${String(rowName(row)).toLowerCase() === "total" ? "total" : isImportantPuRow(row) ? "important-pu" : ""}">${tab.columns.map(col => `<td>${htmlEscape(formatCell(row[col.key], col.format))}</td>`).join("")}</tr>`).join("");
-      return `<section class="till-section"><h3>${htmlEscape(tab.title)} - ${RUNNING_PERIOD.title}</h3><div class="note">Remarks - Figures in '000' (thousands). July is running and shown only in this tab.</div>${formulaRemarksHtml(tabKey, tab)}<table class="${tab.columns.length > 8 ? "wide" : ""}">${header}<tbody>${body}</tbody></table></section>`;
-    }
-    function cleanFormulaLabel(label) {
-      return String(label || "").replace(/\n/g, " ").replace(/\s+/g, " ").trim();
-    }
-    function columnFormula(tabKey, col) {
-      const label = cleanFormulaLabel(col.label);
-      const previous = tabKey === "pu_prev" || tabKey === "demand_prev";
-      const common = {
-        Name: "Item name used for grouping and totals.",
-        Department: "Department mapped from Demand / SMH code.",
-        OBA: previous ? "Current OBA = BG_ISL 2026-27." : "OBA = Original Budget Allotment from BG_ISL 2026-27.",
-        BP: previous ? "Current BP = Current OBA / 12 * completed month count." : "BP = OBA / 12 * completed month count.",
-        AE: "AE = Actual Expenditure up to completed month in default view.",
-        Variation: "Variation = AE - BP.",
-        BPPercent: "% BP = AE / BP * 100.",
-        Remaining: "Budget Remaining = OBA - AE.",
-        BudgetRemaining: "Budget Remaining = OBA - AE.",
-        OBAPercent: "% OBA Utilized = AE / OBA * 100.",
-        PreviousOBA: "Previous OBA = previous-year RG.",
-        PreviousBP: "Previous BP = Previous OBA / 12 * completed month count.",
-        AEPrevious: "Previous Actual = previous-year actual expenditure up to same completed month.",
-        AECurrent: "Current Actual = current-year actual expenditure up to completed month.",
-        VariationBP: "Budget Variation = Current Actual - Current BP.",
-        VariationActual: "Actual Expenditure Variation = Current Actual - Previous Actual."
-      };
-      return `${label}: ${common[col.key] || "Value as available in source data."}`;
-    }
-    function formulaRemarksHtml(tabKey, tab) {
-      const items = (tab.columns || []).map(col => `<li>${htmlEscape(columnFormula(tabKey, col))}</li>`).join("");
-      return `<div class="formula-box"><strong>Formula / Column Remarks</strong><ul>${items}</ul></div>`;
-    }
-    function formulaRemarks(tabKey, tab) {
-      const wrap = document.createElement("div");
-      wrap.innerHTML = formulaRemarksHtml(tabKey, tab);
-      return wrap.firstChild;
+      return `<section class="till-section"><h3>${htmlEscape(tab.title)} - ${RUNNING_PERIOD.title}</h3><div class="note">Remarks - Figures in '000' (thousands). July is running and shown only in this tab.</div><table class="${tab.columns.length > 8 ? "wide" : ""}">${header}<tbody>${body}</tbody></table></section>`;
     }
     function puCode(row) { return codeFromLabel(rowName(row), "PU"); }
     function isImportantPuRow(row) { return IMPORTANT_PU_CODES.has(puCode(row)); }
