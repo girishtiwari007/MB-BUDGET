@@ -1,4 +1,4 @@
-const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+﻿const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
     let DATA = window.CURRENT_PAYLOAD || {};
     const DATA_SOURCE_CONFIG = window.YEAR_DATA_SOURCES || {};
     let TAB_ORDER = ["demand", "staff", "nonstaff", "pu_prev", "demand_prev"].filter(key => DATA[key]);
@@ -39,6 +39,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     let prevPuMode = "all";
     const puFocus = { mode:"all", item:"" };
     const compareState = { entity:"pu", years:"1", metric:"ae", chart:"bar", item:"__total" };
+    const analysisState = { scope:"current", metric:"ae", attention:"all", pu:"all", view:"overview", logicUnlocked:false };
     let uploadUnlocked = false;
     const COMPLETED_PERIOD = { month:"JUN", year:2026, count:3, label:"JUN 2026", title:"Completed Month Projection - June 2026 (03 months)" };
     const RUNNING_PERIOD = { month:"JUL", year:2026, count:4, label:"JUL 2026", title:"Till Date / Running Month - July 2026 (04 months)" };
@@ -276,47 +277,140 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     function totalRow(tab) {
       return (tab.rows || []).find(row => String(rowName(row)).toLowerCase() === "total") || {};
     }
-    function analysisMetric(label, value, format = "money") {
+    function analysisMetric(label, value, format = "money", tone = "") {
       const shown = format === "percent" ? formatNumber(value, 2) + "%" : format === "int" ? Math.round(Number(value || 0)).toLocaleString("en-IN") : formatNumber(value);
-      return `<div class="metric-row"><span>${label}</span><strong>${shown}</strong></div>`;
+      return `<div class="metric-row ${tone}"><span>${label}</span><strong>${shown}</strong></div>`;
+    }
+    function analysisScopeLabel(value) {
+      return { all:"All Current / Previous Tables", current:"Current Year Review", previous:"Previous Year Comparison", pu:"PU Wise Review", demand:"Demand / SMH Review", important:"Important PU only (27, 28, 30, 32, 60)" }[value] || value;
+    }
+    function analysisMetricLabel(value) {
+      return { ae:"Actual Expenditure", bp:"Budget Proportion", oba:"OBA / RG Allotment", remaining:"Budget Remaining", bpPct:"% BP Utilized", obaPct:"% OBA Utilized", yoy:"Current vs Previous AE Variation" }[value] || value;
+    }
+    function analysisAttentionLabel(value) {
+      return { all:"All items", overBp:"Over BP or beyond proportion", nearBp:"Near BP watch (75%-100%)", lowBp:"Low booking against BP (<50%)", negative:"Negative balance / excess", highOba:"High OBA utilization (75%+)", yoyRise:"Higher than previous year", yoyFall:"Lower than previous year" }[value] || value;
     }
     function compactTable(title, rows, columns) {
-      const body = rows.length ? rows.map(item => `<tr>${columns.map(col => `<td>${col.format === "percent" ? `<span class="dot ${utilizationClass(item[col.key])}"></span>` : ""}${htmlEscape(formatCell(item[col.key], col.format))}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${columns.length}">No alert items found.</td></tr>`;
+      const body = rows.length ? rows.map(item => `<tr class="${item.Important ? "important-pu" : ""}">${columns.map(col => `<td class="${col.num ? "num" : ""}">${col.format === "percent" ? `<span class="dot ${utilizationClass(item[col.key])}"></span>` : ""}${htmlEscape(formatCell(item[col.key], col.format))}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${columns.length}">No alert items found for selected filter.</td></tr>`;
       return `<section class="analysis-panel"><h3>${title}</h3><table><thead><tr>${columns.map(col => `<th>${htmlEscape(col.label)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></section>`;
     }
+    function analysisRows() {
+      return TAB_ORDER.flatMap(key => {
+        const tab = DATA[key] || { rows: [] };
+        const group = ["demand", "staff", "nonstaff"].includes(key) ? "current" : "previous";
+        const entity = key.includes("demand") ? "demand" : "pu";
+        return (tab.rows || []).filter(row => String(rowName(row)).toLowerCase() !== "total").map(row => {
+          const ae = numericValue(row, ["AE", "AECurrent", "CurrentAE"]);
+          const oba = numericValue(row, ["OBA", "PreviousOBA"]);
+          const bp = numericValue(row, ["BP"]);
+          const previousAe = numericValue(row, ["AEPrevious", "PreviousAE"]);
+          const remaining = Number.isFinite(Number(row.BudgetRemaining)) ? Number(row.BudgetRemaining) : Number.isFinite(Number(row.Remaining)) ? Number(row.Remaining) : oba - ae;
+          return { ...row, Source: tab.title, DisplayName: rowName(row), Group: group, Entity: entity, Important: entity === "pu" && isImportantPuRow(row), AnalysisOBA: oba, AnalysisBP: bp, AnalysisAE: ae, AnalysisRemaining: remaining, AnalysisBPPct: numericValue(row, ["BPPercent"]), AnalysisOBAPct: numericValue(row, ["OBAPercent"]), AnalysisPreviousAE: previousAe, AnalysisYoY: numericValue(row, ["ActualVariation", "VariationActual"]), AnalysisVariationBP: numericValue(row, ["VariationBP", "Variation"]) };
+        });
+      });
+    }
+    function filterAnalysisRows(rows) {
+      return rows.filter(row => {
+        if (analysisState.scope === "current" && row.Group !== "current") return false;
+        if (analysisState.scope === "previous" && row.Group !== "previous") return false;
+        if (analysisState.scope === "pu" && row.Entity !== "pu") return false;
+        if (analysisState.scope === "demand" && row.Entity !== "demand") return false;
+        if (analysisState.scope === "important" && !row.Important) return false;
+        if (analysisState.pu === "important" && row.Entity === "pu" && !row.Important) return false;
+        if (analysisState.pu === "staff" && row.Entity === "pu" && !STAFF_CODES.has(codeFromLabel(row.DisplayName, "PU"))) return false;
+        if (analysisState.pu === "nonstaff" && row.Entity === "pu" && STAFF_CODES.has(codeFromLabel(row.DisplayName, "PU"))) return false;
+        if (analysisState.attention === "overBp") return row.AnalysisBPPct > 100 || row.AnalysisVariationBP > 0;
+        if (analysisState.attention === "nearBp") return row.AnalysisBPPct >= 75 && row.AnalysisBPPct <= 100;
+        if (analysisState.attention === "lowBp") return row.AnalysisBP > 0 && row.AnalysisBPPct < 50;
+        if (analysisState.attention === "negative") return row.AnalysisRemaining < 0;
+        if (analysisState.attention === "highOba") return row.AnalysisOBAPct >= 75;
+        if (analysisState.attention === "yoyRise") return row.AnalysisYoY > 0;
+        if (analysisState.attention === "yoyFall") return row.AnalysisYoY < 0;
+        return true;
+      });
+    }
+    function analysisMetricValue(row) {
+      return { ae:row.AnalysisAE, bp:row.AnalysisBP, oba:row.AnalysisOBA, remaining:row.AnalysisRemaining, bpPct:row.AnalysisBPPct, obaPct:row.AnalysisOBAPct, yoy:row.AnalysisYoY }[analysisState.metric] || row.AnalysisAE;
+    }
+    function analysisTotals(rows) {
+      const total = rows.reduce((sum, row) => { sum.oba += row.AnalysisOBA; sum.bp += row.AnalysisBP; sum.ae += row.AnalysisAE; sum.remaining += row.AnalysisRemaining; sum.previousAe += row.AnalysisPreviousAE; sum.yoy += row.AnalysisYoY; return sum; }, { oba:0, bp:0, ae:0, remaining:0, previousAe:0, yoy:0 });
+      total.bpPct = total.bp ? total.ae / total.bp * 100 : 0;
+      total.obaPct = total.oba ? total.ae / total.oba * 100 : 0;
+      return total;
+    }
+    function renderAnalysisControls() {
+      const option = (value, label, selected) => `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`;
+      return `<div class="analysis-toolbar">
+        <label>Review Scope<select data-analysis-filter="scope">${option("current", "Current Year Review", analysisState.scope)}${option("previous", "Previous Year Comparison", analysisState.scope)}${option("pu", "PU Wise Review", analysisState.scope)}${option("demand", "Demand / SMH Review", analysisState.scope)}${option("important", "Important PU only", analysisState.scope)}${option("all", "All tables", analysisState.scope)}</select></label>
+        <label>Finance Focus<select data-analysis-filter="metric">${option("ae", "Actual Expenditure", analysisState.metric)}${option("bp", "Budget Proportion", analysisState.metric)}${option("oba", "OBA / RG Allotment", analysisState.metric)}${option("remaining", "Budget Remaining", analysisState.metric)}${option("bpPct", "% BP Utilized", analysisState.metric)}${option("obaPct", "% OBA Utilized", analysisState.metric)}${option("yoy", "Current vs Previous AE Variation", analysisState.metric)}</select></label>
+        <label>Attention Filter<select data-analysis-filter="attention">${option("all", "All items", analysisState.attention)}${option("overBp", "Over BP / excess booking", analysisState.attention)}${option("nearBp", "Near BP watch 75%-100%", analysisState.attention)}${option("lowBp", "Low booking under 50%", analysisState.attention)}${option("negative", "Negative balance", analysisState.attention)}${option("highOba", "High OBA utilization", analysisState.attention)}${option("yoyRise", "Higher than previous year", analysisState.attention)}${option("yoyFall", "Lower than previous year", analysisState.attention)}</select></label>
+        <label>PU Treatment<select data-analysis-filter="pu">${option("all", "All PU rows", analysisState.pu)}${option("important", "Important PU only when PU rows", analysisState.pu)}${option("staff", "Staff PU only", analysisState.pu)}${option("nonstaff", "Non-Staff PU only", analysisState.pu)}</select></label>
+      </div>`;
+    }
+    function renderFinanceSummary(rows, totals) {
+      const overBp = rows.filter(row => row.AnalysisBPPct > 100 || row.AnalysisVariationBP > 0).length;
+      const negative = rows.filter(row => row.AnalysisRemaining < 0).length;
+      const important = rows.filter(row => row.Important).length;
+      return `<div class="finance-summary"><article class="finance-card"><span>Scope</span><strong>${htmlEscape(analysisScopeLabel(analysisState.scope))}</strong><em>${rows.length} review rows</em></article><article class="finance-card"><span>Actual Expenditure</span><strong>${formatNumber(totals.ae)}</strong><em>${formatNumber(totals.bpPct, 1)}% of BP</em></article><article class="finance-card"><span>OBA / RG Allotment</span><strong>${formatNumber(totals.oba)}</strong><em>${formatNumber(totals.obaPct, 1)}% utilized</em></article><article class="finance-card ${totals.remaining < 0 ? "danger" : "good"}"><span>Budget Remaining</span><strong>${formatNumber(totals.remaining)}</strong><em>${negative} negative balance rows</em></article><article class="finance-card warn"><span>Attention</span><strong>${overBp}</strong><em>over BP / excess booking rows</em></article><article class="finance-card"><span>Important PU</span><strong>${important}</strong><em>PU 27, 28, 30, 32, 60 in view</em></article></div>`;
+    }
+    function renderAttentionStrip(rows) {
+      const parts = [["Over BP", "overBp", rows.filter(row => row.AnalysisBPPct > 100 || row.AnalysisVariationBP > 0).length, "danger"], ["75%-100% BP", "nearBp", rows.filter(row => row.AnalysisBPPct >= 75 && row.AnalysisBPPct <= 100).length, "warn"], ["Low BP <50%", "lowBp", rows.filter(row => row.AnalysisBP > 0 && row.AnalysisBPPct < 50).length, "calm"], ["Negative Balance", "negative", rows.filter(row => row.AnalysisRemaining < 0).length, "danger"], ["YoY Increase", "yoyRise", rows.filter(row => row.AnalysisYoY > 0).length, "warn"], ["YoY Decrease", "yoyFall", rows.filter(row => row.AnalysisYoY < 0).length, "good"]];
+      return `<div class="attention-strip">${parts.map(([label, key, count, tone]) => `<button type="button" class="attention-pill ${tone}" data-analysis-attention="${key}"><span>${label}</span><strong>${count}</strong></button>`).join("")}</div>`;
+    }
+    function renderMetricBars(rows) {
+      const grouped = rows.reduce((map, row) => { map[row.Source] = (map[row.Source] || 0) + Number(analysisMetricValue(row) || 0); return map; }, {});
+      const entries = Object.entries(grouped).sort((a,b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 8);
+      const max = Math.max(...entries.map(([, value]) => Math.abs(value)), 1);
+      return `<section class="analysis-panel metric-focus"><h3>${htmlEscape(analysisMetricLabel(analysisState.metric))} by Report</h3>${entries.map(([label, value]) => `<div class="bar-row"><strong>${htmlEscape(label)}</strong><div class="bar-track"><div class="bar-fill ${value < 0 ? "prev" : ""}" style="width:${Math.min(100, Math.abs(value) / max * 100)}%"></div></div><span>${analysisState.metric.endsWith("Pct") ? formatNumber(value, 1) + "%" : formatNumber(value)}</span></div>`).join("")}</section>`;
+    }
+    function renderAnalysisViewTabs() {
+      const tabs = [["overview", "Overview"], ["alerts", "Attention Alerts"], ["drill", "PU / Demand Drilldown"], ["sources", "Protected Logic & Sources"]];
+      return `<div class="analysis-view-tabs">${tabs.map(([key, label]) => `<button type="button" class="${analysisState.view === key ? "active" : ""}" data-analysis-view="${key}">${label}</button>`).join("")}</div>`;
+    }
+    function renderRiskRail(rows) {
+      const groups = [
+        ["Critical", rows.filter(row => row.AnalysisRemaining < 0 || row.AnalysisBPPct > 100).length, "danger"],
+        ["Watch", rows.filter(row => row.AnalysisBPPct >= 75 && row.AnalysisBPPct <= 100).length, "warn"],
+        ["Slow Booking", rows.filter(row => row.AnalysisBP > 0 && row.AnalysisBPPct < 50).length, "calm"],
+        ["Important PU", rows.filter(row => row.Important).length, "good"]
+      ];
+      return `<div class="risk-rail">${groups.map(([label, count, tone]) => `<article class="risk-tile ${tone}"><span>${label}</span><strong>${count}</strong></article>`).join("")}</div>`;
+    }
+    function protectedAnalysisLogic() {
+      if (!analysisState.logicUnlocked) return `<section class="protected-panel"><h3>Calculation Logic & Data Source Locked</h3><p>Enter the upload password to view source mapping and calculation logic from this Analysis page.</p><button class="export" type="button" data-unlock-analysis-logic>Unlock Logic & Sources</button></section>`;
+      const logicRows = [
+        ["OBA / RG", "Current year uses BG_ISL 2026-27 as OBA until current RG is available. Previous year comparison uses RG 2025-26."],
+        ["BP", "Budget Proportion = OBA / 12 * completed month count. Default completed month count is 03 for APR-JUN 2026."],
+        ["AE", "Actual Expenditure uses completed actuals up to JUN 2026 in default tabs. July running figures stay in Till Date / Running Month."],
+        ["AE - BP", "Actual Expenditure minus Budget Proportion. Positive values need attention for excess booking pace."],
+        ["Budget Remaining", "OBA minus Actual Expenditure. Negative values are highlighted as excess/low-balance risk."],
+        ["% BP", "Actual Expenditure / Budget Proportion * 100."],
+        ["% OBA", "Actual Expenditure / OBA * 100."],
+        ["YoY Variation", "Current-year AE minus previous-year AE for the same completed month basis."]
+      ];
+      return `<section class="protected-panel unlocked"><h3>Protected Calculation Logic</h3><table class="source-table"><thead><tr><th>Column / Measure</th><th>Logic Being Used</th></tr></thead><tbody>${logicRows.map(row => `<tr><td>${htmlEscape(row[0])}</td><td>${htmlEscape(row[1])}</td></tr>`).join("")}</tbody></table><h3>Repository Data Source Plan</h3><div class="source-plan compact">${sourcePlanTableHtml("all")}</div></section>`;
+    }
+    function renderAnalysisBody(rows, ranked, overBp, negativeBalance, yoyMovement, importantRows) {
+      const baseColumns = [{label:"Report", key:"Source"}, {label:"Item", key:"DisplayName"}];
+      const metricKey = analysisState.metric === "ae" ? "AnalysisAE" : analysisState.metric === "bp" ? "AnalysisBP" : analysisState.metric === "oba" ? "AnalysisOBA" : analysisState.metric === "remaining" ? "AnalysisRemaining" : analysisState.metric === "bpPct" ? "AnalysisBPPct" : analysisState.metric === "obaPct" ? "AnalysisOBAPct" : "AnalysisYoY";
+      const metricFormat = analysisState.metric.endsWith("Pct") ? "percent" : "money";
+      if (analysisState.view === "sources") return protectedAnalysisLogic();
+      if (analysisState.view === "alerts") return `<div class="analysis-panels finance-panels focus-mode">${compactTable("Over BP / Excess Booking", overBp, [...baseColumns, {label:"BP", key:"AnalysisBP", format:"money", num:true}, {label:"AE", key:"AnalysisAE", format:"money", num:true}, {label:"% BP", key:"AnalysisBPPct", format:"percent", num:true}, {label:"AE - BP", key:"AnalysisVariationBP", format:"money", num:true}])}${compactTable("Negative / Low Balance", negativeBalance, [...baseColumns, {label:"OBA", key:"AnalysisOBA", format:"money", num:true}, {label:"AE", key:"AnalysisAE", format:"money", num:true}, {label:"Remaining", key:"AnalysisRemaining", format:"money", num:true}, {label:"% OBA", key:"AnalysisOBAPct", format:"percent", num:true}])}</div>`;
+      if (analysisState.view === "drill") return `<div class="analysis-panels finance-panels focus-mode">${compactTable("Important PU Watch", importantRows, [...baseColumns, {label:"OBA", key:"AnalysisOBA", format:"money", num:true}, {label:"AE", key:"AnalysisAE", format:"money", num:true}, {label:"% BP", key:"AnalysisBPPct", format:"percent", num:true}, {label:"Remaining", key:"AnalysisRemaining", format:"money", num:true}])}${compactTable("Previous Year Movement", yoyMovement, [...baseColumns, {label:"Current AE", key:"AnalysisAE", format:"money", num:true}, {label:"Previous AE", key:"AnalysisPreviousAE", format:"money", num:true}, {label:"Variation", key:"AnalysisYoY", format:"money", num:true}])}</div>`;
+      return `<div class="analysis-hero-grid">${renderMetricBars(rows)}${compactTable(`Top ${htmlEscape(analysisMetricLabel(analysisState.metric))} Items`, ranked, [...baseColumns, {label:analysisMetricLabel(analysisState.metric), key:metricKey, format:metricFormat, num:true}, {label:"% BP", key:"AnalysisBPPct", format:"percent", num:true}, {label:"Remaining", key:"AnalysisRemaining", format:"money", num:true}])}</div>`;
+    }
     function renderAnalysis() {
-      document.getElementById("title").textContent = "Analysis View";
+      document.getElementById("title").textContent = "Finance Attention Analysis";
       document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "analysis"));
-      const cards = TAB_ORDER.map(key => {
-        const tab = DATA[key];
-        const total = totalRow(tab);
-        const oba = numericValue(total, ["OBA", "PreviousOBA"]);
-        const bp = numericValue(total, ["BP"]);
-        const ae = numericValue(total, ["AE", "CurrentAE"]);
-        const obaPct = numericValue(total, ["OBAPercent"]);
-        const bpPct = numericValue(total, ["BPPercent"]);
-        const rows = Math.max(0, (tab.rows || []).length - 1);
-        return `<article class="analysis-card"><h3>${htmlEscape(tab.title)}</h3>${
-          analysisMetric("Rows", rows, "int") +
-          analysisMetric("OBA / RG", oba) +
-          (bp ? analysisMetric("BP", bp) : "") +
-          analysisMetric("AE / Current Actual", ae) +
-          (bpPct ? analysisMetric("% BP", bpPct, "percent") : "") +
-          (obaPct ? analysisMetric("% OBA", obaPct, "percent") : "")
-        }</article>`;
-      }).join("");
-      const allRows = TAB_ORDER.flatMap(key => (DATA[key].rows || []).filter(row => String(rowName(row)).toLowerCase() !== "total").map(row => ({ ...row, Source: DATA[key].title, DisplayName: rowName(row) })));
-      const highOba = allRows.filter(row => Math.abs(numericValue(row, ["OBAPercent"])) >= 90).sort((a,b) => Math.abs(numericValue(b, ["OBAPercent"])) - Math.abs(numericValue(a, ["OBAPercent"]))).slice(0, 12);
-      const highBp = allRows.filter(row => Math.abs(numericValue(row, ["BPPercent"])) >= 90).sort((a,b) => Math.abs(numericValue(b, ["BPPercent"])) - Math.abs(numericValue(a, ["BPPercent"]))).slice(0, 12);
-      const negativeBalance = allRows.filter(row => numericValue(row, ["BudgetRemaining"]) < 0).sort((a,b) => numericValue(a, ["BudgetRemaining"]) - numericValue(b, ["BudgetRemaining"])).slice(0, 12);
-      const previousVariation = allRows.filter(row => "ActualVariation" in row).sort((a,b) => Math.abs(numericValue(b, ["ActualVariation"])) - Math.abs(numericValue(a, ["ActualVariation"]))).slice(0, 12);
-      const panels = [
-        compactTable("High OBA / RG Utilization", highOba, [{label:"Table", key:"Source"}, {label:"Item", key:"DisplayName"}, {label:"% OBA", key:"OBAPercent", format:"percent"}, {label:"AE", key:"AE", format:"money"}]),
-        compactTable("High BP Utilization", highBp, [{label:"Table", key:"Source"}, {label:"Item", key:"DisplayName"}, {label:"% BP", key:"BPPercent", format:"percent"}, {label:"BP", key:"BP", format:"money"}, {label:"AE", key:"AE", format:"money"}]),
-        compactTable("Budget Remaining Alerts", negativeBalance, [{label:"Table", key:"Source"}, {label:"Item", key:"DisplayName"}, {label:"Remaining", key:"BudgetRemaining", format:"money"}, {label:"AE", key:"AE", format:"money"}, {label:"OBA", key:"OBA", format:"money"}]),
-        compactTable("Previous Year Variation Focus", previousVariation, [{label:"Table", key:"Source"}, {label:"Item", key:"DisplayName"}, {label:"Variation", key:"ActualVariation", format:"money"}, {label:"Current AE", key:"CurrentAE", format:"money"}, {label:"Previous AE", key:"PreviousAE", format:"money"}])
-      ].join("");
-      document.getElementById("tableHost").innerHTML = `<div class="note">Remarks - Figures in '000' (thousands). This page is for screen review only; Excel and PDF export formats remain unchanged.</div><div class="analysis-grid">${cards}</div><div class="analysis-panels">${panels}</div>`;
+      const rows = filterAnalysisRows(analysisRows());
+      const totals = analysisTotals(rows);
+      const ranked = [...rows].sort((a,b) => Math.abs(analysisMetricValue(b)) - Math.abs(analysisMetricValue(a))).slice(0, 15);
+      const overBp = rows.filter(row => row.AnalysisBPPct > 100 || row.AnalysisVariationBP > 0).sort((a,b) => b.AnalysisBPPct - a.AnalysisBPPct).slice(0, 12);
+      const negativeBalance = rows.filter(row => row.AnalysisRemaining < 0).sort((a,b) => a.AnalysisRemaining - b.AnalysisRemaining).slice(0, 12);
+      const yoyMovement = rows.filter(row => row.AnalysisYoY).sort((a,b) => Math.abs(b.AnalysisYoY) - Math.abs(a.AnalysisYoY)).slice(0, 12);
+      const importantRows = rows.filter(row => row.Important).sort((a,b) => Math.abs(analysisMetricValue(b)) - Math.abs(analysisMetricValue(a))).slice(0, 12);
+      const body = renderAnalysisBody(rows, ranked, overBp, negativeBalance, yoyMovement, importantRows);
+      document.getElementById("tableHost").innerHTML = `<div class="analysis-shell"><div class="analysis-top"><div><div class="note analysis-note">Remarks - Figures in '000' (thousands). Default period is completed JUN 2026 / 03-month BP projection.</div><div class="analysis-context"><strong>Selected View:</strong> ${htmlEscape(analysisScopeLabel(analysisState.scope))} | <strong>Finance Focus:</strong> ${htmlEscape(analysisMetricLabel(analysisState.metric))} | <strong>Attention:</strong> ${htmlEscape(analysisAttentionLabel(analysisState.attention))}</div></div>${renderAnalysisViewTabs()}</div>${renderAnalysisControls()}${renderFinanceSummary(rows, totals)}${renderRiskRail(rows)}${renderAttentionStrip(rows)}${body}</div>`;
     }
     function compareDataset() {
       const key = compareState.entity === "demand" ? "demand_prev" : "pu_prev";
@@ -1080,8 +1174,41 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     document.querySelectorAll(".tabs button").forEach(btn => btn.addEventListener("click", () => openTab(btn.dataset.tab)));
     document.getElementById("exportExcel")?.addEventListener("click", exportCurrentExcel);
     document.getElementById("exportPdf")?.addEventListener("click", exportCurrentPdf);
+    document.getElementById("tableHost")?.addEventListener("change", event => {
+      const control = event.target.closest("[data-analysis-filter]");
+      if (!control) return;
+      analysisState[control.dataset.analysisFilter] = control.value;
+      renderAnalysis();
+    });
+    document.getElementById("tableHost")?.addEventListener("click", event => {
+      const viewButton = event.target.closest("[data-analysis-view]");
+      if (viewButton) {
+        analysisState.view = viewButton.dataset.analysisView;
+        renderAnalysis();
+        return;
+      }
+      const unlockButton = event.target.closest("[data-unlock-analysis-logic]");
+      if (unlockButton) {
+        if (requestUploadPassword()) {
+          analysisState.logicUnlocked = true;
+          analysisState.view = "sources";
+          renderAnalysis();
+        }
+        return;
+      }
+      const pill = event.target.closest("[data-analysis-attention]");
+      if (!pill) return;
+      analysisState.attention = pill.dataset.analysisAttention;
+      analysisState.view = "alerts";
+      renderAnalysis();
+    });
     window.addEventListener("message", event => { if (event.data?.type === "open-current-tab" && (DATA[event.data.tab] || event.data.tab === "analysis")) render(event.data.tab); });
     render(activeTab);
+
+
+
+
+
 
 
 
