@@ -7,6 +7,8 @@
     const UPLOAD_PASSWORD = "Moradabad@2026";
     const UPLOAD_STATE = {};
     const UPLOAD_FILES = {};
+    let ORIGINAL_DATA = JSON.parse(JSON.stringify(DATA || {}));
+    const REPORTS_DATA = window.REPORTS_DATA || {};
     const CURRENT_YEAR_UPLOAD_ROLES = [
       "currPuBudget",
       "currPuMonth",
@@ -38,6 +40,9 @@
     const puFocus = { mode:"all", item:"" };
     const compareState = { entity:"pu", years:"1", metric:"ae", chart:"bar", item:"__total" };
     let uploadUnlocked = false;
+    const COMPLETED_PERIOD = { month:"JUN", year:2026, count:3, label:"JUN 2026", title:"Completed Month Projection - June 2026 (03 months)" };
+    const RUNNING_PERIOD = { month:"JUL", year:2026, count:4, label:"JUL 2026", title:"Till Date / Running Month - July 2026 (04 months)" };
+    const DATA_LOAD_TIMESTAMP = new Date().toLocaleString("en-IN");
     function normalizePuCurrentColumns() {
       ["staff", "nonstaff"].forEach(key => {
         const tab = DATA[key];
@@ -57,6 +62,99 @@
       });
     }
     normalizePuCurrentColumns();
+    function latestReportYear(offset = 0) {
+      const list = REPORTS_DATA.years || [];
+      return list[Math.max(0, list.length - 1 - offset)]?.fy || "";
+    }
+    function matchMonthlyKey(scope, label, bucket) {
+      const keys = Object.keys(bucket || {});
+      if (bucket[label]) return label;
+      if (scope === "pu") {
+        const code = codeFromLabel(label, "PU");
+        return keys.find(key => codeFromLabel(key, "PU") === code) || "";
+      }
+      if (scope === "demand") {
+        const demand = demandKey(label);
+        const smh = String(label || "").match(/\/\s*([0-9A-Z]+)/i)?.[1]?.toUpperCase() || "";
+        return keys.find(key => demandKey(key) === demand && (!smh || key.toUpperCase().includes(`SMH ${smh}`))) || "";
+      }
+      return keys.find(key => key === label) || "";
+    }
+    function monthActual(scope, label, fy, count) {
+      const bucket = REPORTS_DATA.monthly?.[scope] || {};
+      const key = matchMonthlyKey(scope, label, bucket);
+      const arr = key ? bucket[key]?.[fy] : null;
+      return Array.isArray(arr) ? arr.slice(0, count).reduce((sum, value) => sum + Number(value || 0), 0) : null;
+    }
+    function relabelPeriod(text, period) {
+      return String(text || "")
+        .replace(/JUL\s+2026/g, period.label)
+        .replace(/JUL\s+2025/g, `${period.month} 2025`)
+        .replace(/\/ 12 \* 4/g, `/ 12 * ${period.count}`)
+        .replace(/BP UPTO JUL 2026/g, `BP UPTO ${period.label}`);
+    }
+    function relabelColumns(columns, period) {
+      return (columns || []).map(col => ({ ...col, label: relabelPeriod(col.label, period) }));
+    }
+    function buildPeriodView(source, period) {
+      const view = JSON.parse(JSON.stringify(source || {}));
+      ["demand", "staff", "nonstaff"].forEach(key => adjustCurrentTab(view, key, period));
+      ["pu_prev", "demand_prev"].forEach(key => adjustPreviousTab(view, key, period));
+      return view;
+    }
+    function adjustCurrentTab(view, key, period) {
+      const tab = view[key];
+      if (!tab?.rows?.length) return;
+      const scope = key === "demand" ? "demand" : "pu";
+      const fy = latestReportYear();
+      const detail = tab.rows.filter(row => String(rowName(row)).toLowerCase() !== "total").map(row => {
+        const next = { ...row };
+        const actual = monthActual(scope, rowName(row), fy, period.count);
+        if (actual !== null) next.AE = actual;
+        next.Months = period.count;
+        next.BP = numberValue(next.OBA) / 12 * period.count;
+        next.Variation = numberValue(next.AE) - numberValue(next.BP);
+        next.BPPercent = numberValue(next.BP) ? numberValue(next.AE) / numberValue(next.BP) * 100 : 0;
+        next.Remaining = numberValue(next.OBA) - numberValue(next.AE);
+        next.BudgetRemaining = next.Remaining;
+        next.OBAPercent = numberValue(next.OBA) ? numberValue(next.AE) / numberValue(next.OBA) * 100 : 0;
+        return next;
+      });
+      tab.columns = relabelColumns(tab.columns, period);
+      tab.title = `${tab.title} - ${period.title}`;
+      tab.rows = addTotal(detail);
+    }
+    function adjustPreviousTab(view, key, period) {
+      const tab = view[key];
+      if (!tab?.rows?.length) return;
+      const scope = key === "demand_prev" ? "demand" : "pu";
+      const currentFy = latestReportYear();
+      const previousFy = latestReportYear(1);
+      const detail = tab.rows.filter(row => String(rowName(row)).toLowerCase() !== "total").map(row => {
+        const next = { ...row };
+        const currentActual = monthActual(scope, rowName(row), currentFy, period.count);
+        const previousActual = monthActual(scope, rowName(row), previousFy, period.count);
+        if (currentActual !== null) next.AECurrent = currentActual;
+        if (previousActual !== null) next.AEPrevious = previousActual;
+        next.Months = period.count;
+        next.PreviousBP = numberValue(next.PreviousOBA) / 12 * period.count;
+        next.BP = numberValue(next.OBA) / 12 * period.count;
+        next.VariationBP = numberValue(next.AECurrent) - numberValue(next.BP);
+        next.BPPercent = numberValue(next.BP) ? numberValue(next.AECurrent) / numberValue(next.BP) * 100 : 0;
+        next.VariationActual = numberValue(next.AECurrent) - numberValue(next.AEPrevious);
+        next.ActualVariation = next.VariationActual;
+        next.OBAPercent = numberValue(next.OBA) ? numberValue(next.AECurrent) / numberValue(next.OBA) * 100 : 0;
+        return next;
+      });
+      tab.columns = relabelColumns(tab.columns, period);
+      tab.title = `${tab.title} - ${period.title}`;
+      tab.rows = addTotal(detail, true);
+    }
+    function applyCompletedPeriodView() {
+      DATA = buildPeriodView(ORIGINAL_DATA, COMPLETED_PERIOD);
+      TAB_ORDER = ["demand", "staff", "nonstaff", "pu_prev", "demand_prev"].filter(key => DATA[key]);
+    }
+    applyCompletedPeriodView();
     function formatNumber(value, decimals = 0) { return Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }); }
     function formatCell(value, format) { if (format === "money") return formatNumber(value); if (format === "int") return Math.round(Number(value || 0)).toLocaleString("en-IN"); return value ?? ""; }
     function splitHeader(label) {
@@ -68,6 +166,7 @@
       activeTab = tabKey;
       if (tabKey === "upload") { renderUpload(); return; }
       if (tabKey === "analysis") { renderAnalysis(); return; }
+      if (tabKey === "current_till") { renderTillDate(); return; }
       const tab = tableForView(tabKey);
       document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tabKey));
       if (!tab || !tab.rows || !tab.rows.length) {
@@ -78,7 +177,7 @@
       document.getElementById("title").textContent = tab.title;
       const subMenu = tabKey === "pu_prev" ? renderPrevPuSubtabs() : null;
       const puTools = isPuTable(tabKey) ? renderPuFocusControls(tabKey) : null;
-      const note = document.createElement("div"); note.className = "note"; note.textContent = tabKey === "pu_prev" || tabKey === "demand_prev" ? "Remarks - Figures in '000' (thousands). Previous year RG is treated as OBA; current year BG_ISL is treated as OBA until current-year RG is available." : "Remarks - Figures in '000' (thousands)";
+      const note = document.createElement("div"); note.className = "note"; note.textContent = tabKey === "pu_prev" || tabKey === "demand_prev" ? "Remarks - Figures in '000' (thousands). Default projection uses completed actuals up to JUN 2026 (03 months). Previous year RG is treated as OBA; current year BG_ISL is treated as OBA until current-year RG is available." : "Remarks - Figures in '000' (thousands). Default projection uses completed actuals up to JUN 2026 (03 months). July is shown separately in Till Date / Running Month.";
       const table = document.createElement("table");
       if (tab.columns.length > 8) table.className = "wide";
       const thead = document.createElement("thead"); const letterRow = document.createElement("tr"); letterRow.className = "letter-row"; const labelRow = document.createElement("tr");
@@ -89,6 +188,20 @@
       table.appendChild(tbody);
       const children = [subMenu, puTools, note, table].filter(Boolean);
       document.getElementById("tableHost").replaceChildren(...children);
+    }
+    function renderTillDate() {
+      document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "current_till"));
+      document.getElementById("title").textContent = RUNNING_PERIOD.title;
+      const sections = ["demand", "staff", "nonstaff", "pu_prev", "demand_prev"].filter(key => ORIGINAL_DATA[key]).map(key => tillDateSection(key)).join("");
+      document.getElementById("tableHost").innerHTML = `<div class="future-note"><strong>${RUNNING_PERIOD.title}</strong><br>Data load timestamp: ${htmlEscape(DATA_LOAD_TIMESTAMP)}. This tab keeps July as running/till-date data. Default analysis tabs use completed June actuals and 03-month BP projection.</div>${sections}`;
+    }
+    function tillDateSection(tabKey) {
+      const tab = ORIGINAL_DATA[tabKey];
+      if (!tab?.rows?.length) return "";
+      const rows = tab.rows;
+      const header = `<thead><tr>${tab.columns.map(col => `<th>${htmlEscape(String(col.label || "").replace(/\n/g, " "))}</th>`).join("")}</tr></thead>`;
+      const body = rows.map(row => `<tr class="${String(rowName(row)).toLowerCase() === "total" ? "total" : isImportantPuRow(row) ? "important-pu" : ""}">${tab.columns.map(col => `<td>${htmlEscape(formatCell(row[col.key], col.format))}</td>`).join("")}</tr>`).join("");
+      return `<section class="till-section"><h3>${htmlEscape(tab.title)} - ${RUNNING_PERIOD.title}</h3><div class="note">Remarks - Figures in '000' (thousands). July is running and shown only in this tab.</div><table class="${tab.columns.length > 8 ? "wide" : ""}">${header}<tbody>${body}</tbody></table></section>`;
     }
     function puCode(row) { return codeFromLabel(rowName(row), "PU"); }
     function isImportantPuRow(row) { return IMPORTANT_PU_CODES.has(puCode(row)); }
@@ -789,8 +902,9 @@
         }
         if (UPLOAD_STATE.prevPuBudget && UPLOAD_STATE.currPuBudget) DATA.pu_prev = buildPreviousFromUpload(UPLOAD_STATE.prevPuBudget, UPLOAD_STATE.currPuBudget, "PUCODE", "PU", "PU Wise Previous Year Comparison");
         if (UPLOAD_STATE.prevSmhBudget && UPLOAD_STATE.currSmhBudget) DATA.demand_prev = buildPreviousFromUpload(UPLOAD_STATE.prevSmhBudget, UPLOAD_STATE.currSmhBudget, "SMH", "Demand No. / SMH-Grant", "Demand / SMH Wise Previous Year Comparison", true);
-        TAB_ORDER = ["demand", "staff", "nonstaff", "pu_prev", "demand_prev"].filter(key => DATA[key]);
-        logUpload("Tables updated in this browser session. Upload page is still open for verification.");
+        ORIGINAL_DATA = JSON.parse(JSON.stringify(DATA || {}));
+        applyCompletedPeriodView();
+        logUpload("Tables updated in this browser session. Default view now uses completed JUN 2026 actuals with 03-month BP projection. July running data is available in Till Date / Running Month.");
         if (options.stayOnUpload) {
           document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "upload"));
           return;

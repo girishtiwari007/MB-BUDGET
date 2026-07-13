@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Current / Previous Year PU and Demand Analysis</title>
-  <link rel="stylesheet" href="../assets/current.css?v=20260713-upload-1">
+  <link rel="stylesheet" href="../assets/current.css?v=20260713-period-1">
 </head>
 <body>
 <main class="wrap">
@@ -16,6 +16,7 @@
         <button data-tab="nonstaff" type="button">PU Non-Staff Current Year</button>
         <button data-tab="pu_prev" type="button">PU Wise Previous Year Comparison</button>
         <button data-tab="demand_prev" type="button">Demand / SMH Wise Previous Year Comparison</button>
+        <button data-tab="current_till" type="button">Till Date / Running Month</button>
         <button data-tab="analysis" type="button">Analysis View</button>
         <button data-tab="upload" type="button">Upload Data</button>
       </div>
@@ -29,11 +30,12 @@
       <div class="hero"><h1 id="title"></h1></div>
       <div class="table-wrap" id="tableHost"></div>
     </section>
-    <div class="small">Remarks - Figures in '000' (thousands). OBA = Original Budget Allotment from BG_ISL, BP = Budget Proportion as BG_ISL / 12 * 3 for July quarter position, AE = Actual Expenditure up to June 2026.</div>
+    <div class="small">Remarks - Figures in '000' (thousands). Default view uses completed actual expenditure up to June 2026 and BP projection for 03 months. July running data is shown separately in Till Date / Running Month.</div>
   </main>
-  <script src="../data/current_payload.js?v=20260713-upload-1"></script>
-  <script src="../data/year-sources.js?v=20260713-upload-1"></script>
-  <script src="../assets/current.js?v=20260713-upload-1"></script>
+  <script src="../data/current_payload.js?v=20260713-period-1"></script>
+  <script src="../data/reports-data.js?v=20260713-period-1"></script>
+  <script src="../data/year-sources.js?v=20260713-period-1"></script>
+  <script src="../assets/current.js?v=20260713-period-1"></script>
 </body>
 </html>
 

@@ -51,8 +51,10 @@ const REPORTS = {
   },
 };
 
-const state = { report: "pu_month", scope: "pu", item: "", metric: "ae_monthwise", month: "APR", chart: "grouped", importantPuOnly: false };
+const state = { report: "pu_month", scope: "pu", item: "", metric: "ae_monthwise", month: "APR", chart: "grouped", importantPuOnly: false, basis: "completed" };
 const $ = (id) => document.getElementById(id);
+const COMPLETED_MONTH_INDEX = 2;
+const TILL_DATE_MONTH_INDEX = 3;
 
 function fmt(value, decimals = 0) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "N/A";
@@ -65,6 +67,15 @@ function esc(value) {
 
 function years() {
   return (DATA.years || []).map((year) => year.fy);
+}
+
+function latestYear() {
+  return years().at(-1);
+}
+
+function activeMonthLimit(fy) {
+  if (fy !== latestYear()) return DATA.months.length;
+  return state.basis === "completed" ? COMPLETED_MONTH_INDEX + 1 : TILL_DATE_MONTH_INDEX + 1;
 }
 
 function itemsFor(scope) {
@@ -112,12 +123,26 @@ function hasSeriesYear(s, fy) {
 }
 
 function monthValue(s, fy, index) {
+  if (index >= activeMonthLimit(fy)) return null;
   return hasSeriesYear(s, fy) ? Number(s[fy][index] || 0) : null;
 }
 
-function total(arr) {
+function total(arr, limit = null) {
   if (!Array.isArray(arr)) return null;
-  return arr.reduce((sum, value) => sum + Number(value || 0), 0);
+  return arr.slice(0, limit || arr.length).reduce((sum, value) => sum + Number(value || 0), 0);
+}
+
+function periodTotal(s, fy) {
+  return total(s?.[fy], activeMonthLimit(fy));
+}
+
+function budgetValues(scope, item, year) {
+  const b = budget(scope, item)?.[year] || null;
+  const s = series(scope, item);
+  const oba = b ? Number(b.oba || 0) : null;
+  const bp = year === latestYear() && oba !== null ? oba / 12 * activeMonthLimit(year) : b ? Number(b.bp || 0) : null;
+  const ae = year === latestYear() ? periodTotal(s, year) : b ? Number(b.ae || periodTotal(s, year) || 0) : periodTotal(s, year);
+  return { oba, bp, ae };
 }
 
 function budget(scope, item) {
@@ -191,7 +216,8 @@ function setup() {
   setOptions($("metric"), ["ae_monthwise", "specific_month", "bp_vs_ae", "oba_vs_ae", "year_total"], state.metric);
   setOptions($("month"), DATA.months, state.month);
   setOptions($("chart"), ["grouped", "bar", "pie", "heatmap"], state.chart);
-  ["scope", "item", "metric", "month", "chart"].forEach((id) =>
+  $("basis").value = state.basis;
+  ["scope", "item", "metric", "month", "chart", "basis"].forEach((id) =>
     $(id).addEventListener("change", (event) => {
       state[id] = event.target.value;
       if (id === "scope") state.item = "";
@@ -214,6 +240,7 @@ function syncControls() {
   setOptions($("metric"), metricOptions(), state.metric);
   setOptions($("chart"), chartOptions(), state.chart);
   setOptions($("month"), DATA.months, state.month);
+  $("basis").value = state.basis;
   const options = itemsFor(state.scope);
   if (!state.item || !options.includes(state.item)) state.item = options[0] || "";
   setOptions($("item"), options, state.item);
@@ -252,16 +279,15 @@ function valuesForCurrent() {
     return fy.map((year) => ({ label: year, value: monthValue(s, year, index) }));
   }
   if (state.metric === "year_total") {
-    return fy.map((year) => ({ label: year, value: total(s[year]) }));
+    return fy.map((year) => ({ label: year, value: periodTotal(s, year) }));
   }
   if (state.metric === "bp_vs_ae" || state.metric === "oba_vs_ae") {
-    const b = budget(state.scope, state.item);
     return fy.flatMap((year) => [
-      { label: `${year} ${state.metric === "bp_vs_ae" ? "BUDGET PROPORTION" : "ORIGINAL BUDGET ALLOTMENT"}`, value: b[year] ? Number(b[year][state.metric === "bp_vs_ae" ? "bp" : "oba"] || 0) : null },
-      { label: `${year} ACTUAL EXPENDITURE`, value: b[year] ? Number(b[year].ae || total(s[year]) || 0) : total(s[year]) },
+      { label: `${year} ${state.metric === "bp_vs_ae" ? "BUDGET PROPORTION" : "ORIGINAL BUDGET ALLOTMENT"}`, value: state.metric === "bp_vs_ae" ? budgetValues(state.scope, state.item, year).bp : budgetValues(state.scope, state.item, year).oba },
+      { label: `${year} ACTUAL EXPENDITURE`, value: budgetValues(state.scope, state.item, year).ae },
     ]);
   }
-  return fy.map((year) => ({ label: year, value: total(s[year]) }));
+  return fy.map((year) => ({ label: year, value: periodTotal(s, year) }));
 }
 
 function summaryHtml() {
@@ -269,7 +295,7 @@ function summaryHtml() {
   const maxItem = vals.reduce((best, item) => !best || Math.abs(item.value) > Math.abs(best.value) ? item : best, null);
   const latestYear = years().at(-1);
   const s = series(state.scope, state.item);
-  const latestTotal = total(s[latestYear]);
+  const latestTotal = periodTotal(s, latestYear);
   const availableYears = years().filter((year) => hasSeriesYear(s, year)).length || vals.filter((item) => item.value !== null).length;
   return `<div class="summary">
     <div class="card"><span>Report Mode</span><strong>${esc(REPORTS[state.report].label)}</strong></div>
@@ -330,7 +356,7 @@ function heatmap() {
     const value = monthValue(s, year, index);
     const cls = value === null ? "" : Math.abs(value) > max * .66 ? "veryhot" : Math.abs(value) > max * .33 ? "hot" : "";
     return `<td class="${cls}">${fmt(value)}</td>`;
-  }).join("")}<td>${fmt(total(s[year]))}</td></tr>`).join("")}</tbody></table></section>`;
+  }).join("")}<td>${fmt(periodTotal(s, year))}</td></tr>`).join("")}</tbody></table></section>`;
 }
 
 function legend(labels) {
@@ -340,7 +366,7 @@ function legend(labels) {
 function tableHtml() {
   const fy = years();
   const s = series(state.scope, state.item);
-  return `<section class="tablebox"><div class="section-head"><h2>DATA TABLE</h2><span>${remarksText()}</span></div><table class="data-table"><thead><tr><th>FINANCIAL YEAR</th>${DATA.months.map((month) => `<th>${month}</th>`).join("")}<th>Total</th></tr></thead><tbody>${fy.map((year) => `<tr><td>${esc(year)}</td>${DATA.months.map((month, index) => `<td>${fmt(monthValue(s, year, index))}</td>`).join("")}<td>${fmt(total(s[year]))}</td></tr>`).join("")}</tbody></table></section>`;
+  return `<section class="tablebox"><div class="section-head"><h2>DATA TABLE</h2><span>${remarksText()}</span></div><table class="data-table"><thead><tr><th>FINANCIAL YEAR</th>${DATA.months.map((month) => `<th>${month}</th>`).join("")}<th>Total</th></tr></thead><tbody>${fy.map((year) => `<tr><td>${esc(year)}</td>${DATA.months.map((month, index) => `<td>${fmt(monthValue(s, year, index))}</td>`).join("")}<td>${fmt(periodTotal(s, year))}</td></tr>`).join("")}</tbody></table></section>`;
 }
 
 function importantYearlyBreakdownHtml() {
@@ -348,7 +374,7 @@ function importantYearlyBreakdownHtml() {
   const fy = years();
   const rows = importantPuNames().map((name) => {
     const s = series("pu", name);
-    const values = fy.map((year) => total(s[year]));
+    const values = fy.map((year) => periodTotal(s, year));
     const grandTotal = values.reduce((sum, value) => sum + Number(value || 0), 0);
     return `<tr class="important-row"><td>${esc(optionLabel(name))}</td>${values.map((value) => `<td>${fmt(value)}</td>`).join("")}<td>${fmt(grandTotal)}</td></tr>`;
   }).join("");
@@ -363,9 +389,7 @@ function importantBudgetBreakdownHtml() {
     const s = series("pu", name);
     const b = budget("pu", name);
     return fy.map((year) => {
-      const oba = b[year] ? Number(b[year].oba || 0) : null;
-      const bp = b[year] ? Number(b[year].bp || 0) : null;
-      const ae = b[year] ? Number(b[year].ae || total(s[year]) || 0) : total(s[year]);
+      const { oba, bp, ae } = budgetValues("pu", name, year);
       const bpPercent = bp ? ae / bp * 100 : null;
       const obaPercent = oba ? ae / oba * 100 : null;
       return `<tr class="important-row"><td>${esc(optionLabel(name))}</td><td>${esc(year)}</td><td>${fmt(oba)}</td><td>${fmt(bp)}</td><td>${fmt(ae)}</td><td>${fmt(ae === null || bp === null ? null : ae - bp)}</td><td>${fmt(bpPercent, 1)}</td><td>${fmt(obaPercent, 1)}</td></tr>`;
@@ -430,7 +454,7 @@ function selectedReportAoa() {
     [`Selected: ${state.scope === "yearly" ? (state.importantPuOnly ? "Important Primary Units" : "All Primary Unit") : optionLabel(state.item || "All")}`],
     [`Metric: ${metricLabel()}`],
     ["Financial Year", ...DATA.months, "Total"],
-    ...fy.map((year) => [year, ...DATA.months.map((_, index) => monthValue(s, year, index)), total(s[year])]),
+    ...fy.map((year) => [year, ...DATA.months.map((_, index) => monthValue(s, year, index)), periodTotal(s, year)]),
   ];
 }
 
@@ -442,7 +466,7 @@ function monthlySourceAoa(scope, title) {
     ["Item", "Financial Year", ...DATA.months, "Total"],
     ...items.flatMap((item) => years().map((year) => {
       const arr = DATA.monthly?.[scope]?.[item]?.[year];
-      return [optionLabel(item), year, ...DATA.months.map((_, index) => monthValue({ [year]: arr }, year, index)), total(arr)];
+      return [optionLabel(item), year, ...DATA.months.map((_, index) => monthValue({ [year]: arr }, year, index)), total(arr, activeMonthLimit(year))];
     })),
   ];
 }
@@ -454,11 +478,7 @@ function budgetSourceAoa(scope, title) {
     [remarksText()],
     ["Item", "Financial Year", "OBA", "BP", "AE", "AE - BP", "% BP Utilized", "% OBA Utilized"],
     ...items.flatMap((item) => years().map((year) => {
-      const b = DATA.budget?.[scope]?.[item]?.[year] || {};
-      const s = DATA.monthly?.[scope]?.[item] || {};
-      const oba = b.oba === undefined ? null : Number(b.oba || 0);
-      const bp = b.bp === undefined ? null : Number(b.bp || 0);
-      const ae = b.ae === undefined ? total(s[year]) : Number(b.ae || 0);
+      const { oba, bp, ae } = budgetValues(scope, item, year);
       return [optionLabel(item), year, oba ?? "", bp ?? "", ae ?? "", ae === null || bp === null ? "" : ae - bp, bp ? ae / bp * 100 : "", oba ? ae / oba * 100 : ""];
     })),
   ];
@@ -471,11 +491,7 @@ function importantBudgetAoa() {
     ["OBA, Budget Proportion and Actual Expenditure for selected important PUs"],
     ["Primary Unit", "Financial Year", "OBA", "BP", "AE", "AE - BP", "% BP Utilized", "% OBA Utilized"],
     ...names.flatMap((name) => years().map((year) => {
-      const s = series("pu", name);
-      const b = budget("pu", name);
-      const oba = b[year] ? Number(b[year].oba || 0) : null;
-      const bp = b[year] ? Number(b[year].bp || 0) : null;
-      const ae = b[year] ? Number(b[year].ae || total(s[year]) || 0) : total(s[year]);
+      const { oba, bp, ae } = budgetValues("pu", name, year);
       return [optionLabel(name), year, oba ?? "", bp ?? "", ae ?? "", ae === null || bp === null ? "" : ae - bp, bp ? ae / bp * 100 : "", oba ? ae / oba * 100 : ""];
     })),
   ];
@@ -513,7 +529,7 @@ function monthlySourceTable(scope, title) {
   const items = Object.keys(DATA.monthly?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL").sort();
   const rows = items.flatMap((item) => years().map((year) => {
     const arr = DATA.monthly?.[scope]?.[item]?.[year];
-    return `<tr class="${isImportantPuName(item) ? "important-row" : ""}"><td>${esc(optionLabel(item))}</td><td>${esc(year)}</td>${DATA.months.map((_, index) => `<td>${fmt(monthValue({ [year]: arr }, year, index))}</td>`).join("")}<td>${fmt(total(arr))}</td></tr>`;
+    return `<tr class="${isImportantPuName(item) ? "important-row" : ""}"><td>${esc(optionLabel(item))}</td><td>${esc(year)}</td>${DATA.months.map((_, index) => `<td>${fmt(monthValue({ [year]: arr }, year, index))}</td>`).join("")}<td>${fmt(total(arr, activeMonthLimit(year)))}</td></tr>`;
   })).join("");
   return `<section class="export-section"><h2>${esc(title)}</h2><table><thead><tr><th>ITEM</th><th>FINANCIAL YEAR</th>${DATA.months.map((month) => `<th>${esc(month)}</th>`).join("")}<th>Total</th></tr></thead><tbody>${rows}</tbody></table></section>`;
 }
@@ -521,11 +537,7 @@ function monthlySourceTable(scope, title) {
 function budgetSourceTable(scope, title) {
   const items = Object.keys(DATA.budget?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL").sort();
   const rows = items.flatMap((item) => years().map((year) => {
-    const b = DATA.budget?.[scope]?.[item]?.[year] || {};
-    const s = DATA.monthly?.[scope]?.[item] || {};
-    const oba = b.oba === undefined ? null : Number(b.oba || 0);
-    const bp = b.bp === undefined ? null : Number(b.bp || 0);
-    const ae = b.ae === undefined ? total(s[year]) : Number(b.ae || 0);
+    const { oba, bp, ae } = budgetValues(scope, item, year);
     return `<tr class="${isImportantPuName(item) ? "important-row" : ""}"><td>${esc(optionLabel(item))}</td><td>${esc(year)}</td><td>${fmt(oba)}</td><td>${fmt(bp)}</td><td>${fmt(ae)}</td><td>${fmt(ae === null || bp === null ? null : ae - bp)}</td><td>${fmt(bp ? ae / bp * 100 : null, 1)}</td><td>${fmt(oba ? ae / oba * 100 : null, 1)}</td></tr>`;
   })).join("");
   return `<section class="export-section"><h2>${esc(title)}</h2><table><thead><tr><th>ITEM</th><th>FINANCIAL YEAR</th><th>OBA</th><th>BP</th><th>AE</th><th>AE - BP</th><th>% BP Utilized</th><th>% OBA Utilized</th></tr></thead><tbody>${rows}</tbody></table></section>`;
@@ -568,7 +580,7 @@ function exportReportPdf() {
 }
 
 function remarksText() {
-  return "Remarks - Figures in '000' (thousands)";
+  return `Remarks - Figures in '000' (thousands). ${state.basis === "completed" ? "Default basis: completed actuals up to JUN 2026 with 03-month projection" : "Till-date basis: JUL 2026 running month with 04-month projection"}`;
 }
 
 function renderChart() {
