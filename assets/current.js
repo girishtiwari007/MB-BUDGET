@@ -1,4 +1,4 @@
-﻿const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
     let DATA = window.CURRENT_PAYLOAD || {};
     const DATA_SOURCE_CONFIG = window.YEAR_DATA_SOURCES || {};
     let TAB_ORDER = ["demand", "staff", "nonstaff", "pu_prev", "demand_prev"].filter(key => DATA[key]);
@@ -953,6 +953,9 @@
       }
       return row[col.key] ?? "";
     }
+    function exportNote() {
+      return "Remarks - Figures in '000' (thousands). Default basis: completed actuals up to JUN 2026; Till Date / Running Month keeps running-month data separately.";
+    }
     function exportTableAoa(tabKey) {
       const tab = tableForView(tabKey, { skipFocus: true });
       if (!tab?.rows?.length) return null;
@@ -960,14 +963,15 @@
         title: tab.title,
         rows: [
           [tab.title],
-          ["Remarks - Figures in '000' (thousands)"],
+          [exportNote()],
+          ["Source view follows portal sequence and formatting for PPT verification."],
           tab.columns.map(col => String(col.label || "").replace(/\n/g, " ")),
           ...tab.rows.map(row => tab.columns.map(col => cellValue(row, col))),
         ],
       };
     }
     function analysisExportAoa() {
-      const rows = [["Analysis View"], ["Remarks - Figures in '000' (thousands)"], [], ["Table", "Rows", "OBA / RG", "BP", "AE / Current Actual", "% OBA", "% BP"]];
+      const rows = [["Analysis View"], [exportNote()], ["Summary of all Current / Previous Analysis portal tables."], ["Table", "Rows", "OBA / RG", "BP", "AE / Current Actual", "% OBA", "% BP"]];
       TAB_ORDER.forEach(key => {
         const tab = DATA[key];
         const total = totalRow(tab);
@@ -983,22 +987,52 @@
       });
       return rows;
     }
+    function columnLetter(index) {
+      let text = "";
+      for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26)) text = String.fromCharCode(65 + ((n - 1) % 26)) + text;
+      return text;
+    }
+    function exportColumnWidth(rows, index) {
+      const maxLength = rows.reduce((max, row) => Math.max(max, String(row?.[index] ?? "").length), 0);
+      return Math.max(index === 0 ? 28 : 11, Math.min(index === 0 ? 42 : 22, maxLength + 2));
+    }
+    function decorateAoaSheet(sheet, rows, headerRowIndex = 3) {
+      const colCount = Math.max(1, ...rows.map(row => row.length));
+      const lastCol = columnLetter(colCount - 1);
+      const lastRow = Math.max(rows.length, headerRowIndex + 1);
+      sheet["!cols"] = Array.from({ length: colCount }, (_, index) => ({ wch: exportColumnWidth(rows, index) }));
+      sheet["!rows"] = rows.map((_, index) => ({ hpt: index === 0 ? 24 : index === headerRowIndex ? 21 : 18 }));
+      sheet["!merges"] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: colCount - 1 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: colCount - 1 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: colCount - 1 } },
+      ];
+      sheet["!autofilter"] = { ref: `A${headerRowIndex + 1}:${lastCol}${lastRow}` };
+      sheet["!freeze"] = { xSplit: 0, ySplit: headerRowIndex + 1 };
+    }
     function appendAoaSheet(workbook, name, rows) {
       const sheet = XLSX.utils.aoa_to_sheet(rows);
-      sheet["!cols"] = rows[2]?.map((_, index) => ({ wch: index === 0 ? 34 : 16 })) || [{ wch: 28 }];
+      decorateAoaSheet(sheet, rows);
       XLSX.utils.book_append_sheet(workbook, sheet, sheetName(name));
     }
     function currentExportStyles(mode) {
       return `<style>
-        @page{size:A4 landscape;margin:10mm}
+        @page{size:A4 landscape;margin:8mm}
         body{font-family:Calibri,Arial,sans-serif;color:#17212b;margin:0;background:#fff}
         main{width:100%;margin:0 auto}
-        h1{font-size:20px;text-align:center;margin:0 0 4px;color:#1f4e79}
-        h2{font-size:15px;margin:12px 0 5px;color:#1f4e79}
+        h1{font-size:21px;text-align:center;margin:0 0 4px;color:#1f4e79}
+        h2{font-size:15px;margin:0 0 5px;color:#1f4e79}
         .meta{font-size:11px;text-align:right;margin:0 0 8px;font-weight:700}
-        .export-section{break-after:page;page-break-after:always}
+        .export-cover{min-height:180mm;display:grid;place-items:center;text-align:center;break-after:page;page-break-after:always;border:2px solid #1f4e79;padding:18mm;box-sizing:border-box}
+        .export-cover h1{font-size:26px;margin:0 0 8px;color:#1f4e79}
+        .cover-meta{font-size:13px;line-height:1.6;font-weight:700;color:#17212b}
+        .cover-list{font-size:12px;line-height:1.5;color:#405060;margin-top:10px}
+        .export-section{break-after:page;page-break-after:always;padding-top:1mm}
         .export-section:last-child{break-after:auto;page-break-after:auto}
-        table{width:100%;border-collapse:collapse;font-size:10px;table-layout:auto}
+        table{width:100%;border-collapse:collapse;font-size:9.7px;table-layout:auto}
+        thead{display:table-header-group}
+        tfoot{display:table-footer-group}
+        tr{break-inside:avoid;page-break-inside:avoid}
         th,td{border:1px solid #9fb0bf;padding:3px 4px;vertical-align:middle;white-space:normal;word-break:normal;overflow-wrap:anywhere}
         th{background:#1f4e79;color:#fff;text-align:center}
         td{text-align:right}
@@ -1006,10 +1040,10 @@
         tbody tr:nth-child(even) td{background:#e8f2f8}
         tr.total td{background:#c8d6e8;font-weight:700}
         tr.important td{background:#fff4cc;font-weight:700}
-        .analysis-copy{margin-top:12px;break-before:page;page-break-before:always}
+        .analysis-copy{margin-top:0;break-before:page;page-break-before:always}
         .analysis-copy .note,.analysis-copy .dot{display:none}
         .analysis-copy table{margin-bottom:10px}
-        ${mode === "excel" ? ".export-section{page-break-after:auto}.analysis-copy{page-break-before:auto}" : ""}
+        ${mode === "excel" ? ".export-cover{display:none}.export-section{page-break-after:auto}.analysis-copy{page-break-before:auto}" : ""}
       </style>`;
     }
     function currentExportDocument(mode) {
@@ -1018,11 +1052,14 @@
       renderAnalysis();
       const analysisHtml = document.getElementById("tableHost").innerHTML;
       render(currentTab);
-      return `<!doctype html><html><head><meta charset="utf-8"><title>Current Previous Analysis Export</title>${currentExportStyles(mode)}</head><body><main><h1>Current / Previous Year PU and Demand Analysis</h1><p class="meta">Remarks - Figures in '000' (thousands). Generated ${new Date().toLocaleString("en-IN")}.</p>${tables}<section class="analysis-copy"><h2>Analysis View</h2>${analysisHtml}</section></main></body></html>`;
+      const generatedAt = new Date().toLocaleString("en-IN");
+      const cover = `<section class="export-cover"><div><h1>Current / Previous Year PU and Demand Analysis</h1><div class="cover-meta">${exportNote()}<br>Generated ${generatedAt}</div><div class="cover-list">Includes Demand / SMH, PU Staff, PU Non-Staff, previous-year comparisons, current-year tables and Analysis View in portal sequence.</div></div></section>`;
+      return `<!doctype html><html><head><meta charset="utf-8"><title>Current Previous Analysis Export</title>${currentExportStyles(mode)}</head><body><main>${cover}<h1>Current / Previous Year PU and Demand Analysis</h1><p class="meta">${exportNote()} Generated ${generatedAt}.</p>${tables}<section class="analysis-copy"><h2>Analysis View</h2>${analysisHtml}</section></main></body></html>`;
     }
     async function exportCurrentExcel() {
       await ensureSheetJS();
       const workbook = XLSX.utils.book_new();
+      workbook.Props = { Title: "Current / Previous Year PU and Demand Analysis", Subject: "PPT-ready budget report export", Author: "MB Budget Portal", CreatedDate: new Date() };
       TAB_ORDER.map(exportTableAoa).filter(Boolean).forEach(section => appendAoaSheet(workbook, section.title, section.rows));
       appendAoaSheet(workbook, "Analysis View", analysisExportAoa());
       XLSX.writeFile(workbook, exportFileName("Current_Previous_Year_PU_Demand_Analysis", "xlsx"));
