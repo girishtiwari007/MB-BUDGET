@@ -756,6 +756,52 @@
       const rows = tab.rows.map(row => `<tr class="${String(rowName(row)).toLowerCase() === "total" ? "total" : isImportantPuRow(row) ? "important" : ""}">${tab.columns.map(col => `<td>${htmlEscape(formatCell(row[col.key], col.format))}</td>`).join("")}</tr>`).join("");
       return `<section class="export-section"><h2>${htmlEscape(tab.title)}</h2><table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></section>`;
     }
+    function sheetName(name, fallback = "Sheet") {
+      const cleaned = String(name || fallback).replace(/[\\/?*[\]:]/g, " ").replace(/\s+/g, " ").trim();
+      return (cleaned || fallback).slice(0, 31);
+    }
+    function cellValue(row, col) {
+      if (col.format === "money" || col.format === "int" || col.format === "percent") {
+        const n = Number(row[col.key]);
+        return Number.isFinite(n) ? n : "";
+      }
+      return row[col.key] ?? "";
+    }
+    function exportTableAoa(tabKey) {
+      const tab = tableForView(tabKey, { skipFocus: true });
+      if (!tab?.rows?.length) return null;
+      return {
+        title: tab.title,
+        rows: [
+          [tab.title],
+          ["Remarks - Figures in '000' (thousands)"],
+          tab.columns.map(col => String(col.label || "").replace(/\n/g, " ")),
+          ...tab.rows.map(row => tab.columns.map(col => cellValue(row, col))),
+        ],
+      };
+    }
+    function analysisExportAoa() {
+      const rows = [["Analysis View"], ["Remarks - Figures in '000' (thousands)"], [], ["Table", "Rows", "OBA / RG", "BP", "AE / Current Actual", "% OBA", "% BP"]];
+      TAB_ORDER.forEach(key => {
+        const tab = DATA[key];
+        const total = totalRow(tab);
+        rows.push([
+          tab.title,
+          Math.max(0, (tab.rows || []).length - 1),
+          numericValue(total, ["OBA", "PreviousOBA"]),
+          numericValue(total, ["BP"]),
+          numericValue(total, ["AE", "CurrentAE"]),
+          numericValue(total, ["OBAPercent"]),
+          numericValue(total, ["BPPercent"]),
+        ]);
+      });
+      return rows;
+    }
+    function appendAoaSheet(workbook, name, rows) {
+      const sheet = XLSX.utils.aoa_to_sheet(rows);
+      sheet["!cols"] = rows[2]?.map((_, index) => ({ wch: index === 0 ? 34 : 16 })) || [{ wch: 28 }];
+      XLSX.utils.book_append_sheet(workbook, sheet, sheetName(name));
+    }
     function currentExportStyles(mode) {
       return `<style>
         @page{size:A4 landscape;margin:10mm}
@@ -788,8 +834,12 @@
       render(currentTab);
       return `<!doctype html><html><head><meta charset="utf-8"><title>Current Previous Analysis Export</title>${currentExportStyles(mode)}</head><body><main><h1>Current / Previous Year PU and Demand Analysis</h1><p class="meta">Remarks - Figures in '000' (thousands). Generated ${new Date().toLocaleString("en-IN")}.</p>${tables}<section class="analysis-copy"><h2>Analysis View</h2>${analysisHtml}</section></main></body></html>`;
     }
-    function exportCurrentExcel() {
-      downloadHtmlFile(currentExportDocument("excel"), exportFileName("Current_Previous_Year_PU_Demand_Analysis", "xls"), "application/vnd.ms-excel;charset=utf-8");
+    async function exportCurrentExcel() {
+      await ensureSheetJS();
+      const workbook = XLSX.utils.book_new();
+      TAB_ORDER.map(exportTableAoa).filter(Boolean).forEach(section => appendAoaSheet(workbook, section.title, section.rows));
+      appendAoaSheet(workbook, "Analysis View", analysisExportAoa());
+      XLSX.writeFile(workbook, exportFileName("Current_Previous_Year_PU_Demand_Analysis", "xlsx"));
     }
     function exportCurrentPdf() {
       const win = window.open("", "_blank");

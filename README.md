@@ -9,6 +9,7 @@ GitHub-ready static budget analysis portal with repository-based data files.
 - `assets/` - portal CSS and JavaScript.
 - `data/current_payload.js` - generated current/previous analysis payload used by the browser.
 - `data/reports-data.js` and `data/reports-data.json` - generated advanced-report payloads.
+- Browser-generated `.xlsx` and PDF/print exports for Current/Previous Analysis and Advanced Report.
 - `data/year-sources.js` and `data/year-sources.json` - year/source manifest.
 - `data/source-files/YYYY-YYYY/` - original Excel source files for each financial year.
 - `data/source-files/2026-2027/backups/` - latest two current-year backup copies kept for verification.

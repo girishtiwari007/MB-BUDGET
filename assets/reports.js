@@ -5,6 +5,7 @@ const DATA = window.REPORTS_DATA || {
   budget: { pu: {}, demand: {} },
 };
 
+const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
 const colors = ["#1f4e79", "#b94b4b", "#78a641", "#735999", "#126a66", "#d19a2a"];
 const IMPORTANT_PU_CODES = new Set(["27", "28", "30", "32", "60"]);
 const REPORTS = {
@@ -399,6 +400,87 @@ function downloadHtmlFile(html, fileName, mimeType) {
   link.remove();
 }
 
+function ensureSheetJS() {
+  if (window.XLSX) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = SHEETJS_SRC;
+    script.onload = resolve;
+    script.onerror = () => reject(new Error("Excel writer could not load. Please keep internet available for XLSX export."));
+    document.head.appendChild(script);
+  });
+}
+
+function sheetName(name, fallback = "Sheet") {
+  const cleaned = String(name || fallback).replace(/[\\/?*[\]:]/g, " ").replace(/\s+/g, " ").trim();
+  return (cleaned || fallback).slice(0, 31);
+}
+
+function appendAoaSheet(workbook, name, rows) {
+  const sheet = XLSX.utils.aoa_to_sheet(rows);
+  sheet["!cols"] = rows[2]?.map((_, index) => ({ wch: index < 2 ? 34 : 16 })) || [{ wch: 28 }];
+  XLSX.utils.book_append_sheet(workbook, sheet, sheetName(name));
+}
+
+function selectedReportAoa() {
+  const fy = years();
+  const s = series(state.scope, state.item);
+  return [
+    [REPORTS[state.report].title],
+    [`Selected: ${state.scope === "yearly" ? (state.importantPuOnly ? "Important Primary Units" : "All Primary Unit") : optionLabel(state.item || "All")}`],
+    [`Metric: ${metricLabel()}`],
+    ["Financial Year", ...DATA.months, "Total"],
+    ...fy.map((year) => [year, ...DATA.months.map((_, index) => monthValue(s, year, index)), total(s[year])]),
+  ];
+}
+
+function monthlySourceAoa(scope, title) {
+  const items = Object.keys(DATA.monthly?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL").sort();
+  return [
+    [title],
+    [remarksText()],
+    ["Item", "Financial Year", ...DATA.months, "Total"],
+    ...items.flatMap((item) => years().map((year) => {
+      const arr = DATA.monthly?.[scope]?.[item]?.[year];
+      return [optionLabel(item), year, ...DATA.months.map((_, index) => monthValue({ [year]: arr }, year, index)), total(arr)];
+    })),
+  ];
+}
+
+function budgetSourceAoa(scope, title) {
+  const items = Object.keys(DATA.budget?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL").sort();
+  return [
+    [title],
+    [remarksText()],
+    ["Item", "Financial Year", "OBA", "BP", "AE", "AE - BP", "% BP Utilized", "% OBA Utilized"],
+    ...items.flatMap((item) => years().map((year) => {
+      const b = DATA.budget?.[scope]?.[item]?.[year] || {};
+      const s = DATA.monthly?.[scope]?.[item] || {};
+      const oba = b.oba === undefined ? null : Number(b.oba || 0);
+      const bp = b.bp === undefined ? null : Number(b.bp || 0);
+      const ae = b.ae === undefined ? total(s[year]) : Number(b.ae || 0);
+      return [optionLabel(item), year, oba ?? "", bp ?? "", ae ?? "", ae === null || bp === null ? "" : ae - bp, bp ? ae / bp * 100 : "", oba ? ae / oba * 100 : ""];
+    })),
+  ];
+}
+
+function importantBudgetAoa() {
+  const names = selectedImportantPuNames();
+  return [
+    ["Important PU Utilization Breakup"],
+    ["OBA, Budget Proportion and Actual Expenditure for selected important PUs"],
+    ["Primary Unit", "Financial Year", "OBA", "BP", "AE", "AE - BP", "% BP Utilized", "% OBA Utilized"],
+    ...names.flatMap((name) => years().map((year) => {
+      const s = series("pu", name);
+      const b = budget("pu", name);
+      const oba = b[year] ? Number(b[year].oba || 0) : null;
+      const bp = b[year] ? Number(b[year].bp || 0) : null;
+      const ae = b[year] ? Number(b[year].ae || total(s[year]) || 0) : total(s[year]);
+      return [optionLabel(name), year, oba ?? "", bp ?? "", ae ?? "", ae === null || bp === null ? "" : ae - bp, bp ? ae / bp * 100 : "", oba ? ae / oba * 100 : ""];
+    })),
+  ];
+}
+
 function reportExportStyles(mode) {
   return `<style>
     @page{size:A4 landscape;margin:10mm}
@@ -462,8 +544,17 @@ function reportExportDocument(mode) {
   return `<!doctype html><html><head><meta charset="utf-8"><title>Advanced Report and Chart Analysis Export</title>${reportExportStyles(mode)}</head><body><main><h1>Advanced Report and Chart Analysis</h1><p class="meta">Selected report: ${esc(report.label)}. Generated ${new Date().toLocaleString("en-IN")}.</p>${selectedView}${appendices}</main></body></html>`;
 }
 
-function exportReportExcel() {
-  downloadHtmlFile(reportExportDocument("excel"), exportFileName("Advanced_Report_Chart_Analysis", "xls"), "application/vnd.ms-excel;charset=utf-8");
+async function exportReportExcel() {
+  await ensureSheetJS();
+  const workbook = XLSX.utils.book_new();
+  appendAoaSheet(workbook, "Selected Report", selectedReportAoa());
+  if (state.importantPuOnly && state.report === "bp_ae" && state.scope === "pu") appendAoaSheet(workbook, "Important PU Utilization", importantBudgetAoa());
+  appendAoaSheet(workbook, "PU Month Wise", monthlySourceAoa("pu", "Primary Unit Month-Wise Actual Expenditure"));
+  appendAoaSheet(workbook, "Demand Month Wise", monthlySourceAoa("demand", "Demand / SMH Month-Wise Actual Expenditure"));
+  appendAoaSheet(workbook, "Dept Month Wise", monthlySourceAoa("dept", "Department Month-Wise Actual Expenditure"));
+  appendAoaSheet(workbook, "PU Utilization", budgetSourceAoa("pu", "Primary Unit Budget Proportion vs Actual Expenditure"));
+  appendAoaSheet(workbook, "Demand Utilization", budgetSourceAoa("demand", "Demand / SMH Budget Proportion vs Actual Expenditure"));
+  XLSX.writeFile(workbook, exportFileName("Advanced_Report_Chart_Analysis", "xlsx"));
 }
 
 function exportReportPdf() {
