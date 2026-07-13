@@ -2,3 +2,4 @@
 
 .focus-table{margin-top:10px}.data-table tr.important-row td:first-child{font-weight:700;color:#8a4b00}.data-table tr.important-row:nth-child(odd) td{background:#fff8dd}.data-table tr.important-row:nth-child(even) td{background:#eef7fb}
 .hero{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}.hero h1{flex:1 1 520px}.actions{display:flex;gap:6px;flex-wrap:wrap}.export{border:1px solid #126a66;background:#126a66;color:#fff;border-radius:5px;padding:7px 10px;font:700 13px Calibri,Arial,sans-serif;cursor:pointer}
+.formula-box{border:1px solid #d9c173;background:#fff9e5;color:#4d3b00;border-radius:6px;padding:7px 9px;margin:0 0 8px;font-size:12px}.formula-box strong{display:block;color:#654c00;margin-bottom:4px}.formula-box ul{margin:0;padding-left:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:2px 14px}.formula-box li{line-height:1.25}

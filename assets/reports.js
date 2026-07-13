@@ -366,7 +366,7 @@ function legend(labels) {
 function tableHtml() {
   const fy = years();
   const s = series(state.scope, state.item);
-  return `<section class="tablebox"><div class="section-head"><h2>DATA TABLE</h2><span>${remarksText()}</span></div><table class="data-table"><thead><tr><th>FINANCIAL YEAR</th>${DATA.months.map((month) => `<th>${month}</th>`).join("")}<th>Total</th></tr></thead><tbody>${fy.map((year) => `<tr><td>${esc(year)}</td>${DATA.months.map((month, index) => `<td>${fmt(monthValue(s, year, index))}</td>`).join("")}<td>${fmt(periodTotal(s, year))}</td></tr>`).join("")}</tbody></table></section>`;
+  return `<section class="tablebox"><div class="section-head"><h2>DATA TABLE</h2><span>${remarksText()}</span></div>${formulaRemarksHtml("monthly")}<table class="data-table"><thead><tr><th>FINANCIAL YEAR</th>${DATA.months.map((month) => `<th>${month}</th>`).join("")}<th>Total</th></tr></thead><tbody>${fy.map((year) => `<tr><td>${esc(year)}</td>${DATA.months.map((month, index) => `<td>${fmt(monthValue(s, year, index))}</td>`).join("")}<td>${fmt(periodTotal(s, year))}</td></tr>`).join("")}</tbody></table></section>`;
 }
 
 function importantYearlyBreakdownHtml() {
@@ -378,7 +378,7 @@ function importantYearlyBreakdownHtml() {
     const grandTotal = values.reduce((sum, value) => sum + Number(value || 0), 0);
     return `<tr class="important-row"><td>${esc(optionLabel(name))}</td>${values.map((value) => `<td>${fmt(value)}</td>`).join("")}<td>${fmt(grandTotal)}</td></tr>`;
   }).join("");
-  return `<section class="tablebox focus-table"><div class="section-head"><h2>IMPORTANT PU YEAR-WISE BREAKUP</h2><span>PU 27, 28, 30, 32, 60 shown separately</span></div><table class="data-table"><thead><tr><th>PRIMARY UNIT</th>${fy.map((year) => `<th>${esc(year)}</th>`).join("")}<th>Total</th></tr></thead><tbody>${rows || `<tr><td colspan="${fy.length + 2}">No important PU data available.</td></tr>`}</tbody></table></section>`;
+  return `<section class="tablebox focus-table"><div class="section-head"><h2>IMPORTANT PU YEAR-WISE BREAKUP</h2><span>PU 27, 28, 30, 32, 60 shown separately</span></div>${formulaRemarksHtml("yearly")}<table class="data-table"><thead><tr><th>PRIMARY UNIT</th>${fy.map((year) => `<th>${esc(year)}</th>`).join("")}<th>Total</th></tr></thead><tbody>${rows || `<tr><td colspan="${fy.length + 2}">No important PU data available.</td></tr>`}</tbody></table></section>`;
 }
 
 function importantBudgetBreakdownHtml() {
@@ -396,7 +396,7 @@ function importantBudgetBreakdownHtml() {
     });
   }).join("");
   const scopeText = names.length === 1 ? "selected important PU" : "each important PU";
-  return `<section class="tablebox focus-table"><div class="section-head"><h2>IMPORTANT PU UTILIZATION BREAKUP</h2><span>OBA, Budget Proportion and Actual Expenditure for ${scopeText}</span></div><table class="data-table"><thead><tr><th>PRIMARY UNIT</th><th>FINANCIAL YEAR</th><th>OBA</th><th>BP</th><th>AE</th><th>AE - BP</th><th>% BP Utilized</th><th>% OBA Utilized</th></tr></thead><tbody>${rows || `<tr><td colspan="8">No important PU budget data available.</td></tr>`}</tbody></table></section>`;
+  return `<section class="tablebox focus-table"><div class="section-head"><h2>IMPORTANT PU UTILIZATION BREAKUP</h2><span>OBA, Budget Proportion and Actual Expenditure for ${scopeText}</span></div>${formulaRemarksHtml("utilization")}<table class="data-table"><thead><tr><th>PRIMARY UNIT</th><th>FINANCIAL YEAR</th><th>OBA</th><th>BP</th><th>AE</th><th>AE - BP</th><th>% BP Utilized</th><th>% OBA Utilized</th></tr></thead><tbody>${rows || `<tr><td colspan="8">No important PU budget data available.</td></tr>`}</tbody></table></section>`;
 }
 
 function importantModeNoteHtml() {
@@ -406,6 +406,35 @@ function importantModeNoteHtml() {
 
 function importantBreakdownHtml() {
   return `${importantModeNoteHtml()}${importantYearlyBreakdownHtml()}${importantBudgetBreakdownHtml()}`;
+}
+
+function formulaRemarksHtml(type) {
+  const common = {
+    monthly: [
+      "Month columns: actual expenditure booked in that month.",
+      "Current-year default basis: months after JUN 2026 are shown as N/A until Till Date basis is selected.",
+      "Total = sum of visible/active month columns for the selected actual basis."
+    ],
+    yearly: [
+      "Each year value = sum of active month-wise Actual Expenditure for that Primary Unit.",
+      "Total = sum across financial years shown in the table.",
+      "Important PU mode limits rows to PU 27, 28, 30, 32 and 60."
+    ],
+    utilization: [
+      "OBA = Original Budget Allotment.",
+      "BP = OBA / 12 * active month count for latest year; source BP is used for older years where available.",
+      "AE = Actual Expenditure up to active basis month.",
+      "AE - BP = Actual Expenditure minus Budget Proportion.",
+      "% BP Utilized = AE / BP * 100.",
+      "% OBA Utilized = AE / OBA * 100."
+    ],
+    summary: [
+      "Latest Year Total = sum of actuals under selected Actual Basis.",
+      "Highest Value = largest absolute value in the selected chart/metric.",
+      "Years Available = count of years with data for the selected item."
+    ]
+  }[type] || [];
+  return `<div class="formula-box"><strong>Formula / Column Remarks</strong><ul>${common.map(item => `<li>${esc(item)}</li>`).join("")}</ul></div>`;
 }
 
 function exportFileName(prefix, extension) {
@@ -594,7 +623,7 @@ function render() {
   syncControls();
   const report = REPORTS[state.report];
   $("reportTitle").textContent = report.title;
-  $("host").innerHTML = `<p class="note">${remarksText()}. ${esc(report.note)}</p>${availabilityNote()}${summaryHtml()}<div class="report-layout">${insightHtml()}${renderChart()}</div>${tableHtml()}${importantBreakdownHtml()}`;
+  $("host").innerHTML = `<p class="note">${remarksText()}. ${esc(report.note)}</p>${formulaRemarksHtml("summary")}${availabilityNote()}${summaryHtml()}<div class="report-layout">${insightHtml()}${renderChart()}</div>${tableHtml()}${importantBreakdownHtml()}`;
 }
 
 document.addEventListener("DOMContentLoaded", setup);
