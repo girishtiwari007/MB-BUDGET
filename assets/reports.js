@@ -80,7 +80,7 @@ function activeMonthLimit(fy) {
 
 function itemsFor(scope) {
   if (scope === "yearly") return ["All"];
-  const items = Object.keys(DATA.monthly?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL").sort();
+  const items = Object.keys(DATA.monthly?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL" && !isDemandSuspenseName(item)).sort();
   return scope === "pu" && state.importantPuOnly ? items.filter(isImportantPuName) : items;
 }
 
@@ -105,6 +105,15 @@ function puCodeFromName(name) {
 
 function isImportantPuName(name) {
   return IMPORTANT_PU_CODES.has(puCodeFromName(name));
+}
+
+function isDemandSuspenseName(name) {
+  const text = String(name || "").toUpperCase();
+  return /\b12N\b/.test(text) || /\b10N\b/.test(text) || text.includes("SUSPENSE");
+}
+
+function demandSuspenseItems(source) {
+  return Object.keys(source || {}).filter((item) => item.toUpperCase() !== "TOTAL" && isDemandSuspenseName(item)).sort();
 }
 
 function importantPuNames() {
@@ -369,6 +378,18 @@ function tableHtml() {
   return `<section class="tablebox"><div class="section-head"><h2>DATA TABLE</h2><span>${remarksText()}</span></div><table class="data-table"><thead><tr><th>FINANCIAL YEAR</th>${DATA.months.map((month) => `<th>${month}</th>`).join("")}<th>Total</th></tr></thead><tbody>${fy.map((year) => `<tr><td>${esc(year)}</td>${DATA.months.map((month, index) => `<td>${fmt(monthValue(s, year, index))}</td>`).join("")}<td>${fmt(periodTotal(s, year))}</td></tr>`).join("")}</tbody></table></section>`;
 }
 
+function demandSuspenseNoteHtml() {
+  if (state.scope !== "demand" && state.report !== "demand_budget") return "";
+  const items = demandSuspenseItems(DATA.monthly?.demand || {});
+  if (!items.length) return "";
+  const latest = latestYear();
+  const rows = items.map((item) => {
+    const { oba, bp, ae } = budgetValues("demand", item, latest);
+    return `<tr class="special-demand"><td>${esc(optionLabel(item))}</td><td>${esc(latest)}</td><td>${fmt(oba)}</td><td>${fmt(bp)}</td><td>${fmt(ae)}</td></tr>`;
+  }).join("");
+  return `<section class="special-demand-panel"><h2>Demand 12N / 10N - Separate Suspense Verification</h2><p>This suspense/negative demand is excluded from normal demand selectors, charts and appendix totals. It remains visible here for audit checking.</p><table><thead><tr><th>Demand</th><th>Year</th><th>OBA / RG</th><th>BP</th><th>AE</th></tr></thead><tbody>${rows}</tbody></table></section>`;
+}
+
 function importantYearlyBreakdownHtml() {
   if (!state.importantPuOnly || state.report !== "yearly") return "";
   const fy = years();
@@ -405,7 +426,7 @@ function importantModeNoteHtml() {
 }
 
 function importantBreakdownHtml() {
-  return `${importantModeNoteHtml()}${importantYearlyBreakdownHtml()}${importantBudgetBreakdownHtml()}`;
+  return `${demandSuspenseNoteHtml()}${importantModeNoteHtml()}${importantYearlyBreakdownHtml()}${importantBudgetBreakdownHtml()}`;
 }
 
 function exportFileName(prefix, extension) {
@@ -481,7 +502,7 @@ function selectedReportAoa() {
 }
 
 function monthlySourceAoa(scope, title) {
-  const items = Object.keys(DATA.monthly?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL").sort();
+  const items = Object.keys(DATA.monthly?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL" && !isDemandSuspenseName(item)).sort();
   return [
     [title],
     [remarksText()],
@@ -495,7 +516,7 @@ function monthlySourceAoa(scope, title) {
 }
 
 function budgetSourceAoa(scope, title) {
-  const items = Object.keys(DATA.budget?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL").sort();
+  const items = Object.keys(DATA.budget?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL" && !isDemandSuspenseName(item)).sort();
   return [
     [title],
     [remarksText()],
@@ -558,7 +579,7 @@ function reportExportStyles(mode) {
 }
 
 function monthlySourceTable(scope, title) {
-  const items = Object.keys(DATA.monthly?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL").sort();
+  const items = Object.keys(DATA.monthly?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL" && !isDemandSuspenseName(item)).sort();
   const rows = items.flatMap((item) => years().map((year) => {
     const arr = DATA.monthly?.[scope]?.[item]?.[year];
     return `<tr class="${isImportantPuName(item) ? "important-row" : ""}"><td>${esc(optionLabel(item))}</td><td>${esc(year)}</td>${DATA.months.map((_, index) => `<td>${fmt(monthValue({ [year]: arr }, year, index))}</td>`).join("")}<td>${fmt(total(arr, activeMonthLimit(year)))}</td></tr>`;
@@ -567,7 +588,7 @@ function monthlySourceTable(scope, title) {
 }
 
 function budgetSourceTable(scope, title) {
-  const items = Object.keys(DATA.budget?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL").sort();
+  const items = Object.keys(DATA.budget?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL" && !isDemandSuspenseName(item)).sort();
   const rows = items.flatMap((item) => years().map((year) => {
     const { oba, bp, ae } = budgetValues(scope, item, year);
     return `<tr class="${isImportantPuName(item) ? "important-row" : ""}"><td>${esc(optionLabel(item))}</td><td>${esc(year)}</td><td>${fmt(oba)}</td><td>${fmt(bp)}</td><td>${fmt(ae)}</td><td>${fmt(ae === null || bp === null ? null : ae - bp)}</td><td>${fmt(bp ? ae / bp * 100 : null, 1)}</td><td>${fmt(oba ? ae / oba * 100 : null, 1)}</td></tr>`;

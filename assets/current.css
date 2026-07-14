@@ -40,6 +40,13 @@
     tr.total td { background:#c8d6e8; font-weight:700; }
     tr.important-pu td { background:#fff4cc !important; font-weight:700; }
     tr.important-pu td:first-child { color:#8a4b00; }
+    tr.special-demand td { background:#fff1f1 !important; color:#7a1f1f; font-weight:700; }
+    tr.special-demand td:first-child { border-left:4px solid #b42318; }
+    .special-demand-note { margin:0 0 8px; padding:8px 10px; border:1px solid #e1a8a8; border-left:4px solid #b42318; background:#fff5f5; color:#7a1f1f; border-radius:6px; font-size:12px; font-weight:700; line-height:1.35; }
+    .special-demand-panel { border:1px solid #e1a8a8; border-left:4px solid #b42318; background:#fff5f5; border-radius:6px; padding:10px; overflow:auto; }
+    .special-demand-panel h3 { margin:0 0 5px; color:#7a1f1f; font-size:15px; }
+    .special-demand-panel p { margin:0 0 8px; color:#7a1f1f; font-weight:700; font-size:12px; }
+    .special-demand-panel table { min-width:720px; width:100%; }
     .pu-focus { display:flex; gap:7px; flex-wrap:wrap; align-items:center; margin:0 0 6px; padding:7px 8px; border:1px solid #e2c96a; background:#fff8dd; border-radius:6px; }
     .pu-focus span { color:#654c00; font-size:12px; font-weight:700; }
     .pu-focus select { border:1px solid var(--line); border-radius:5px; background:white; padding:5px 7px; font:700 12.5px Calibri, Arial, sans-serif; color:var(--text); min-height:28px; }
@@ -104,6 +111,7 @@
       tbody tr:nth-child(even) td:first-child { background:var(--row2); }
       tr.total td:first-child { background:#c8d6e8; }
       tr.important-pu td:first-child { background:#fff4cc !important; }
+      tr.special-demand td:first-child { background:#fff1f1 !important; }
       .pu-focus, .compare-toolbar { display:grid; grid-template-columns:1fr; align-items:stretch; }
       .pu-focus select, .compare-toolbar select { width:100%; min-height:34px; }
       .analysis-grid, .compare-summary { grid-template-columns:1fr 1fr; }
@@ -235,6 +243,7 @@
   .finance-card,.risk-tile{border-radius:12px;min-height:76px;box-shadow:0 2px 8px rgba(23,33,43,.06);}
   .attention-strip{margin:0 8px 10px;}
   .analysis-context{margin:0 8px 10px;border-radius:10px;}
+  .special-demand-note,.special-demand-panel{margin:0 8px 10px;border-radius:12px;}
   .analysis-panels,.finance-panels,.chart-grid{grid-template-columns:1fr;margin:0 8px 12px;gap:10px;}
   .analysis-panel,.chart-panel,.till-section,.upload-section{border-radius:12px;background:#fff;box-shadow:0 2px 10px rgba(23,33,43,.06);}
   .analysis-panel h3,.chart-panel h3,.till-section h3{font-size:15px;}

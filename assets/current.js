@@ -179,15 +179,16 @@
       const subMenu = tabKey === "pu_prev" ? renderPrevPuSubtabs() : null;
       const puTools = isPuTable(tabKey) ? renderPuFocusControls(tabKey) : null;
       const note = document.createElement("div"); note.className = "note"; note.textContent = tabKey === "pu_prev" || tabKey === "demand_prev" ? "Remarks - Figures in '000' (thousands). Default projection uses completed actuals up to JUN 2026 (03 months). Previous year RG is treated as OBA; current year BG_ISL is treated as OBA until current-year RG is available." : "Remarks - Figures in '000' (thousands). Default projection uses completed actuals up to JUN 2026 (03 months). July is shown separately in Till Date / Running Month.";
+      const specialNote = isDemandTable(tabKey) ? renderDemandSuspenseNote(tab.rows) : null;
       const table = document.createElement("table");
       if (tab.columns.length > 8) table.className = "wide";
       const thead = document.createElement("thead"); const letterRow = document.createElement("tr"); letterRow.className = "letter-row"; const labelRow = document.createElement("tr");
       tab.columns.forEach(col => { const split = splitHeader(col.label); const letterTh = document.createElement("th"); letterTh.textContent = split.letter; letterRow.appendChild(letterTh); const labelTh = document.createElement("th"); labelTh.textContent = split.text; labelRow.appendChild(labelTh); });
       thead.appendChild(letterRow); thead.appendChild(labelRow); table.appendChild(thead);
       const tbody = document.createElement("tbody");
-      tab.rows.forEach(row => { const tr = document.createElement("tr"); if (String(row.Name).toLowerCase() === "total") tr.className = "total"; if (isImportantPuRow(row)) tr.classList.add("important-pu"); tab.columns.forEach(col => { const td = document.createElement("td"); if (col.key === "OBAPercent" || col.key === "BPPercent") { const dot = document.createElement("span"); dot.className = "dot " + utilizationClass(row[col.key]); td.appendChild(dot); td.append(document.createTextNode(formatCell(row[col.key], col.format))); } else { td.textContent = formatCell(row[col.key], col.format); } tr.appendChild(td); }); tbody.appendChild(tr); });
+      tab.rows.forEach(row => { const tr = document.createElement("tr"); tr.className = rowClassName(row); tab.columns.forEach(col => { const td = document.createElement("td"); if (col.key === "OBAPercent" || col.key === "BPPercent") { const dot = document.createElement("span"); dot.className = "dot " + utilizationClass(row[col.key]); td.appendChild(dot); td.append(document.createTextNode(formatCell(row[col.key], col.format))); } else { td.textContent = formatCell(row[col.key], col.format); } tr.appendChild(td); }); tbody.appendChild(tr); });
       table.appendChild(tbody);
-      const children = [subMenu, puTools, note, table].filter(Boolean);
+      const children = [subMenu, puTools, note, specialNote, table].filter(Boolean);
       document.getElementById("tableHost").replaceChildren(...children);
     }
     function renderTillDate() {
@@ -199,14 +200,47 @@
     function tillDateSection(tabKey) {
       const tab = ORIGINAL_DATA[tabKey];
       if (!tab?.rows?.length) return "";
-      const rows = tab.rows;
+      const rows = isDemandTable(tabKey) ? addTotal(tab.rows.filter(row => !isTotalRow(row)), tabKey === "demand_prev") : tab.rows;
+      const specialNote = isDemandTable(tabKey) ? demandSuspenseNoteHtml(rows) : "";
       const header = `<thead><tr>${tab.columns.map(col => `<th>${htmlEscape(String(col.label || "").replace(/\n/g, " "))}</th>`).join("")}</tr></thead>`;
-      const body = rows.map(row => `<tr class="${String(rowName(row)).toLowerCase() === "total" ? "total" : isImportantPuRow(row) ? "important-pu" : ""}">${tab.columns.map(col => `<td>${htmlEscape(formatCell(row[col.key], col.format))}</td>`).join("")}</tr>`).join("");
-      return `<section class="till-section"><h3>${htmlEscape(tab.title)} - ${RUNNING_PERIOD.title}</h3><div class="note">Remarks - Figures in '000' (thousands). July is running and shown only in this tab.</div><table class="${tab.columns.length > 8 ? "wide" : ""}">${header}<tbody>${body}</tbody></table></section>`;
+      const body = rows.map(row => `<tr class="${rowClassName(row)}">${tab.columns.map(col => `<td>${htmlEscape(formatCell(row[col.key], col.format))}</td>`).join("")}</tr>`).join("");
+      return `<section class="till-section"><h3>${htmlEscape(tab.title)} - ${RUNNING_PERIOD.title}</h3><div class="note">Remarks - Figures in '000' (thousands). July is running and shown only in this tab.</div>${specialNote}<table class="${tab.columns.length > 8 ? "wide" : ""}">${header}<tbody>${body}</tbody></table></section>`;
     }
     function puCode(row) { return codeFromLabel(rowName(row), "PU"); }
     function isImportantPuRow(row) { return IMPORTANT_PU_CODES.has(puCode(row)); }
     function isPuTable(tabKey) { return ["staff", "nonstaff", "pu_prev"].includes(tabKey); }
+    function isDemandTable(tabKey) { return ["demand", "demand_prev"].includes(tabKey); }
+    function isTotalRow(row) { return String(rowName(row)).toLowerCase() === "total"; }
+    function isDemandSuspenseRow(row) {
+      const name = String(rowName(row) || "").toUpperCase();
+      const department = String(row.Department || "").toUpperCase();
+      return /\b12N\b/.test(name) || /\b10N\b/.test(name) || department.includes("SUSPENSE");
+    }
+    function detailRows(rows) { return (rows || []).filter(row => !isTotalRow(row)); }
+    function normalTotalRows(rows) { return detailRows(rows).filter(row => !isDemandSuspenseRow(row)); }
+    function demandSuspenseRows(rows) { return detailRows(rows).filter(isDemandSuspenseRow); }
+    function rowClassName(row) {
+      const classes = [];
+      if (isTotalRow(row)) classes.push("total");
+      if (isDemandSuspenseRow(row)) classes.push("special-demand");
+      if (isImportantPuRow(row)) classes.push("important-pu");
+      return classes.join(" ");
+    }
+    function demandSuspenseNoteHtml(rows) {
+      const suspense = demandSuspenseRows(rows);
+      if (!suspense.length) return "";
+      const row = suspense[0];
+      const ae = numericValue(row, ["AE", "AECurrent", "CurrentAE"]);
+      const remaining = Number.isFinite(Number(row.BudgetRemaining)) ? Number(row.BudgetRemaining) : Number.isFinite(Number(row.Remaining)) ? Number(row.Remaining) : numericValue(row, ["OBA", "PreviousOBA"]) - ae;
+      return `<div class="special-demand-note"><strong>Separate Suspense Line:</strong> Demand 12N / 10N is shown below Total for verification only and is excluded from main total, analysis, comparison, and export summary figures. AE: ${formatNumber(ae)} | Remaining: ${formatNumber(remaining)}.</div>`;
+    }
+    function renderDemandSuspenseNote(rows) {
+      const html = demandSuspenseNoteHtml(rows);
+      if (!html) return null;
+      const holder = document.createElement("div");
+      holder.innerHTML = html;
+      return holder.firstElementChild;
+    }
     function applyPuFocus(rows) {
       if (puFocus.mode === "important") return rows.filter(isImportantPuRow);
       if (puFocus.mode === "specific" && puFocus.item) return rows.filter(row => rowName(row) === puFocus.item);
@@ -299,7 +333,7 @@
         const tab = DATA[key] || { rows: [] };
         const group = ["demand", "staff", "nonstaff"].includes(key) ? "current" : "previous";
         const entity = key.includes("demand") ? "demand" : "pu";
-        return (tab.rows || []).filter(row => String(rowName(row)).toLowerCase() !== "total").map(row => {
+        return normalTotalRows(tab.rows || []).map(row => {
           const ae = numericValue(row, ["AE", "AECurrent", "CurrentAE"]);
           const oba = numericValue(row, ["OBA", "PreviousOBA"]);
           const bp = numericValue(row, ["BP"]);
@@ -399,6 +433,20 @@
       if (analysisState.view === "drill") return `<div class="analysis-panels finance-panels focus-mode">${compactTable("Important PU Watch", importantRows, [...baseColumns, {label:"OBA", key:"AnalysisOBA", format:"money", num:true}, {label:"AE", key:"AnalysisAE", format:"money", num:true}, {label:"% BP", key:"AnalysisBPPct", format:"percent", num:true}, {label:"Remaining", key:"AnalysisRemaining", format:"money", num:true}])}${compactTable("Previous Year Movement", yoyMovement, [...baseColumns, {label:"Current AE", key:"AnalysisAE", format:"money", num:true}, {label:"Previous AE", key:"AnalysisPreviousAE", format:"money", num:true}, {label:"Variation", key:"AnalysisYoY", format:"money", num:true}])}</div>`;
       return `<div class="analysis-hero-grid">${renderMetricBars(rows)}${compactTable(`Top ${htmlEscape(analysisMetricLabel(analysisState.metric))} Items`, ranked, [...baseColumns, {label:analysisMetricLabel(analysisState.metric), key:metricKey, format:metricFormat, num:true}, {label:"% BP", key:"AnalysisBPPct", format:"percent", num:true}, {label:"Remaining", key:"AnalysisRemaining", format:"money", num:true}])}</div>`;
     }
+    function renderAnalysisSuspensePanel() {
+      const rows = ["demand", "demand_prev"].flatMap(key => {
+        const tab = DATA[key] || { rows: [] };
+        return demandSuspenseRows(tab.rows || []).map(row => {
+          const ae = numericValue(row, ["AE", "AECurrent", "CurrentAE"]);
+          const bp = numericValue(row, ["BP"]);
+          const oba = numericValue(row, ["OBA", "PreviousOBA"]);
+          const remaining = Number.isFinite(Number(row.BudgetRemaining)) ? Number(row.BudgetRemaining) : Number.isFinite(Number(row.Remaining)) ? Number(row.Remaining) : oba - ae;
+          return { source:tab.title, name:rowName(row), oba, bp, ae, remaining };
+        });
+      });
+      if (!rows.length) return "";
+      return `<section class="special-demand-panel"><h3>Demand 12N / 10N - Separate Suspense Verification</h3><p>This suspense/negative demand is not included in main totals, attention cards, comparison item list, or export summary totals.</p><table><thead><tr><th>Report</th><th>Demand</th><th>OBA / RG</th><th>BP</th><th>AE</th><th>Remaining</th></tr></thead><tbody>${rows.map(row => `<tr class="special-demand"><td>${htmlEscape(row.source)}</td><td>${htmlEscape(row.name)}</td><td>${formatNumber(row.oba)}</td><td>${formatNumber(row.bp)}</td><td>${formatNumber(row.ae)}</td><td>${formatNumber(row.remaining)}</td></tr>`).join("")}</tbody></table></section>`;
+    }
     function renderAnalysis() {
       document.getElementById("title").textContent = "Finance Attention Analysis";
       document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "analysis"));
@@ -410,7 +458,7 @@
       const yoyMovement = rows.filter(row => row.AnalysisYoY).sort((a,b) => Math.abs(b.AnalysisYoY) - Math.abs(a.AnalysisYoY)).slice(0, 12);
       const importantRows = rows.filter(row => row.Important).sort((a,b) => Math.abs(analysisMetricValue(b)) - Math.abs(analysisMetricValue(a))).slice(0, 12);
       const body = renderAnalysisBody(rows, ranked, overBp, negativeBalance, yoyMovement, importantRows);
-      document.getElementById("tableHost").innerHTML = `<div class="analysis-shell"><div class="analysis-top"><div><div class="note analysis-note">Remarks - Figures in '000' (thousands). Default period is completed JUN 2026 / 03-month BP projection.</div><div class="analysis-context"><strong>Selected View:</strong> ${htmlEscape(analysisScopeLabel(analysisState.scope))} | <strong>Finance Focus:</strong> ${htmlEscape(analysisMetricLabel(analysisState.metric))} | <strong>Attention:</strong> ${htmlEscape(analysisAttentionLabel(analysisState.attention))}</div></div>${renderAnalysisViewTabs()}</div>${renderAnalysisControls()}${renderFinanceSummary(rows, totals)}${renderRiskRail(rows)}${renderAttentionStrip(rows)}${body}</div>`;
+      document.getElementById("tableHost").innerHTML = `<div class="analysis-shell"><div class="analysis-top"><div><div class="note analysis-note">Remarks - Figures in '000' (thousands). Default period is completed JUN 2026 / 03-month BP projection.</div><div class="analysis-context"><strong>Selected View:</strong> ${htmlEscape(analysisScopeLabel(analysisState.scope))} | <strong>Finance Focus:</strong> ${htmlEscape(analysisMetricLabel(analysisState.metric))} | <strong>Attention:</strong> ${htmlEscape(analysisAttentionLabel(analysisState.attention))}</div></div>${renderAnalysisViewTabs()}</div>${renderAnalysisControls()}${renderAnalysisSuspensePanel()}${renderFinanceSummary(rows, totals)}${renderRiskRail(rows)}${renderAttentionStrip(rows)}${body}</div>`;
     }
     function compareDataset() {
       const key = compareState.entity === "demand" ? "demand_prev" : "pu_prev";
@@ -418,7 +466,7 @@
       return { key, tab, rows: (tab.rows || []).filter(row => rowName(row)) };
     }
     function compareItems(rows) {
-      const details = rows.filter(row => String(rowName(row)).toLowerCase() !== "total");
+      const details = rows.filter(row => !isTotalRow(row) && !isDemandSuspenseRow(row));
       return [["__total", "Total"], ...details.map(row => [rowName(row), rowName(row)])];
     }
     function selectedCompareRow(rows) {
@@ -930,10 +978,12 @@
       return { Name: label, PreviousOBA: previousOba, PreviousBP: previousBp, AEPrevious: aePrevious, OBA: currentOba, BP: bp, AECurrent: aeCurrent, VariationBP: aeCurrent - bp, BPPercent: bp ? aeCurrent / bp * 100 : 0, VariationActual: aeCurrent - aePrevious, OBAPercent: currentOba ? aeCurrent / currentOba * 100 : 0 };
     }
     function addTotal(rows, previous=false) {
-      const oba = rows.reduce((sum, row) => sum + numberValue(row.OBA), 0);
-      const months = rows[0]?.Months || 3;
-      if (previous) return rows.concat(prevRow("Total", rows.reduce((sum, row) => sum + numberValue(row.PreviousOBA), 0), oba, rows.reduce((s, r) => s + numberValue(r.AECurrent), 0), rows.reduce((s, r) => s + numberValue(r.AEPrevious), 0), months));
-      return rows.concat(summaryRow("Total", oba, rows.reduce((sum, row) => sum + numberValue(row.AE), 0), months, rows.reduce((sum, row) => sum + numberValue(row.BP), 0)));
+      const normalRows = normalTotalRows(rows);
+      const suspenseRows = demandSuspenseRows(rows);
+      const months = normalRows[0]?.Months || rows[0]?.Months || 3;
+      const oba = normalRows.reduce((sum, row) => sum + numberValue(row.OBA), 0);
+      if (previous) return normalRows.concat(prevRow("Total", normalRows.reduce((sum, row) => sum + numberValue(row.PreviousOBA), 0), oba, normalRows.reduce((s, r) => s + numberValue(r.AECurrent), 0), normalRows.reduce((s, r) => s + numberValue(r.AEPrevious), 0), months), suspenseRows);
+      return normalRows.concat(summaryRow("Total", oba, normalRows.reduce((sum, row) => sum + numberValue(row.AE), 0), months, normalRows.reduce((sum, row) => sum + numberValue(row.BP), 0)), suspenseRows);
     }
     function buildCurrentFromUpload(table, field, firstLabel, title, demand=false) {
       const nameIdx = colIndex(table.headers, [field]);
@@ -1033,8 +1083,9 @@
       const tab = tableForView(tabKey, { skipFocus: true });
       if (!tab?.rows?.length) return "";
       const headers = tab.columns.map(col => `<th>${htmlEscape(String(col.label || "").replace(/\n/g, " "))}</th>`).join("");
-      const rows = tab.rows.map(row => `<tr class="${String(rowName(row)).toLowerCase() === "total" ? "total" : isImportantPuRow(row) ? "important" : ""}">${tab.columns.map(col => `<td>${htmlEscape(formatCell(row[col.key], col.format))}</td>`).join("")}</tr>`).join("");
-      return `<section class="export-section"><h2>${htmlEscape(tab.title)}</h2><table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></section>`;
+      const note = isDemandTable(tabKey) ? demandSuspenseNoteHtml(tab.rows) : "";
+      const rows = tab.rows.map(row => `<tr class="${rowClassName(row)}">${tab.columns.map(col => `<td>${htmlEscape(formatCell(row[col.key], col.format))}</td>`).join("")}</tr>`).join("");
+      return `<section class="export-section"><h2>${htmlEscape(tab.title)}</h2>${note}<table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></section>`;
     }
     function sheetName(name, fallback = "Sheet") {
       const cleaned = String(name || fallback).replace(/[\\/?*[\]:]/g, " ").replace(/\s+/g, " ").trim();
@@ -1048,7 +1099,7 @@
       return row[col.key] ?? "";
     }
     function exportNote() {
-      return "Remarks - Figures in '000' (thousands). Default basis: completed actuals up to JUN 2026; Till Date / Running Month keeps running-month data separately.";
+      return "Remarks - Figures in '000' (thousands). Default basis: completed actuals up to JUN 2026; Till Date / Running Month keeps running-month data separately. Demand 12N / 10N is shown separately and excluded from main totals.";
     }
     function exportTableAoa(tabKey) {
       const tab = tableForView(tabKey, { skipFocus: true });
@@ -1071,7 +1122,7 @@
         const total = totalRow(tab);
         rows.push([
           tab.title,
-          Math.max(0, (tab.rows || []).length - 1),
+          normalTotalRows(tab.rows || []).length,
           numericValue(total, ["OBA", "PreviousOBA"]),
           numericValue(total, ["BP"]),
           numericValue(total, ["AE", "CurrentAE"]),
