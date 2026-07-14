@@ -1,0 +1,76 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Portal</title>
+  <link rel="stylesheet" href="../assets/admin.css?v=20260714-admin-1">
+</head>
+<body>
+  <main class="admin-wrap">
+    <section class="admin-hero">
+      <div>
+        <h1>Admin Portal</h1>
+        <p>Customize portal pages, preview table styles, view protected calculation logic, and download a complete portal backup.</p>
+      </div>
+      <button class="primary" id="lockState" type="button">Unlock Admin</button>
+    </section>
+    <section class="locked" id="lockedPanel">
+      <h2>Password Required</h2>
+      <p>Admin controls are protected with the upload/admin password.</p>
+      <button class="primary" id="unlockAdmin" type="button">Enter Password</button>
+    </section>
+    <section class="admin-app" id="adminApp" hidden>
+      <nav class="admin-tabs">
+        <button class="active" data-admin-tab="customize" type="button">Customize</button>
+        <button data-admin-tab="preview" type="button">Simulate / Preview</button>
+        <button data-admin-tab="logic" type="button">Calculation Logic</button>
+        <button data-admin-tab="backup" type="button">GitHub Backup</button>
+      </nav>
+      <section class="admin-panel active" id="customize">
+        <div class="panel-head"><h2>Portal Customization</h2><button class="secondary" id="resetStyle" type="button">Reset Style</button></div>
+        <div class="form-grid">
+          <label>Font Family<select data-setting="font.family"><option value="Calibri, Arial, sans-serif">Calibri / Arial</option><option value="Arial, Helvetica, sans-serif">Arial</option><option value="Segoe UI, Arial, sans-serif">Segoe UI</option><option value="Georgia, serif">Georgia</option></select></label>
+          <label>Base Font Size<input data-setting="font.base" type="number" min="10" max="18" step="1"></label>
+          <label>Main Heading Size<input data-setting="headings.main" type="number" min="16" max="34" step="1"></label>
+          <label>Heading Alignment<select data-setting="headings.align"><option value="center">Center</option><option value="left">Left</option><option value="right">Right</option></select></label>
+          <label>Heading Color<input data-setting="headings.color" type="color"></label>
+          <label>Page Background<input data-setting="page.background" type="color"></label>
+          <label>Accent Color<input data-setting="page.accent" type="color"></label>
+          <label>Table Font Size<input data-setting="table.size" type="number" min="9" max="16" step="1"></label>
+          <label>Table Cell Padding<input data-setting="table.padding" type="number" min="2" max="10" step="1"></label>
+          <label>Table Header<input data-setting="table.header" type="color"></label>
+          <label>Header Text<input data-setting="table.headerText" type="color"></label>
+          <label>Alternate Row<input data-setting="table.alt" type="color"></label>
+          <label>Total Row<input data-setting="table.total" type="color"></label>
+        </div>
+        <div class="action-row"><button class="primary" id="saveStyle" type="button">Apply to Portal</button><button class="secondary" id="exportStyle" type="button">Export Style JSON</button></div>
+      </section>
+      <section class="admin-panel" id="preview">
+        <h2>Live Preview</h2>
+        <div class="preview-box" id="previewBox">
+          <h1>Moradabad Division Accounts</h1>
+          <table>
+            <thead><tr><th>PU / Demand</th><th>OBA</th><th>BP</th><th>AE</th><th>% BP</th><th>Remaining</th></tr></thead>
+            <tbody><tr><td>PU - 27 Materials from stock</td><td>14,54,382</td><td>2,57,939</td><td>5,88,298</td><td>228.1</td><td>8,66,084</td></tr><tr><td>PU - 60 Fuel from Stock</td><td>32,00,000</td><td>8,00,000</td><td>7,92,340</td><td>99.0</td><td>24,07,660</td></tr><tr class="total"><td>Total</td><td>46,54,382</td><td>10,57,939</td><td>13,80,638</td><td>130.5</td><td>32,73,744</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="admin-panel" id="logic">
+        <div class="panel-head"><h2>Calculation Logic</h2><a class="secondary link" href="logic.html" target="logicFrame">Open Logic Page</a></div>
+        <iframe class="logic-frame" name="logicFrame" src="logic.html?v=20260714-admin"></iframe>
+      </section>
+      <section class="admin-panel" id="backup">
+        <h2>GitHub / Complete Portal Backup</h2>
+        <p class="hint">Downloads a zip of the complete static portal folder for verification or GitHub Desktop backup. This action is password protected by the server.</p>
+        <div class="backup-card"><strong>Backup Contents</strong><span>HTML pages, assets, data, exports, scripts, README and sync documents. The local .git folder is excluded.</span></div>
+        <button class="primary" id="downloadBackup" type="button">Download Complete Portal Backup</button>
+        <pre class="log" id="backupLog">Waiting for backup request.</pre>
+      </section>
+    </section>
+  </main>
+  <script src="../assets/portal-custom.js?v=20260714-admin-1"></script>
+  <script src="../assets/admin.js?v=20260714-admin-2"></script>
+</body>
+</html>
+

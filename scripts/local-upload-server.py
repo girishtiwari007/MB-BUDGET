@@ -6,6 +6,8 @@ import os
 import shutil
 import stat
 import sys
+import zipfile
+from io import BytesIO
 from datetime import datetime
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -100,6 +102,9 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/upload-auth":
             self.handle_upload_auth()
             return
+        if self.path == "/api/portal-backup":
+            self.handle_portal_backup()
+            return
         self.send_json(404, {"error": "Unknown endpoint"})
 
     def handle_current_year_upload(self):
@@ -151,6 +156,41 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(200, {"ok": True})
         except Exception as exc:
             self.send_json(500, {"error": str(exc)})
+
+    def send_zip(self, filename, data):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/zip")
+        self.send_header("Content-Disposition", f"attachment; filename={filename}")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def handle_portal_backup(self):
+        try:
+            form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ={
+                "REQUEST_METHOD": "POST",
+                "CONTENT_TYPE": self.headers.get("Content-Type", ""),
+            })
+            if form.getfirst("password", "") != UPLOAD_PASSWORD:
+                self.send_json(403, {"error": "Incorrect upload password"})
+                return
+            excluded_dirs = {".git", "__pycache__"}
+            excluded_suffixes = {".pyc"}
+            buffer = BytesIO()
+            with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+                for file_path in REPO_ROOT.rglob("*"):
+                    if not file_path.is_file():
+                        continue
+                    rel = file_path.relative_to(REPO_ROOT)
+                    if any(part in excluded_dirs for part in rel.parts):
+                        continue
+                    if file_path.suffix.lower() in excluded_suffixes:
+                        continue
+                    archive.write(file_path, rel.as_posix())
+            stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            self.send_zip(f"MB-BUDGET-portal-backup-{stamp}.zip", buffer.getvalue())
+        except Exception as exc:
+            self.send_json(500, {"error": str(exc)})
     def handle_fr_upload(self):
         try:
             form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ={
@@ -196,6 +236,10 @@ if __name__ == "__main__":
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     print(f"Serving MB-BUDGET with upload API on http://127.0.0.1:{port}/")
     server.serve_forever()
+
+
+
+
 
 
 
