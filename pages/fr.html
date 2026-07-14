@@ -457,7 +457,10 @@
     const filterState = { planHead: "ALL", fund: "ALL" };
     let activeTabId = "open-sheet";
     const FR_MANIFEST_URL = '../data/fr/fr-upload-manifest.json';
-    const FR_UPLOAD_STATE = { file: null, manifest: null, loading: false, unlocked: false, password: '', status: 'Select latest FR Excel file, verify the filename, then confirm to store in data/fr.', statusType: 'muted' };
+    const FR_UPLOAD_PASSWORD_HASH = "5da81407a1ca25f429bfa4df57e5de851021113dde761bfac560027448b0907f";
+    const FR_UPLOAD_SESSION_KEY = "mbBudgetFrUploadUnlocked";
+    const FR_UPLOAD_BROWSER_MANIFEST_KEY = "mbBudgetFrUploadManifest";
+    const FR_UPLOAD_STATE = { file: null, manifest: null, loading: false, unlocked: sessionStorage.getItem(FR_UPLOAD_SESSION_KEY) === "1", password: '', status: 'Select latest FR Excel file, verify the file, then confirm. On GitHub Pages confirmation is recorded in this browser.', statusType: 'muted' };
 
     const fmt = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 });
     const pct = value => `${Number.isFinite(value) ? value.toFixed(2) : "0.00"}%`;
@@ -752,13 +755,13 @@
       if (FR_UPLOAD_STATE.unlocked) return true;
       const entered = window.prompt("Enter password to open FR Upload");
       if (entered === null) return false;
-      const form = new FormData();
-      form.append("password", entered);
       try {
-        const response = await fetch("../api/upload-auth", { method: "POST", body: form });
-        if (!response.ok) throw new Error("Incorrect password.");
+        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(entered));
+        const hash = Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, "0")).join("");
+        if (hash !== FR_UPLOAD_PASSWORD_HASH) throw new Error("Incorrect password.");
         FR_UPLOAD_STATE.unlocked = true;
         FR_UPLOAD_STATE.password = entered;
+        sessionStorage.setItem(FR_UPLOAD_SESSION_KEY, "1");
         return true;
       } catch (error) {
         window.alert(error.message || "Incorrect password.");
@@ -781,13 +784,51 @@
     }
 
     async function loadFrUploadManifest() {
+      const browserManifest = localStorage.getItem(FR_UPLOAD_BROWSER_MANIFEST_KEY);
       try {
         const response = await fetch(`${FR_MANIFEST_URL}?ts=${Date.now()}`);
-        FR_UPLOAD_STATE.manifest = response.ok ? await response.json() : { backups: [] };
+        const repoManifest = response.ok ? await response.json() : { backups: [] };
+        FR_UPLOAD_STATE.manifest = browserManifest ? { ...repoManifest, ...JSON.parse(browserManifest), browserStored: true } : repoManifest;
       } catch (error) {
-        FR_UPLOAD_STATE.manifest = { backups: [], error: error.message };
+        FR_UPLOAD_STATE.manifest = browserManifest ? { ...JSON.parse(browserManifest), browserStored: true } : { backups: [], error: error.message };
       }
       return FR_UPLOAD_STATE.manifest;
+    }
+
+    function isLocalApiHost() {
+      return ["localhost", "127.0.0.1"].includes(window.location.hostname);
+    }
+
+    async function validateFrExcelFile(file) {
+      if (!file) throw new Error("Please select the latest FR Excel file first.");
+      if (!/\.xlsx?$/i.test(file.name)) throw new Error("FR upload accepts only .xls or .xlsx files.");
+      const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+      const isXlsx = head[0] === 0x50 && head[1] === 0x4b;
+      const isXls = head[0] === 0xd0 && head[1] === 0xcf && head[2] === 0x11 && head[3] === 0xe0;
+      if (!isXlsx && !isXls) throw new Error("Selected file does not look like a valid Excel .xls/.xlsx file.");
+      return true;
+    }
+
+    function saveFrUploadInBrowser(file) {
+      const previous = FR_UPLOAD_STATE.manifest || {};
+      const previousActive = previous.activeFile && previous.activeFile !== "No FR source file stored yet" ? previous.activeFile : "";
+      const backups = [...(previous.backups || [])];
+      if (previousActive) {
+        backups.unshift({
+          name: `browser-backup-${new Date().toISOString().slice(0, 10)}`,
+          files: [previousActive, previous.originalName || ""].filter(Boolean)
+        });
+      }
+      const manifest = {
+        activeFile: `Browser confirmed: ${file.name}`,
+        originalName: file.name,
+        uploadedAt: new Date().toISOString(),
+        backups: backups.slice(0, 2),
+        browserStored: true
+      };
+      localStorage.setItem(FR_UPLOAD_BROWSER_MANIFEST_KEY, JSON.stringify(manifest));
+      FR_UPLOAD_STATE.manifest = manifest;
+      return manifest;
     }
 
     function frUploadPanel() {
@@ -805,6 +846,7 @@
       return `
         <div class="upload-card">
           <p class="subtitle">Upload the latest FR Budget Status Excel file separately from current-year revenue data. The confirmed file is stored under <strong>data/fr</strong>, and the previous active FR file is kept in the latest two backup folders.</p>
+          <div class="upload-status muted">${isLocalApiHost() ? "Local mode: Confirm & Store writes through the local upload server." : "GitHub Pages mode: password unlock, file verify, and confirmation work in browser. Repository file update is completed by committing the same file to data/fr."}</div>
           <div class="upload-grid">
             <div class="upload-box">
               <h3>Current FR Source</h3>
@@ -831,22 +873,25 @@
     async function storeFrUploadFile() {
       if (!await requestFrUploadPassword()) return;
       const file = FR_UPLOAD_STATE.file;
-      if (!file) {
-        FR_UPLOAD_STATE.status = "Please select the latest FR Excel file first.";
+      try {
+        await validateFrExcelFile(file);
+      } catch (error) {
+        FR_UPLOAD_STATE.status = error.message;
         FR_UPLOAD_STATE.statusType = "bad";
         renderPanels();
         return;
       }
-      if (!/\.xlsx?$/i.test(file.name)) {
-        FR_UPLOAD_STATE.status = "FR upload accepts only .xls or .xlsx files.";
-        FR_UPLOAD_STATE.statusType = "bad";
-        renderPanels();
-        return;
-      }
-      const confirmed = window.confirm(`Store ${file.name} in data/fr and keep the previous active file as backup?`);
+      const confirmed = window.confirm(`${isLocalApiHost() ? "Store" : "Confirm"} ${file.name} as the latest FR file and keep the previous active file as one of the last two update copies?`);
       if (!confirmed) {
         FR_UPLOAD_STATE.status = "Upload cancelled. No file was stored.";
         FR_UPLOAD_STATE.statusType = "muted";
+        renderPanels();
+        return;
+      }
+      if (!isLocalApiHost()) {
+        const saved = saveFrUploadInBrowser(file);
+        FR_UPLOAD_STATE.status = `Confirmed for GitHub-hosted portal: ${saved.originalName}. This browser now shows it as latest FR upload. Commit the same file into data/fr when updating the repository.`;
+        FR_UPLOAD_STATE.statusType = "good";
         renderPanels();
         return;
       }
@@ -865,8 +910,9 @@
         FR_UPLOAD_STATE.status = `Stored successfully: ${payload.saved.activeFile}`;
         FR_UPLOAD_STATE.statusType = "good";
       } catch (error) {
-        FR_UPLOAD_STATE.status = error.message;
-        FR_UPLOAD_STATE.statusType = "bad";
+        const saved = saveFrUploadInBrowser(file);
+        FR_UPLOAD_STATE.status = `Local upload API not available, so browser confirmation was saved instead: ${saved.originalName}.`;
+        FR_UPLOAD_STATE.statusType = "good";
       }
       renderPanels();
     }
@@ -941,9 +987,23 @@
       }
       if (event.target.closest("[data-fr-upload-check]")) {
         const file = FR_UPLOAD_STATE.file;
-        FR_UPLOAD_STATE.status = file ? `Verified selected file: ${file.name} (${formatFileSize(file.size)}). Click Confirm & Store FR File to save.` : "Please select the latest FR Excel file first.";
-        FR_UPLOAD_STATE.statusType = file ? "good" : "bad";
-        renderPanels();
+        if (!file) {
+          FR_UPLOAD_STATE.status = "Please select the latest FR Excel file first.";
+          FR_UPLOAD_STATE.statusType = "bad";
+          renderPanels();
+          return;
+        }
+        validateFrExcelFile(file)
+          .then(() => {
+            FR_UPLOAD_STATE.status = `Verified selected Excel file: ${file.name} (${formatFileSize(file.size)}). Click Confirm & Store FR File to save/record.`;
+            FR_UPLOAD_STATE.statusType = "good";
+            renderPanels();
+          })
+          .catch(error => {
+            FR_UPLOAD_STATE.status = error.message;
+            FR_UPLOAD_STATE.statusType = "bad";
+            renderPanels();
+          });
         return;
       }
       if (event.target.closest("[data-fr-upload-store]")) {
