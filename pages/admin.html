@@ -1,10 +1,10 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin Portal</title>
-  <link rel="stylesheet" href="../assets/admin.css?v=20260714-mobile-app-1">
+  <link rel="stylesheet" href="../assets/admin.css?v=20260714-mbrlr-select-1">
 </head>
 <body>
   <main class="admin-wrap">
@@ -26,6 +26,7 @@
         <button data-admin-tab="preview" type="button">Simulate / Preview</button>
         <button data-admin-tab="logic" type="button">Calculation Logic</button>
         <button data-admin-tab="backup" type="button">GitHub Backup</button>
+        <button data-admin-tab="mbrlr" type="button">Sync to MBRLR</button>
       </nav>
       <section class="admin-panel active" id="customize">
         <div class="panel-head"><h2>Portal Customization</h2><button class="secondary" id="resetStyle" type="button">Reset Style</button></div>
@@ -67,10 +68,26 @@
         <button class="primary" id="downloadBackup" type="button">Download Complete Portal Backup</button>
         <pre class="log" id="backupLog">Waiting for backup request.</pre>
       </section>
+<section class="admin-panel" id="mbrlr">
+        <div class="panel-head"><h2>Sync MB-BUDGET Data to MBRLR</h2><button class="secondary" id="previewMbrlrSync" type="button">Preview Sync</button></div>
+        <p class="hint">Preview and copy current-year MB-BUDGET data into the local MBRLR repo. This prepares files for GitHub Desktop, but it does not commit or push.</p>
+        <div class="sync-controls">
+          <label>Financial Year<input id="mbrlrYear" type="text" value="2026-2027" inputmode="numeric"></label>
+          <button class="primary" id="confirmMbrlrSync" type="button" disabled>Confirm Sync to MBRLR</button>
+        </div>
+        <div class="sync-grid" id="mbrlrSummary">
+          <div class="backup-card"><strong>Source</strong><span>Waiting for preview.</span></div>
+          <div class="backup-card"><strong>Target</strong><span>Waiting for preview.</span></div>
+          <div class="backup-card"><strong>Files</strong><span>Waiting for preview.</span></div>
+        </div>
+        <div class="sync-preview" id="mbrlrPreview">Click Preview Sync to simulate the copy plan.</div>
+        <pre class="log" id="mbrlrLog">MBRLR sync is idle.</pre>
+      </section>
+
     </section>
   </main>
   <script src="../assets/portal-custom.js?v=20260714-mobile-app-1"></script>
-  <script src="../assets/admin.js?v=20260714-mobile-app-1"></script>
+  <script src="../assets/admin.js?v=20260714-mbrlr-select-1"></script>
 </body>
 </html>
 

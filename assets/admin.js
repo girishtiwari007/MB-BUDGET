@@ -1,4 +1,4 @@
-﻿(function(){
+(function(){
   const defaults = {
     font:{family:"Calibri, Arial, sans-serif",base:"14"},
     headings:{main:"21",align:"center",color:"#1f4e79"},
@@ -11,6 +11,12 @@
   const locked = document.getElementById("lockedPanel");
   const lockState = document.getElementById("lockState");
   const backupLog = document.getElementById("backupLog");
+  const mbrlrYear = document.getElementById("mbrlrYear");
+  const mbrlrSummary = document.getElementById("mbrlrSummary");
+  const mbrlrPreview = document.getElementById("mbrlrPreview");
+  const mbrlrLog = document.getElementById("mbrlrLog");
+  const confirmMbrlrSync = document.getElementById("confirmMbrlrSync");
+  let lastMbrlrPreview = null;
   function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
   function readSettings(){ return Object.assign(clone(defaults), window.MBBudgetCustom?.settings() || {}); }
   function getPath(obj,path){ return path.split(".").reduce((acc,key)=>acc?.[key],obj); }
@@ -61,6 +67,93 @@
       backupLog.textContent="Backup zip generated and downloaded.";
     }catch(error){ backupLog.textContent=error.message; }
   }
+  function fmtSize(bytes){
+    if(!Number.isFinite(Number(bytes))) return "";
+    const value = Number(bytes);
+    if(value >= 1024*1024) return `${(value/1024/1024).toFixed(1)} MB`;
+    if(value >= 1024) return `${(value/1024).toFixed(1)} KB`;
+    return `${value} B`;
+  }
+  function isDefaultMbrlrFile(row){
+    const target = row.targetPath || row.target || "";
+    return target.includes("processed/current_payload.js") || target.includes("processed/reports-data.json") || target.includes("processed/year-sources.json") || target.includes("source-files/");
+  }
+  function selectedMbrlrTargets(){
+    return Array.from(document.querySelectorAll("[data-sync-target]:checked")).map(input=>input.dataset.syncTarget);
+  }
+  function updateMbrlrSelectionState(){
+    const selected = selectedMbrlrTargets();
+    confirmMbrlrSync.disabled = !lastMbrlrPreview || selected.length === 0;
+    const count = document.getElementById("mbrlrSelectedCount");
+    if(count) count.textContent = `${selected.length} selected`;
+  }
+  function setMbrlrSelection(mode){
+    document.querySelectorAll("[data-sync-target]").forEach(input=>{
+      if(mode === "all") input.checked = true;
+      if(mode === "none") input.checked = false;
+      if(mode === "essentials") input.checked = input.dataset.syncDefault === "1";
+    });
+    updateMbrlrSelectionState();
+  }
+  function renderSyncGroup(title, rows){
+    if(!rows || !rows.length) return `<section><h3>${title}</h3><p class="hint">No files found.</p></section>`;
+    return `<section><h3>${title}</h3><table><thead><tr><th>Sync</th><th>File</th><th>Target</th><th>Size</th></tr></thead><tbody>${rows.map(row=>{const target=row.targetPath || row.target || ""; const checked=isDefaultMbrlrFile(row) ? "checked" : ""; const def=isDefaultMbrlrFile(row) ? "1" : "0"; return `<tr><td><input type="checkbox" data-sync-target="${target}" data-sync-default="${def}" ${checked}></td><td>${row.name || row.source || "File"}</td><td>${target}</td><td>${fmtSize(row.size)}</td></tr>`;}).join("")}</tbody></table></section>`;
+  }
+  function renderMbrlrPlan(plan){
+    lastMbrlrPreview = plan;
+    confirmMbrlrSync.disabled = true;
+    mbrlrSummary.innerHTML = `
+      <div class="backup-card"><strong>Source</strong><span>${plan.sourceRepo}</span></div>
+      <div class="backup-card"><strong>Target</strong><span>${plan.targetFolder}</span></div>
+      <div class="backup-card"><strong>Files</strong><span>${plan.counts.totalFiles} total: ${plan.counts.sourceFiles} source, ${plan.counts.processedFiles} processed, ${plan.counts.frFiles} FR, 2 manifest/log</span></div>`;
+    const warnings = plan.warnings?.length ? `<div class="sync-warning"><strong>Warnings</strong><ul>${plan.warnings.map(w=>`<li>${w}</li>`).join("")}</ul></div>` : "";
+    mbrlrPreview.innerHTML = `${warnings}<div class="sync-selectbar"><strong id="mbrlrSelectedCount">0 selected</strong><button class="secondary" type="button" data-sync-select="essentials">MBRLR Essentials</button><button class="secondary" type="button" data-sync-select="all">Select All</button><button class="secondary" type="button" data-sync-select="none">Clear</button></div>${renderSyncGroup("Current year source files", plan.sourceFiles)}${renderSyncGroup("Processed portal data", plan.processedFiles)}${renderSyncGroup("FR data", plan.frFiles)}<section><h3>Generated audit files</h3><p class="hint">sync-manifest.json and sync-log.json are always updated for whichever files you select.</p></section>`;
+    mbrlrPreview.querySelectorAll("[data-sync-target]").forEach(input=>input.addEventListener("change",updateMbrlrSelectionState));
+    mbrlrPreview.querySelectorAll("[data-sync-select]").forEach(btn=>btn.addEventListener("click",()=>setMbrlrSelection(btn.dataset.syncSelect)));
+    updateMbrlrSelectionState();
+    mbrlrLog.textContent = `Preview ready for ${plan.financialYear}. Select only files MBRLR needs, then Confirm Sync. It will not commit or push to GitHub.`;
+  }
+  async function previewMbrlrSync(){
+    if(!await auth()) return;
+    confirmMbrlrSync.disabled = true;
+    mbrlrLog.textContent = "Preparing MBRLR sync preview...";
+    const form = new FormData();
+    form.append("password", password);
+    form.append("year", mbrlrYear.value || "2026-2027");
+    try{
+      const response = await postForm("/api/mbrlr-sync-preview", form);
+      const payload = await response.json().catch(()=>({error:"Preview failed"}));
+      if(!response.ok) throw new Error(payload.error || "Preview failed");
+      renderMbrlrPlan(payload);
+    }catch(error){
+      lastMbrlrPreview = null;
+      confirmMbrlrSync.disabled = true;
+      mbrlrLog.textContent = error.message || "Preview failed.";
+    }
+  }
+  async function confirmMbrlrSyncRun(){
+    if(!lastMbrlrPreview) { await previewMbrlrSync(); if(!lastMbrlrPreview) return; }
+    if(!await auth()) return;
+    const selectedTargets = selectedMbrlrTargets();
+    if(!selectedTargets.length){ mbrlrLog.textContent = "Select at least one file to sync."; return; }
+    const ok = window.confirm(`Copy ${selectedTargets.length} selected files into MBRLR data folder now? This will not commit or push.`);
+    if(!ok) return;
+    mbrlrLog.textContent = "Copying files to MBRLR...";
+    const form = new FormData();
+    form.append("password", password);
+    form.append("year", mbrlrYear.value || "2026-2027");
+    form.append("selectedTargets", JSON.stringify(selectedTargets));
+    try{
+      const response = await postForm("/api/mbrlr-sync-confirm", form);
+      const payload = await response.json().catch(()=>({error:"Sync failed"}));
+      if(!response.ok) throw new Error(payload.error || "Sync failed");
+      confirmMbrlrSync.disabled = true;
+      mbrlrLog.textContent = `Sync complete. Copied ${payload.copiedFiles.length} files.\nTarget: ${payload.targetFolder}\nManifest: ${payload.manifest}\nLog: ${payload.log}${payload.warnings?.length ? "\nWarnings: " + payload.warnings.join("; ") : ""}`;
+      mbrlrPreview.innerHTML = renderSyncGroup("Copied files", payload.copiedFiles);
+    }catch(error){
+      mbrlrLog.textContent = error.message || "Sync failed.";
+    }
+  }
   document.getElementById("unlockAdmin").addEventListener("click",auth);
   lockState.addEventListener("click",auth);
   document.querySelectorAll("[data-admin-tab]").forEach(btn=>btn.addEventListener("click",()=>showTab(btn.dataset.adminTab)));
@@ -69,6 +162,9 @@
   document.getElementById("resetStyle").addEventListener("click",()=>{localStorage.removeItem(window.MBBudgetCustom.key); fillControls(); window.MBBudgetCustom.apply(document);});
   document.getElementById("exportStyle").addEventListener("click",()=>{const blob=new Blob([JSON.stringify(collect(),null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="portal-style-settings.json";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);});
   document.getElementById("downloadBackup").addEventListener("click",downloadBackup);
+  document.getElementById("previewMbrlrSync")?.addEventListener("click",previewMbrlrSync);
+  document.getElementById("confirmMbrlrSync")?.addEventListener("click",confirmMbrlrSyncRun);
+  mbrlrYear?.addEventListener("input",()=>{lastMbrlrPreview=null; confirmMbrlrSync.disabled=true;});
   fillControls();
 })();
 
