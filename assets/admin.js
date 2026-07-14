@@ -26,10 +26,14 @@
   function save(){ const s=collect(); localStorage.setItem(window.MBBudgetCustom.key,JSON.stringify(s)); window.MBBudgetCustom.apply(document); applyPreview(s); backupLog.textContent="Style applied locally. Open or reload portal tabs to see updated look."; }
   function applyPreview(s){ const box=document.getElementById("previewBox"); let tag=document.getElementById("previewStyle"); if(!tag){tag=document.createElement("style");tag.id="previewStyle";document.head.appendChild(tag);} tag.textContent=`#previewBox{font-family:${s.font.family};font-size:${s.font.base}px;background:${s.page.background}}#previewBox h1{font-size:${s.headings.main}px;color:${s.headings.color};text-align:${s.headings.align}}#previewBox th{background:${s.table.header};color:${s.table.headerText}}#previewBox table{font-size:${s.table.size}px}#previewBox td,#previewBox th{padding:${s.table.padding}px ${Number(s.table.padding)+1}px}#previewBox tbody tr:nth-child(even) td{background:${s.table.alt}}#previewBox tr.total td{background:${s.table.total}}`; }
   function apiUrl(path){
+    const localApi = "http://127.0.0.1:8000";
+    if (window.location.protocol === "file:") return `${localApi}${path}`;
+    if (!window.location.origin || window.location.origin === "null") return `${localApi}${path}`;
     return `${window.location.origin}${path}`;
   }
   async function postForm(path, form){
-    const urls = [apiUrl(path), path, `..${path}`];
+    const localApi = "http://127.0.0.1:8000";
+    const urls = [apiUrl(path), `${localApi}${path}`, path, `..${path}`];
     let lastError = null;
     for (const url of urls) {
       try {
