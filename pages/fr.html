@@ -512,7 +512,8 @@
     const FR_UPLOAD_PASSWORD_HASH = "5da81407a1ca25f429bfa4df57e5de851021113dde761bfac560027448b0907f";
     const FR_UPLOAD_SESSION_KEY = "mbBudgetFrUploadUnlocked";
     const FR_UPLOAD_BROWSER_MANIFEST_KEY = "mbBudgetFrUploadManifest";
-    const FR_UPLOAD_STATE = { file: null, manifest: null, loading: false, unlocked: sessionStorage.getItem(FR_UPLOAD_SESSION_KEY) === "1", password: '', view: 'current', asOnDate: new Date().toISOString().slice(0, 10), status: 'Select latest FR Excel file, verify the file, then confirm. On GitHub Pages confirmation is recorded in this browser.', statusType: 'muted' };
+    const TODAY_ISO = new Date().toISOString().slice(0, 10);
+    const FR_UPLOAD_STATE = { files: { previous: null, current: null }, manifest: null, loading: false, unlocked: sessionStorage.getItem(FR_UPLOAD_SESSION_KEY) === "1", password: '', view: 'current', asOnDate: { previous: TODAY_ISO, current: TODAY_ISO }, status: 'Upload Previous FR or Current FR separately, set Data as on date, verify, then confirm.', statusType: 'muted' };
 
     const fmt = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 });
     const pct = value => `${Number.isFinite(value) ? value.toFixed(2) : "0.00"}%`;
@@ -861,27 +862,36 @@
       return true;
     }
 
-    function saveFrUploadInBrowser(file) {
+    function frRoleLabel(role) {
+      return role === "previous" ? "Previous FR" : "Current FR";
+    }
+
+    function saveFrUploadInBrowser(file, role = "current") {
       const previous = FR_UPLOAD_STATE.manifest || {};
-      const asOnDate = selectedFrAsOnDateIso();
-      const previousActive = previous.activeFile && previous.activeFile !== "No FR source file stored yet" ? previous.activeFile : "";
-      const backups = [...(previous.backups || [])];
-      if (previousActive) {
-        backups.unshift({
-          name: `Previous FR copy - ${new Date().toISOString().slice(0, 10)}`,
-          activeFile: previousActive,
-          originalName: previous.originalName || previousActive,
-          uploadedAt: previous.uploadedAt || asOnDate,
-          files: [previousActive, previous.originalName || ""].filter(Boolean)
-        });
-      }
+      const asOnDate = selectedFrAsOnDateIso(role);
+      const roleManifest = previous[role] || {};
+      const previousActive = roleManifest.activeFile || (role === "current" ? previous.activeFile : "");
+      const backup = previousActive ? {
+        name: `${frRoleLabel(role)} backup - ${new Date().toISOString().slice(0, 10)}`,
+        activeFile: previousActive,
+        originalName: roleManifest.originalName || (role === "current" ? previous.originalName : "") || previousActive,
+        uploadedAt: roleManifest.uploadedAt || (role === "current" ? previous.uploadedAt : "") || asOnDate
+      } : null;
       const manifest = {
-        activeFile: `Browser confirmed: ${file.name}`,
-        originalName: file.name,
-        uploadedAt: asOnDate,
-        backups: backups.slice(0, 2),
+        ...previous,
+        [role]: {
+          activeFile: `Browser confirmed: ${file.name}`,
+          originalName: file.name,
+          uploadedAt: asOnDate,
+          backup
+        },
         browserStored: true
       };
+      if (role === "current") {
+        manifest.activeFile = manifest.current.activeFile;
+        manifest.originalName = manifest.current.originalName;
+        manifest.uploadedAt = manifest.current.uploadedAt;
+      }
       localStorage.setItem(FR_UPLOAD_BROWSER_MANIFEST_KEY, JSON.stringify(manifest));
       FR_UPLOAD_STATE.manifest = manifest;
       return manifest;
@@ -891,8 +901,8 @@
       return value ? new Date(value).toLocaleString("en-IN") : "Not available";
     }
 
-    function selectedFrAsOnDateIso() {
-      const date = FR_UPLOAD_STATE.asOnDate || new Date().toISOString().slice(0, 10);
+    function selectedFrAsOnDateIso(role = FR_UPLOAD_STATE.view) {
+      const date = FR_UPLOAD_STATE.asOnDate[role] || TODAY_ISO;
       return new Date(`${date}T${new Date().toTimeString().slice(0, 8)}`).toISOString();
     }
 
@@ -905,69 +915,65 @@
     }
 
     function frUploadToggleHtml() {
-      return `<div class="copy-view-title">FR Upload Copy View</div><div class="upload-toggle"><button type="button" class="${FR_UPLOAD_STATE.view === "current" ? "active" : ""}" data-fr-upload-view="current">Current FR - Data As On</button><button type="button" class="${FR_UPLOAD_STATE.view === "previous" ? "active" : ""}" data-fr-upload-view="previous">Previous 2 FR Copies</button></div>`;
+      return `<div class="copy-view-title">FR Upload Type</div><div class="upload-toggle"><button type="button" class="${FR_UPLOAD_STATE.view === "previous" ? "active" : ""}" data-fr-upload-view="previous">Previous FR - Data As On</button><button type="button" class="${FR_UPLOAD_STATE.view === "current" ? "active" : ""}" data-fr-upload-view="current">Current FR - Data As On</button></div>`;
     }
 
     function frUploadCopiesHtml(manifest) {
-      const currentCopy = {
-        activeFile: manifest.activeFile || "No FR source file stored yet",
-        originalName: manifest.originalName || "",
-        uploadedAt: manifest.uploadedAt || ""
-      };
-      const backups = (manifest.backups || []).slice(0, 2);
-      if (FR_UPLOAD_STATE.view === "previous") {
-        return backups.length
-          ? backups.map((item, index) => frCopyCard(item, index, false)).join("")
-          : `<div class="fr-copy-card previous"><strong>Previous 2 FR Copies</strong><span>No previous backup copy available yet.</span></div>`;
-      }
-      return frCopyCard(currentCopy, 0, true);
+      const role = FR_UPLOAD_STATE.view;
+      const roleCopy = manifest[role] || (role === "current" ? { activeFile: manifest.activeFile || "", originalName: manifest.originalName || "", uploadedAt: manifest.uploadedAt || "" } : {});
+      const copyHtml = roleCopy.activeFile ? frCopyCard(roleCopy, 0, role === "current") : `<div class="fr-copy-card ${role === "current" ? "current" : "previous"}"><strong>${frRoleLabel(role)}</strong><span>No ${frRoleLabel(role).toLowerCase()} file confirmed yet.</span></div>`;
+      const backupHtml = roleCopy.backup ? frCopyCard(roleCopy.backup, 0, false) : `<div class="fr-copy-card previous"><strong>${frRoleLabel(role)} Backup Copy</strong><span>No backup copy kept yet. One backup will be kept when this ${frRoleLabel(role).toLowerCase()} is replaced.</span></div>`;
+      return `${copyHtml}${backupHtml}`;
     }
 
     function frUploadPanel() {
       queueFrManifestLoad();
       const manifest = FR_UPLOAD_STATE.manifest || {};
-      const activeFile = manifest.activeFile || "No FR source file stored yet";
-      const uploadedAt = manifest.uploadedAt ? new Date(manifest.uploadedAt).toLocaleString("en-IN") : "Not available";
-      const originalName = manifest.originalName || "Not available";
-      const backups = (manifest.backups || []).length
-        ? manifest.backups.slice(0, 2).map((item, index) => `<li><strong>Previous FR Copy ${index + 1}</strong><br>${htmlEscape(item.originalName || item.activeFile || item.name || "Not available")}<br>Data as on: ${htmlEscape(formatUploadDate(item.uploadedAt))}</li>`).join("")
-        : "<li>No previous backup copy available yet.</li>";
-      const selected = FR_UPLOAD_STATE.file
-        ? `${htmlEscape(FR_UPLOAD_STATE.file.name)} (${formatFileSize(FR_UPLOAD_STATE.file.size)})`
+      const role = FR_UPLOAD_STATE.view;
+      const roleCopy = manifest[role] || {};
+      const activeFile = roleCopy.activeFile || (role === "current" ? manifest.activeFile : "") || `No ${frRoleLabel(role).toLowerCase()} source file confirmed yet`;
+      const uploadedAt = roleCopy.uploadedAt ? formatUploadDate(roleCopy.uploadedAt) : "Not available";
+      const originalName = roleCopy.originalName || "Not available";
+      const backup = roleCopy.backup;
+      const backups = backup
+        ? `<li><strong>${htmlEscape(frRoleLabel(role))} Backup Copy</strong><br>${htmlEscape(backup.originalName || backup.activeFile || "Not available")}<br>Data as on: ${htmlEscape(formatUploadDate(backup.uploadedAt))}</li>`
+        : `<li>No backup copy for ${htmlEscape(frRoleLabel(role))} yet.</li>`;
+      const selected = FR_UPLOAD_STATE.files[role]
+        ? `${htmlEscape(FR_UPLOAD_STATE.files[role].name)} (${formatFileSize(FR_UPLOAD_STATE.files[role].size)})`
         : "No file selected";
       return `
         <div class="upload-card">
-          <p class="subtitle">Upload the latest FR Budget Status Excel file separately from current-year revenue data. The confirmed file is stored under <strong>data/fr</strong>, and the previous active FR file is kept in the latest two backup folders.</p>
+          <p class="subtitle">Upload <strong>Previous FR</strong> and <strong>Current FR</strong> separately. Each upload has its own Data as on date and keeps one backup copy when replaced.</p>
           <div class="upload-status muted">${isLocalApiHost() ? "Local mode: Confirm & Store writes through the local upload server." : "GitHub Pages mode: password unlock, file verify, and confirmation work in browser. Repository file update is completed by committing the same file to data/fr."}</div>
           ${frUploadToggleHtml()}
           ${frUploadCopiesHtml(manifest)}
           <div class="upload-grid">
             <div class="upload-box">
-              <h3>Current FR Source</h3>
+              <h3>${htmlEscape(frRoleLabel(role))} Source</h3>
               <div class="upload-path"><strong>Active file:</strong> ${htmlEscape(activeFile)}</div>
               <div class="upload-path"><strong>Original upload:</strong> ${htmlEscape(originalName)}</div>
-              <div class="upload-path"><strong>Updated:</strong> ${htmlEscape(uploadedAt)}</div>
+              <div class="upload-path"><strong>Data as on:</strong> ${htmlEscape(uploadedAt)}</div>
             </div>
             <div class="upload-box">
-              <h3>Last 2 Update Copies</h3>
+              <h3>${htmlEscape(frRoleLabel(role))} Backup Copy</h3>
               <ol class="backup-list">${backups}</ol>
               <button class="reset-btn" type="button" data-refresh-fr-manifest>Refresh Source List</button>
             </div>
           </div>
-          <label class="file-picker">Upload latest FR file (.xls or .xlsx)<input type="file" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" data-fr-upload-file></label>
-          <label class="file-picker">FR data as on date<input type="date" value="${htmlEscape(FR_UPLOAD_STATE.asOnDate)}" data-fr-as-on-date></label>
+          <label class="file-picker">Upload ${htmlEscape(frRoleLabel(role))} file (.xls or .xlsx)<input type="file" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" data-fr-upload-file="${role}"></label>
+          <label class="file-picker">${htmlEscape(frRoleLabel(role))} data as on date<input type="date" value="${htmlEscape(FR_UPLOAD_STATE.asOnDate[role] || TODAY_ISO)}" data-fr-as-on-date="${role}"></label>
           <div class="upload-path"><strong>Selected file:</strong> ${selected}</div>
           <div class="upload-actions">
-            <button class="reset-btn" type="button" data-fr-upload-check>Verify Selected File</button>
-            <button class="export-btn upload-btn" type="button" data-fr-upload-store>Confirm & Store FR File</button>
+            <button class="reset-btn" type="button" data-fr-upload-check="${role}">Verify ${htmlEscape(frRoleLabel(role))}</button>
+            <button class="export-btn upload-btn" type="button" data-fr-upload-store="${role}">Confirm & Store ${htmlEscape(frRoleLabel(role))}</button>
           </div>
           <div class="upload-status ${FR_UPLOAD_STATE.statusType}">${htmlEscape(FR_UPLOAD_STATE.status)}</div>
         </div>`;
     }
 
-    async function storeFrUploadFile() {
+    async function storeFrUploadFile(role = FR_UPLOAD_STATE.view) {
       if (!await requestFrUploadPassword()) return;
-      const file = FR_UPLOAD_STATE.file;
+      const file = FR_UPLOAD_STATE.files[role];
       try {
         await validateFrExcelFile(file);
       } catch (error) {
@@ -976,18 +982,18 @@
         renderPanels();
         return;
       }
-      const confirmed = window.confirm(`${isLocalApiHost() ? "Store" : "Confirm"} ${file.name} as the latest FR file and keep the previous active file as one of the last two update copies?`);
+      const confirmed = window.confirm(`${isLocalApiHost() ? "Store" : "Confirm"} ${file.name} as ${frRoleLabel(role)} with Data as on ${FR_UPLOAD_STATE.asOnDate[role] || TODAY_ISO}? One backup copy will be kept when replaced.`);
       if (!confirmed) {
         FR_UPLOAD_STATE.status = "Upload cancelled. No file was stored.";
         FR_UPLOAD_STATE.statusType = "muted";
         renderPanels();
         return;
       }
-      if (!isLocalApiHost()) {
-        const saved = saveFrUploadInBrowser(file);
-        FR_UPLOAD_STATE.file = null;
-        FR_UPLOAD_STATE.view = "current";
-        FR_UPLOAD_STATE.status = `Confirmed for GitHub-hosted portal: ${saved.originalName}. This browser now shows it as latest FR upload. Commit the same file into data/fr when updating the repository.`;
+      if (!isLocalApiHost() || role === "previous") {
+        const saved = saveFrUploadInBrowser(file, role);
+        FR_UPLOAD_STATE.files[role] = null;
+        FR_UPLOAD_STATE.view = role;
+        FR_UPLOAD_STATE.status = `Confirmed ${frRoleLabel(role)} for GitHub-hosted portal: ${saved[role].originalName}. This browser now shows it with Data as on ${formatUploadDate(saved[role].uploadedAt)}.`;
         FR_UPLOAD_STATE.statusType = "good";
         renderPanels();
         return;
@@ -1002,15 +1008,15 @@
         const response = await fetch("../api/fr-upload", { method: "POST", body: form });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok || payload.error) throw new Error(payload.error || "FR upload failed");
-        FR_UPLOAD_STATE.file = null;
+        FR_UPLOAD_STATE.files[role] = null;
         FR_UPLOAD_STATE.manifest = payload.saved;
         FR_UPLOAD_STATE.status = `Stored successfully: ${payload.saved.activeFile}`;
         FR_UPLOAD_STATE.statusType = "good";
       } catch (error) {
-        const saved = saveFrUploadInBrowser(file);
-        FR_UPLOAD_STATE.file = null;
-        FR_UPLOAD_STATE.view = "current";
-        FR_UPLOAD_STATE.status = `Local upload API not available, so browser confirmation was saved instead: ${saved.originalName}.`;
+        const saved = saveFrUploadInBrowser(file, role);
+        FR_UPLOAD_STATE.files[role] = null;
+        FR_UPLOAD_STATE.view = role;
+        FR_UPLOAD_STATE.status = `Local upload API not available, so browser confirmation was saved instead for ${frRoleLabel(role)}: ${saved[role].originalName}.`;
         FR_UPLOAD_STATE.statusType = "good";
       }
       renderPanels();
@@ -1058,17 +1064,19 @@
     appEl.addEventListener("change", event => {
       const asOnDateInput = event.target.closest("[data-fr-as-on-date]");
       if (asOnDateInput) {
-        FR_UPLOAD_STATE.asOnDate = asOnDateInput.value || new Date().toISOString().slice(0, 10);
-        FR_UPLOAD_STATE.status = `FR as on date set to ${FR_UPLOAD_STATE.asOnDate}.`;
+        const role = asOnDateInput.dataset.frAsOnDate || FR_UPLOAD_STATE.view;
+        FR_UPLOAD_STATE.asOnDate[role] = asOnDateInput.value || TODAY_ISO;
+        FR_UPLOAD_STATE.status = `${frRoleLabel(role)} data as on date set to ${FR_UPLOAD_STATE.asOnDate[role]}.`;
         FR_UPLOAD_STATE.statusType = "muted";
         renderPanels();
         return;
       }
       const uploadInput = event.target.closest("[data-fr-upload-file]");
       if (uploadInput) {
-        FR_UPLOAD_STATE.file = uploadInput.files[0] || null;
-        FR_UPLOAD_STATE.status = FR_UPLOAD_STATE.file ? `Ready to verify: ${FR_UPLOAD_STATE.file.name}` : "No FR file selected.";
-        FR_UPLOAD_STATE.statusType = FR_UPLOAD_STATE.file ? "good" : "muted";
+        const role = uploadInput.dataset.frUploadFile || FR_UPLOAD_STATE.view;
+        FR_UPLOAD_STATE.files[role] = uploadInput.files[0] || null;
+        FR_UPLOAD_STATE.status = FR_UPLOAD_STATE.files[role] ? `Ready to verify ${frRoleLabel(role)}: ${FR_UPLOAD_STATE.files[role].name}` : `No ${frRoleLabel(role).toLowerCase()} file selected.`;
+        FR_UPLOAD_STATE.statusType = FR_UPLOAD_STATE.files[role] ? "good" : "muted";
         renderPanels();
         return;
       }
@@ -1098,17 +1106,19 @@
         loadFrUploadManifest().then(renderPanels);
         return;
       }
-      if (event.target.closest("[data-fr-upload-check]")) {
-        const file = FR_UPLOAD_STATE.file;
+      const checkButton = event.target.closest("[data-fr-upload-check]");
+      if (checkButton) {
+        const role = checkButton.dataset.frUploadCheck || FR_UPLOAD_STATE.view;
+        const file = FR_UPLOAD_STATE.files[role];
         if (!file) {
-          FR_UPLOAD_STATE.status = "Please select the latest FR Excel file first.";
+          FR_UPLOAD_STATE.status = `Please select the ${frRoleLabel(role)} Excel file first.`;
           FR_UPLOAD_STATE.statusType = "bad";
           renderPanels();
           return;
         }
         validateFrExcelFile(file)
           .then(() => {
-            FR_UPLOAD_STATE.status = `Verified selected Excel file: ${file.name} (${formatFileSize(file.size)}). Click Confirm & Store FR File to save/record.`;
+            FR_UPLOAD_STATE.status = `Verified ${frRoleLabel(role)} Excel file: ${file.name} (${formatFileSize(file.size)}), Data as on ${FR_UPLOAD_STATE.asOnDate[role] || TODAY_ISO}.`;
             FR_UPLOAD_STATE.statusType = "good";
             renderPanels();
           })
@@ -1119,8 +1129,9 @@
           });
         return;
       }
-      if (event.target.closest("[data-fr-upload-store]")) {
-        storeFrUploadFile();
+      const storeButton = event.target.closest("[data-fr-upload-store]");
+      if (storeButton) {
+        storeFrUploadFile(storeButton.dataset.frUploadStore || FR_UPLOAD_STATE.view);
       }
     });
 
