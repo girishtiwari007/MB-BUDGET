@@ -244,24 +244,40 @@
     }
     .upload-box h3 { margin: 0 0 8px; color: #1f4e79; font-size: 14px; }
     .upload-toggle {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      margin: 12px 0 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(160px, 1fr));
+      gap: 0;
+      margin: 14px 0 10px;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
     }
     .upload-toggle button {
-      border: 1px solid var(--line);
+      border: 0;
+      border-right: 1px solid var(--accent);
       background: var(--surface-2);
       color: var(--text);
-      border-radius: 6px;
-      padding: 7px 10px;
+      border-radius: 0;
+      padding: 10px 12px;
       font-weight: 800;
       cursor: pointer;
+      min-height: 42px;
+    }
+    .upload-toggle button:last-child {
+      border-right: 0;
     }
     .upload-toggle button.active {
       background: var(--accent);
       border-color: var(--accent);
       color: #fff;
+    }
+    .copy-view-title {
+      margin: 8px 0 6px;
+      color: #1f4e79;
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
     }
     .fr-copy-card {
       border: 1px solid var(--line);
@@ -461,6 +477,9 @@
       .stat .value { font-size:17px; }
       .table-wrap, .report-wrap { max-height:none; background:#fff; }
       .report-title { font-size:15px; }
+      .upload-toggle { grid-template-columns:1fr; border-radius:12px; }
+      .upload-toggle button { border-right:0; border-bottom:1px solid var(--accent); }
+      .upload-toggle button:last-child { border-bottom:0; }
       .upload-grid { grid-template-columns:1fr; }
       .upload-actions { display:grid; grid-template-columns:1fr; }
       .file-picker input { min-height:42px; border-radius:10px; }
@@ -882,11 +901,11 @@
       const fileName = copy?.originalName || copy?.activeFile || copy?.name || "Not available";
       const storedName = copy?.activeFile || copy?.name || "Not available";
       const uploadedAt = formatUploadDate(copy?.uploadedAt);
-      return `<div class="fr-copy-card ${current ? "current" : "previous"}"><strong>${title}</strong><span><b>File:</b> ${htmlEscape(fileName)}</span><span><b>Stored as:</b> ${htmlEscape(storedName)}</span><span><b>As on date:</b> ${htmlEscape(uploadedAt)}</span></div>`;
+      return `<div class="fr-copy-card ${current ? "current" : "previous"}"><strong>${title}</strong><span><b>File:</b> ${htmlEscape(fileName)}</span><span><b>Stored as:</b> ${htmlEscape(storedName)}</span><span><b>Data as on:</b> ${htmlEscape(uploadedAt)}</span></div>`;
     }
 
     function frUploadToggleHtml() {
-      return `<div class="upload-toggle"><button type="button" class="${FR_UPLOAD_STATE.view === "current" ? "active" : ""}" data-fr-upload-view="current">Current FR</button><button type="button" class="${FR_UPLOAD_STATE.view === "previous" ? "active" : ""}" data-fr-upload-view="previous">Previous FR Copies</button></div>`;
+      return `<div class="copy-view-title">FR Upload Copy View</div><div class="upload-toggle"><button type="button" class="${FR_UPLOAD_STATE.view === "current" ? "active" : ""}" data-fr-upload-view="current">Current FR - Data As On</button><button type="button" class="${FR_UPLOAD_STATE.view === "previous" ? "active" : ""}" data-fr-upload-view="previous">Previous 2 FR Copies</button></div>`;
     }
 
     function frUploadCopiesHtml(manifest) {
@@ -899,7 +918,7 @@
       if (FR_UPLOAD_STATE.view === "previous") {
         return backups.length
           ? backups.map((item, index) => frCopyCard(item, index, false)).join("")
-          : `<div class="fr-copy-card previous"><strong>Previous FR Copies</strong><span>No previous backup copy available yet.</span></div>`;
+          : `<div class="fr-copy-card previous"><strong>Previous 2 FR Copies</strong><span>No previous backup copy available yet.</span></div>`;
       }
       return frCopyCard(currentCopy, 0, true);
     }
@@ -911,7 +930,7 @@
       const uploadedAt = manifest.uploadedAt ? new Date(manifest.uploadedAt).toLocaleString("en-IN") : "Not available";
       const originalName = manifest.originalName || "Not available";
       const backups = (manifest.backups || []).length
-        ? manifest.backups.slice(0, 2).map((item, index) => `<li><strong>Previous FR Copy ${index + 1}</strong><br>${htmlEscape(item.originalName || item.activeFile || item.name || "Not available")}<br>As on date: ${htmlEscape(formatUploadDate(item.uploadedAt))}</li>`).join("")
+        ? manifest.backups.slice(0, 2).map((item, index) => `<li><strong>Previous FR Copy ${index + 1}</strong><br>${htmlEscape(item.originalName || item.activeFile || item.name || "Not available")}<br>Data as on: ${htmlEscape(formatUploadDate(item.uploadedAt))}</li>`).join("")
         : "<li>No previous backup copy available yet.</li>";
       const selected = FR_UPLOAD_STATE.file
         ? `${htmlEscape(FR_UPLOAD_STATE.file.name)} (${formatFileSize(FR_UPLOAD_STATE.file.size)})`
@@ -936,7 +955,7 @@
             </div>
           </div>
           <label class="file-picker">Upload latest FR file (.xls or .xlsx)<input type="file" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" data-fr-upload-file></label>
-          <label class="file-picker">FR as on date<input type="date" value="${htmlEscape(FR_UPLOAD_STATE.asOnDate)}" data-fr-as-on-date></label>
+          <label class="file-picker">FR data as on date<input type="date" value="${htmlEscape(FR_UPLOAD_STATE.asOnDate)}" data-fr-as-on-date></label>
           <div class="upload-path"><strong>Selected file:</strong> ${selected}</div>
           <div class="upload-actions">
             <button class="reset-btn" type="button" data-fr-upload-check>Verify Selected File</button>
