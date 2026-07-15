@@ -158,6 +158,15 @@
     applyCompletedPeriodView();
     function formatNumber(value, decimals = 0) { return Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }); }
     function formatCell(value, format) { if (format === "money") return formatNumber(value); if (format === "int") return Math.round(Number(value || 0)).toLocaleString("en-IN"); return value ?? ""; }
+    function formatCrore(value) { return Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function moneyCellHtml(value) { return `<span class="dual-money"><span class="thousand">${htmlEscape(formatNumber(value))}</span><span class="crore">${htmlEscape(formatCrore(Number(value || 0) / 10000))} Cr</span></span>`; }
+    function formatCellHtml(value, format) {
+      if (format === "money") return moneyCellHtml(value);
+      return htmlEscape(formatCell(value, format));
+    }
+    function alertDotHtml(value) {
+      return `<span class="dot ${utilizationClass(value)}"></span>`;
+    }
     function splitHeader(label) {
       const parts = String(label || "").split("\n");
       if (parts.length > 1 && /^[A-Z]$/.test(parts[0])) return { letter: parts[0], text: parts.slice(1).join("\n") };
@@ -186,7 +195,7 @@
       tab.columns.forEach(col => { const split = splitHeader(col.label); const letterTh = document.createElement("th"); letterTh.textContent = split.letter; letterRow.appendChild(letterTh); const labelTh = document.createElement("th"); labelTh.textContent = split.text; labelRow.appendChild(labelTh); });
       thead.appendChild(letterRow); thead.appendChild(labelRow); table.appendChild(thead);
       const tbody = document.createElement("tbody");
-      tab.rows.forEach(row => { const tr = document.createElement("tr"); tr.className = rowClassName(row); tab.columns.forEach(col => { const td = document.createElement("td"); if (col.key === "OBAPercent" || col.key === "BPPercent") { const dot = document.createElement("span"); dot.className = "dot " + utilizationClass(row[col.key]); td.appendChild(dot); td.append(document.createTextNode(formatCell(row[col.key], col.format))); } else { td.textContent = formatCell(row[col.key], col.format); } tr.appendChild(td); }); tbody.appendChild(tr); });
+      tab.rows.forEach(row => { const tr = document.createElement("tr"); tr.className = rowClassName(row); tab.columns.forEach(col => { const td = document.createElement("td"); if (col.key === "OBAPercent" || col.key === "BPPercent") { const dot = document.createElement("span"); dot.className = "dot " + utilizationClass(row[col.key]); td.appendChild(dot); td.append(document.createTextNode(formatCell(row[col.key], col.format))); } else if (col.format === "money") { td.innerHTML = moneyCellHtml(row[col.key]); } else { td.textContent = formatCell(row[col.key], col.format); } tr.appendChild(td); }); tbody.appendChild(tr); });
       table.appendChild(tbody);
       const children = [subMenu, puTools, note, specialNote, table].filter(Boolean);
       document.getElementById("tableHost").replaceChildren(...children);
@@ -203,7 +212,7 @@
       const rows = isDemandTable(tabKey) ? addTotal(tab.rows.filter(row => !isTotalRow(row)), tabKey === "demand_prev") : tab.rows;
       const specialNote = isDemandTable(tabKey) ? demandSuspenseNoteHtml(rows) : "";
       const header = `<thead><tr>${tab.columns.map(col => `<th>${htmlEscape(String(col.label || "").replace(/\n/g, " "))}</th>`).join("")}</tr></thead>`;
-      const body = rows.map(row => `<tr class="${rowClassName(row)}">${tab.columns.map(col => `<td>${htmlEscape(formatCell(row[col.key], col.format))}</td>`).join("")}</tr>`).join("");
+      const body = rows.map(row => `<tr class="${rowClassName(row)}">${tab.columns.map(col => `<td>${formatCellHtml(row[col.key], col.format)}</td>`).join("")}</tr>`).join("");
       return `<section class="till-section"><h3>${htmlEscape(tab.title)} - ${RUNNING_PERIOD.title}</h3><div class="note">Remarks - Figures in '000' (thousands). July is running and shown only in this tab.</div>${specialNote}<table class="${tab.columns.length > 8 ? "wide" : ""}">${header}<tbody>${body}</tbody></table></section>`;
     }
     function puCode(row) { return codeFromLabel(rowName(row), "PU"); }
@@ -312,7 +321,7 @@
       return (tab.rows || []).find(row => String(rowName(row)).toLowerCase() === "total") || {};
     }
     function analysisMetric(label, value, format = "money", tone = "") {
-      const shown = format === "percent" ? formatNumber(value, 2) + "%" : format === "int" ? Math.round(Number(value || 0)).toLocaleString("en-IN") : formatNumber(value);
+      const shown = format === "percent" ? formatNumber(value, 2) + "%" : format === "int" ? Math.round(Number(value || 0)).toLocaleString("en-IN") : moneyCellHtml(value);
       return `<div class="metric-row ${tone}"><span>${label}</span><strong>${shown}</strong></div>`;
     }
     function analysisScopeLabel(value) {
@@ -325,7 +334,7 @@
       return { all:"All items", overBp:"Over BP or beyond proportion", nearBp:"Near BP watch (75%-100%)", lowBp:"Low booking against BP (<50%)", negative:"Negative balance / excess", highOba:"High OBA utilization (75%+)", yoyRise:"Higher than previous year", yoyFall:"Lower than previous year" }[value] || value;
     }
     function compactTable(title, rows, columns) {
-      const body = rows.length ? rows.map(item => `<tr class="${item.Important ? "important-pu" : ""}">${columns.map(col => `<td class="${col.num ? "num" : ""}">${col.format === "percent" ? `<span class="dot ${utilizationClass(item[col.key])}"></span>` : ""}${htmlEscape(formatCell(item[col.key], col.format))}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${columns.length}">No alert items found for selected filter.</td></tr>`;
+      const body = rows.length ? rows.map(item => `<tr class="${item.Important ? "important-pu" : ""}">${columns.map(col => `<td class="${col.num ? "num" : ""}">${col.format === "percent" ? `<span class="dot ${utilizationClass(item[col.key])}"></span>` : ""}${formatCellHtml(item[col.key], col.format)}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${columns.length}">No alert items found for selected filter.</td></tr>`;
       return `<section class="analysis-panel"><h3>${title}</h3><table><thead><tr>${columns.map(col => `<th>${htmlEscape(col.label)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></section>`;
     }
     function analysisRows() {
@@ -385,7 +394,7 @@
       const overBp = rows.filter(row => row.AnalysisBPPct > 100 || row.AnalysisVariationBP > 0).length;
       const negative = rows.filter(row => row.AnalysisRemaining < 0).length;
       const important = rows.filter(row => row.Important).length;
-      return `<div class="finance-summary"><article class="finance-card"><span>Scope</span><strong>${htmlEscape(analysisScopeLabel(analysisState.scope))}</strong><em>${rows.length} review rows</em></article><article class="finance-card"><span>Actual Expenditure</span><strong>${formatNumber(totals.ae)}</strong><em>${formatNumber(totals.bpPct, 1)}% of BP</em></article><article class="finance-card"><span>OBA / RG Allotment</span><strong>${formatNumber(totals.oba)}</strong><em>${formatNumber(totals.obaPct, 1)}% utilized</em></article><article class="finance-card ${totals.remaining < 0 ? "danger" : "good"}"><span>Budget Remaining</span><strong>${formatNumber(totals.remaining)}</strong><em>${negative} negative balance rows</em></article><article class="finance-card warn"><span>Attention</span><strong>${overBp}</strong><em>over BP / excess booking rows</em></article><article class="finance-card"><span>Important PU</span><strong>${important}</strong><em>PU 27, 28, 30, 32, 60 in view</em></article></div>`;
+      return `<div class="finance-summary"><article class="finance-card"><span>Scope</span><strong>${htmlEscape(analysisScopeLabel(analysisState.scope))}</strong><em>${rows.length} review rows</em></article><article class="finance-card"><span>Actual Expenditure</span><strong>${moneyCellHtml(totals.ae)}</strong><em>${formatNumber(totals.bpPct, 1)}% of BP</em></article><article class="finance-card"><span>OBA / RG Allotment</span><strong>${moneyCellHtml(totals.oba)}</strong><em>${formatNumber(totals.obaPct, 1)}% utilized</em></article><article class="finance-card ${totals.remaining < 0 ? "danger" : "good"}"><span>Budget Remaining</span><strong>${moneyCellHtml(totals.remaining)}</strong><em>${negative} negative balance rows</em></article><article class="finance-card warn"><span>Attention</span><strong>${overBp}</strong><em>over BP / excess booking rows</em></article><article class="finance-card"><span>Important PU</span><strong>${important}</strong><em>PU 27, 28, 30, 32, 60 in view</em></article></div>`;
     }
     function renderAttentionStrip(rows) {
       const parts = [["Over BP", "overBp", rows.filter(row => row.AnalysisBPPct > 100 || row.AnalysisVariationBP > 0).length, "danger"], ["75%-100% BP", "nearBp", rows.filter(row => row.AnalysisBPPct >= 75 && row.AnalysisBPPct <= 100).length, "warn"], ["Low BP <50%", "lowBp", rows.filter(row => row.AnalysisBP > 0 && row.AnalysisBPPct < 50).length, "calm"], ["Negative Balance", "negative", rows.filter(row => row.AnalysisRemaining < 0).length, "danger"], ["YoY Increase", "yoyRise", rows.filter(row => row.AnalysisYoY > 0).length, "warn"], ["YoY Decrease", "yoyFall", rows.filter(row => row.AnalysisYoY < 0).length, "good"]];
@@ -395,7 +404,7 @@
       const grouped = rows.reduce((map, row) => { map[row.Source] = (map[row.Source] || 0) + Number(analysisMetricValue(row) || 0); return map; }, {});
       const entries = Object.entries(grouped).sort((a,b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 8);
       const max = Math.max(...entries.map(([, value]) => Math.abs(value)), 1);
-      return `<section class="analysis-panel metric-focus"><h3>${htmlEscape(analysisMetricLabel(analysisState.metric))} by Report</h3>${entries.map(([label, value]) => `<div class="bar-row"><strong>${htmlEscape(label)}</strong><div class="bar-track"><div class="bar-fill ${value < 0 ? "prev" : ""}" style="width:${Math.min(100, Math.abs(value) / max * 100)}%"></div></div><span>${analysisState.metric.endsWith("Pct") ? formatNumber(value, 1) + "%" : formatNumber(value)}</span></div>`).join("")}</section>`;
+      return `<section class="analysis-panel metric-focus"><h3>${htmlEscape(analysisMetricLabel(analysisState.metric))} by Report</h3>${entries.map(([label, value]) => `<div class="bar-row"><strong>${htmlEscape(label)}</strong><div class="bar-track"><div class="bar-fill ${value < 0 ? "prev" : ""}" style="width:${Math.min(100, Math.abs(value) / max * 100)}%"></div></div><span>${analysisState.metric.endsWith("Pct") ? formatNumber(value, 1) + "%" : moneyCellHtml(value)}</span></div>`).join("")}</section>`;
     }
     function renderAnalysisViewTabs() {
       const tabs = [["overview", "Overview"], ["alerts", "Attention Alerts"], ["drill", "PU / Demand Drilldown"], ["sources", "Protected Logic & Sources"]];
@@ -445,7 +454,7 @@
         });
       });
       if (!rows.length) return "";
-      return `<section class="special-demand-panel"><h3>Demand 12N / 10N - Separate Suspense Verification</h3><p>This suspense/negative demand is not included in main totals, attention cards, comparison item list, or export summary totals.</p><table><thead><tr><th>Report</th><th>Demand</th><th>OBA / RG</th><th>BP</th><th>AE</th><th>Remaining</th></tr></thead><tbody>${rows.map(row => `<tr class="special-demand"><td>${htmlEscape(row.source)}</td><td>${htmlEscape(row.name)}</td><td>${formatNumber(row.oba)}</td><td>${formatNumber(row.bp)}</td><td>${formatNumber(row.ae)}</td><td>${formatNumber(row.remaining)}</td></tr>`).join("")}</tbody></table></section>`;
+      return `<section class="special-demand-panel"><h3>Demand 12N / 10N - Separate Suspense Verification</h3><p>This suspense/negative demand is not included in main totals, attention cards, comparison item list, or export summary totals.</p><table><thead><tr><th>Report</th><th>Demand</th><th>OBA / RG</th><th>BP</th><th>AE</th><th>Remaining</th></tr></thead><tbody>${rows.map(row => `<tr class="special-demand"><td>${htmlEscape(row.source)}</td><td>${htmlEscape(row.name)}</td><td>${moneyCellHtml(row.oba)}</td><td>${moneyCellHtml(row.bp)}</td><td>${moneyCellHtml(row.ae)}</td><td>${moneyCellHtml(row.remaining)}</td></tr>`).join("")}</tbody></table></section>`;
     }
     function renderAnalysis() {
       document.getElementById("title").textContent = "Finance Attention Analysis";
@@ -507,7 +516,7 @@
     }
     function renderBarChart(values) {
       const max = Math.max(...values.map(item => Math.abs(item.value)), 1);
-      return `<section class="chart-panel"><h3>Bar Chart</h3>${values.map(item => `<div class="bar-row"><strong>${htmlEscape(item.label)}</strong><div class="bar-track"><div class="bar-fill ${item.cls}" style="width:${Math.min(100, Math.abs(item.value) / max * 100)}%"></div></div><span>${formatNumber(item.value)}</span></div>`).join("")}</section>`;
+      return `<section class="chart-panel"><h3>Bar Chart</h3>${values.map(item => `<div class="bar-row"><strong>${htmlEscape(item.label)}</strong><div class="bar-track"><div class="bar-fill ${item.cls}" style="width:${Math.min(100, Math.abs(item.value) / max * 100)}%"></div></div><span>${moneyCellHtml(item.value)}</span></div>`).join("")}</section>`;
     }
     function renderPieChart(values) {
       const parts = values.map(item => ({ ...item, abs:Math.abs(item.value) }));
@@ -519,7 +528,7 @@
         cursor += item.abs / total * 100;
         return `${colors[index]} ${start}% ${cursor}%`;
       }).join(", ");
-      return `<section class="chart-panel"><h3>Pie Chart</h3><div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops})"></div><div class="legend">${parts.map((item, index) => `<div><span style="background:${colors[index]}"></span>${htmlEscape(item.label)}: ${formatNumber(item.value)} (${formatNumber(item.abs / total * 100, 1)}%)</div>`).join("")}</div></div></section>`;
+      return `<section class="chart-panel"><h3>Pie Chart</h3><div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops})"></div><div class="legend">${parts.map((item, index) => `<div><span style="background:${colors[index]}"></span>${htmlEscape(item.label)}: ${moneyCellHtml(item.value)} (${formatNumber(item.abs / total * 100, 1)}%)</div>`).join("")}</div></div></section>`;
     }
     function renderUpload() {
       const { year } = syncYearEntry();
@@ -1084,7 +1093,7 @@
       if (!tab?.rows?.length) return "";
       const headers = tab.columns.map(col => `<th>${htmlEscape(String(col.label || "").replace(/\n/g, " "))}</th>`).join("");
       const note = isDemandTable(tabKey) ? demandSuspenseNoteHtml(tab.rows) : "";
-      const rows = tab.rows.map(row => `<tr class="${rowClassName(row)}">${tab.columns.map(col => `<td>${htmlEscape(formatCell(row[col.key], col.format))}</td>`).join("")}</tr>`).join("");
+      const rows = tab.rows.map(row => `<tr class="${rowClassName(row)}">${tab.columns.map(col => `<td>${col.key === "OBAPercent" || col.key === "BPPercent" ? alertDotHtml(row[col.key]) : ""}${formatCellHtml(row[col.key], col.format)}</td>`).join("")}</tr>`).join("");
       return `<section class="export-section"><h2>${htmlEscape(tab.title)}</h2>${note}<table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></section>`;
     }
     function sheetName(name, fallback = "Sheet") {
@@ -1162,31 +1171,47 @@
     }
     function currentExportStyles(mode) {
       return `<style>
-        @page{size:A4 landscape;margin:8mm}
-        body{font-family:Calibri,Arial,sans-serif;color:#17212b;margin:0;background:#fff}
+        @page{size:A4 landscape;margin:.25in}
+        *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+        body{font-family:Arial,sans-serif;color:#17212b;margin:0;background:#fff}
         main{width:100%;margin:0 auto}
-        h1{font-size:21px;text-align:center;margin:0 0 4px;color:#1f4e79}
-        h2{font-size:15px;margin:0 0 5px;color:#1f4e79}
-        .meta{font-size:11px;text-align:right;margin:0 0 8px;font-weight:700}
-        .export-cover{min-height:180mm;display:grid;place-items:center;text-align:center;break-after:page;page-break-after:always;border:2px solid #1f4e79;padding:18mm;box-sizing:border-box}
-        .export-cover h1{font-size:26px;margin:0 0 8px;color:#1f4e79}
-        .cover-meta{font-size:13px;line-height:1.6;font-weight:700;color:#17212b}
-        .cover-list{font-size:12px;line-height:1.5;color:#405060;margin-top:10px}
+        h1{font-size:20px;text-align:center;margin:0 0 4px;color:#1f4e79}
+        h2{font-size:14px;margin:8px 0 5px;color:#1f4e79}
+        .meta{font-size:9.5px;text-align:right;margin:0 0 7px;font-weight:700}
+        .export-cover{min-height:180mm;display:grid;place-items:center;text-align:center;break-after:page;page-break-after:always;border:2px solid #1f4e79;padding:14mm;box-sizing:border-box}
+        .export-cover h1{font-size:24px;margin:0 0 8px;color:#1f4e79}
+        .cover-meta{font-size:12px;line-height:1.5;font-weight:700;color:#17212b}
+        .cover-list{font-size:11px;line-height:1.45;color:#405060;margin-top:10px}
         .export-section{break-after:page;page-break-after:always;padding-top:1mm}
         .export-section:last-child{break-after:auto;page-break-after:auto}
-        table{width:100%;border-collapse:collapse;font-size:9.7px;table-layout:auto}
+        table{width:100%;border-collapse:collapse;font-size:8.2px;table-layout:fixed}
         thead{display:table-header-group}
         tfoot{display:table-footer-group}
         tr{break-inside:avoid;page-break-inside:avoid}
-        th,td{border:1px solid #9fb0bf;padding:3px 4px;vertical-align:middle;white-space:normal;word-break:normal;overflow-wrap:anywhere}
+        th,td{border:1px solid #000000;padding:2px 3px;vertical-align:middle;white-space:normal;word-break:break-word;overflow-wrap:anywhere}
         th{background:#1f4e79;color:#fff;text-align:center}
         td{text-align:right}
         td:first-child,th:first-child{text-align:left}
         tbody tr:nth-child(even) td{background:#e8f2f8}
         tr.total td{background:#c8d6e8;font-weight:700}
-        tr.important td{background:#fff4cc;font-weight:700}
+        tr.important td,tr.important-pu td{background:#fff4cc;font-weight:700}
+        tr.special-demand td{background:#fff1f1!important;color:#7a1f1f;font-weight:700}
+        .dual-money{display:block;text-align:right;line-height:1.05;font-family:"Times New Roman",Times,serif;font-variant-numeric:tabular-nums}
+        .dual-money span{display:block}
+        .dual-money .thousand{font-size:11px;font-family:"Times New Roman",Times,serif}
+        .dual-money .crore{margin-top:1px;font-size:9px;font-family:"Times New Roman",Times,serif;opacity:.72}
+        .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
+        .dot.green{background:#25a55b}.dot.yellow{background:#f2c230}.dot.red{background:#d92323}
+        .finance-summary,.risk-rail{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 7px}
+        .finance-card,.risk-tile,.analysis-panel,.protected-panel,.special-demand-panel{border:1px solid #c8d6e2;background:#fff;padding:6px;margin:0 0 7px}
+        .finance-card span,.risk-tile span{display:block;color:#607080;font-size:9px;font-weight:700;text-transform:uppercase}
+        .finance-card strong,.risk-tile strong{display:block;color:#1f4e79;font-size:12px}
+        .finance-card .dual-money,.metric-row .dual-money{text-align:left}
+        .bar-track,.track{height:10px;background:#edf4f8;border:1px solid #dbe6ee}
+        .bar-fill,.fill{height:100%;background:#1f4e79}
+        .analysis-toolbar,.analysis-view-tabs,.attention-strip,.pu-focus,.compare-toolbar,.actions,.tabs,.topbar,.note.analysis-note{display:none!important}
         .analysis-copy{margin-top:0;break-before:page;page-break-before:always}
-        .analysis-copy .note,.analysis-copy .dot{display:none}
+        .analysis-copy .note{display:none}
         .analysis-copy table{margin-bottom:10px}
         ${mode === "excel" ? ".export-cover{display:none}.export-section{page-break-after:auto}.analysis-copy{page-break-before:auto}" : ""}
       </style>`;
@@ -1201,13 +1226,182 @@
       const cover = `<section class="export-cover"><div><h1>Current / Previous Year PU and Demand Analysis</h1><div class="cover-meta">${exportNote()}<br>Generated ${generatedAt}</div><div class="cover-list">Includes Demand / SMH, PU Staff, PU Non-Staff, previous-year comparisons, current-year tables and Analysis View in portal sequence.</div></div></section>`;
       return `<!doctype html><html><head><meta charset="utf-8"><title>Current Previous Analysis Export</title>${currentExportStyles(mode)}</head><body><main>${cover}<h1>Current / Previous Year PU and Demand Analysis</h1><p class="meta">${exportNote()} Generated ${generatedAt}.</p>${tables}<section class="analysis-copy"><h2>Analysis View</h2>${analysisHtml}</section></main></body></html>`;
     }
+    function xlsxText(value) { return String(value ?? ""); }
+    function xlsxMoneyText(value) { return `${formatNumber(value)}\n${formatCrore(Number(value || 0) / 10000)} Cr`; }
+    function xlsxCell(value, style = "normal", rich = null) { return { value: value ?? "", style, rich }; }
+    function xlsxRunColor(style) {
+      if (String(style).includes("Bad") || style === "bad" || style === "special") return "FFA13131";
+      if (String(style).includes("Good") || style === "good") return "FF126A3A";
+      return "";
+    }
+    function xlsxAlertColor(value) {
+      return { green:"FF25A55B", yellow:"FFF2C230", red:"FFD92323" }[utilizationClass(value)] || "FF25A55B";
+    }
+    function xlsxMoneyCell(value, style = "normal") {
+      const main = formatNumber(value);
+      const cr = `${formatCrore(Number(value || 0) / 10000)} Cr`;
+      const color = xlsxRunColor(style);
+      return xlsxCell(`${main}\n${cr}`, style, [
+        { text: main, size: 11, color },
+        { text: "\n" },
+        { text: cr, size: 9, color }
+      ]);
+    }
+    function xlsxAlertCell(value, style = "normal", format = "int") {
+      const shown = formatCell(value, format);
+      return xlsxCell(`● ${shown}`, style, [
+        { text: "●", size: 11, color: xlsxAlertColor(value) },
+        { text: ` ${shown}`, size: 11 }
+      ]);
+    }
+    function xlsxFinancialStyle(value, base = "normal") {
+      if (Number(value || 0) < 0) return base === "total" ? "totalBad" : "bad";
+      if (Number(value || 0) > 0) return base === "total" ? "totalGood" : "good";
+      return base;
+    }
+    function currentTableRows(tabKey) {
+      const tab = tableForView(tabKey, { skipFocus: true });
+      if (!tab?.rows?.length) return null;
+      const rows = [
+        [xlsxCell(tab.title, "title")],
+        [xlsxCell(exportNote(), "meta")],
+        [xlsxCell("Source view follows portal display: values in '000 with Crore below.", "meta")],
+        tab.columns.map(col => xlsxCell(String(col.label || "").replace(/\n/g, " "), "header"))
+      ];
+      tab.rows.forEach((row, index) => {
+        const isTotal = isTotalRow(row);
+        const isImportant = isImportantPuRow(row);
+        const isSpecial = isDemandSuspenseRow(row);
+        const base = isTotal ? "total" : isSpecial ? "special" : isImportant ? "important" : index % 2 ? "alt" : "normal";
+        rows.push(tab.columns.map(col => {
+          const value = row[col.key];
+          if (col.format === "money") return xlsxMoneyCell(value, xlsxFinancialStyle(value, base));
+          if (col.key === "OBAPercent" || col.key === "BPPercent") return xlsxAlertCell(value, base, col.format);
+          if (col.format === "int" || col.format === "percent") return xlsxCell(formatCell(value, col.format), base);
+          return xlsxCell(xlsxText(value), base);
+        }));
+      });
+      return { title: tab.title, rows };
+    }
+    function analysisSummaryRows() {
+      const rows = [[xlsxCell("Analysis View", "title")], [xlsxCell(exportNote(), "meta")], [xlsxCell("Summary of all Current / Previous Analysis portal tables.", "meta")], ["Table", "Rows", "OBA / RG", "BP", "AE / Current Actual", "% OBA", "% BP"].map(label => xlsxCell(label, "header"))];
+      TAB_ORDER.forEach((key, index) => {
+        const tab = DATA[key];
+        const total = totalRow(tab);
+        const base = index % 2 ? "alt" : "normal";
+        rows.push([
+          xlsxCell(tab.title, base),
+          xlsxCell(normalTotalRows(tab.rows || []).length, base),
+          xlsxMoneyCell(numericValue(total, ["OBA", "PreviousOBA"]), base),
+          xlsxMoneyCell(numericValue(total, ["BP"]), base),
+          xlsxMoneyCell(numericValue(total, ["AE", "CurrentAE"]), base),
+          xlsxAlertCell(numericValue(total, ["OBAPercent"]), base, "percent"),
+          xlsxAlertCell(numericValue(total, ["BPPercent"]), base, "percent")
+        ]);
+      });
+      return rows;
+    }
+    function xmlEscape(value) { return String(value ?? "").replace(/[&<>"']/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&apos;" }[char])); }
+    function xlsxSheetName(name) { return String(name || "Sheet").replace(/[\\/?*[\]:]/g, " ").replace(/\s+/g, " ").trim().slice(0, 31) || "Sheet"; }
+    function xlsxColumnName(index) {
+      let text = "";
+      for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26)) text = String.fromCharCode(65 + ((n - 1) % 26)) + text;
+      return text;
+    }
+    const xlsxStyleIndex = { normal:0, header:1, title:2, meta:3, alt:4, total:5, important:6, special:7, good:8, bad:9, totalGood:10, totalBad:11 };
+    function xlsxCellWidth(cell) { return Math.max(...String(cell?.value ?? "").split("\n").map(part => part.length), 4); }
+    function xlsxWorksheetCols(rows) {
+      const maxCols = Math.max(1, ...rows.map(row => row.length));
+      return Array.from({ length:maxCols }, (_, index) => {
+        const maxText = rows.reduce((max, row) => Math.max(max, xlsxCellWidth(row[index])), 0);
+        const width = Math.max(index === 0 ? 18 : 11, Math.min(index === 0 ? 42 : 18, maxText + 2));
+        return `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`;
+      }).join("");
+    }
+    function xlsxRichTextXml(cell) {
+      if (!cell.rich) return `<is><t xml:space="preserve">${xmlEscape(cell.value)}</t></is>`;
+      const runs = cell.rich.map(run => {
+        const props = [run.size ? `<sz val="${run.size}"/>` : "", run.color ? `<color rgb="${run.color}"/>` : "", `<rFont val="Times New Roman"/>`].join("");
+        return `<r><rPr>${props}</rPr><t xml:space="preserve">${xmlEscape(run.text)}</t></r>`;
+      }).join("");
+      return `<is>${runs}</is>`;
+    }
+    function xlsxWorksheetXml(rows) {
+      const cols = xlsxWorksheetCols(rows);
+      const sheetRows = rows.map((row, rIndex) => {
+        const cells = row.map((cell, cIndex) => {
+          const ref = `${xlsxColumnName(cIndex)}${rIndex + 1}`;
+          return `<c r="${ref}" t="inlineStr" s="${xlsxStyleIndex[cell.style] ?? 0}">${xlsxRichTextXml(cell)}</c>`;
+        }).join("");
+        const height = rIndex < 4 ? 22 : 30;
+        return `<row r="${rIndex + 1}" ht="${height}" customHeight="1">${cells}</row>`;
+      }).join("");
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><cols>${cols}</cols><sheetData>${sheetRows}</sheetData><pageMargins left="0.25" right="0.25" top="0.25" bottom="0.25" header="0.1" footer="0.1"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+    }
+    function xlsxStylesXml() {
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="7"><font><sz val="11"/><name val="Times New Roman"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Times New Roman"/></font><font><b/><color rgb="FF1F4E79"/><sz val="14"/><name val="Times New Roman"/></font><font><b/><color rgb="FF607080"/><sz val="10"/><name val="Times New Roman"/></font><font><b/><sz val="11"/><name val="Times New Roman"/></font><font><color rgb="FF126A3A"/><sz val="11"/><name val="Times New Roman"/></font><font><color rgb="FFA13131"/><sz val="11"/><name val="Times New Roman"/></font></fonts><fills count="9"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E79"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8F2F8"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFC8D6E8"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF4CC"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF1F1"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF8FBFD"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF163B5C"/></patternFill></fill></fills><borders count="1"><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="12"><xf fontId="0" fillId="7" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="1" fillId="2" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf fontId="2" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf fontId="3" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="right" vertical="center" wrapText="1"/></xf><xf fontId="0" fillId="3" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="4" fillId="4" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="4" fillId="5" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="6" fillId="6" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="5" fillId="7" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="6" fillId="7" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="5" fillId="4" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="6" fillId="4" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+    }
+    function xlsxCrc32(bytes) {
+      const table = xlsxCrc32.table || (xlsxCrc32.table = Array.from({ length:256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; }));
+      let crc = -1;
+      for (const byte of bytes) crc = (crc >>> 8) ^ table[(crc ^ byte) & 255];
+      return (crc ^ -1) >>> 0;
+    }
+    function xlsxZip(files) {
+      const encoder = new TextEncoder();
+      const chunks = [];
+      const central = [];
+      let offset = 0;
+      const u16 = value => [value & 255, value >>> 8 & 255];
+      const u32 = value => [value & 255, value >>> 8 & 255, value >>> 16 & 255, value >>> 24 & 255];
+      files.forEach(file => {
+        const name = encoder.encode(file.name);
+        const data = encoder.encode(file.content);
+        const crc = xlsxCrc32(data);
+        const local = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0), ...name, ...data]);
+        chunks.push(local);
+        central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset), ...name]));
+        offset += local.length;
+      });
+      const centralSize = central.reduce((sum, part) => sum + part.length, 0);
+      const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(centralSize), ...u32(offset), ...u16(0)]);
+      return new Blob([...chunks, ...central, end], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    }
+    function xlsxWorkbookXml(sheetNames) {
+      const sheets = sheetNames.map((name, index) => `<sheet name="${xmlEscape(name)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`).join("");
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets}</sheets></workbook>`;
+    }
+    function xlsxWorkbookRelsXml(sheetNames) {
+      const sheetRels = sheetNames.map((_, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`).join("");
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheetRels}<Relationship Id="rId${sheetNames.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+    }
+    function xlsxContentTypesXml(sheetNames) {
+      const sheets = sheetNames.map((_, index) => `<Override PartName="/xl/worksheets/sheet${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("");
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets}</Types>`;
+    }
+    function currentWorkbookBlob() {
+      const sections = TAB_ORDER.map(currentTableRows).filter(Boolean);
+      sections.push({ title:"Analysis View", rows:analysisSummaryRows() });
+      const sheetNames = sections.map(section => xlsxSheetName(section.title));
+      const files = [
+        { name:"[Content_Types].xml", content:xlsxContentTypesXml(sheetNames) },
+        { name:"_rels/.rels", content:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+        { name:"xl/workbook.xml", content:xlsxWorkbookXml(sheetNames) },
+        { name:"xl/_rels/workbook.xml.rels", content:xlsxWorkbookRelsXml(sheetNames) },
+        { name:"xl/styles.xml", content:xlsxStylesXml() },
+        ...sections.map((section, index) => ({ name:`xl/worksheets/sheet${index + 1}.xml`, content:xlsxWorksheetXml(section.rows) }))
+      ];
+      return xlsxZip(files);
+    }
     async function exportCurrentExcel() {
-      await ensureSheetJS();
-      const workbook = XLSX.utils.book_new();
-      workbook.Props = { Title: "Current / Previous Year PU and Demand Analysis", Subject: "PPT-ready budget report export", Author: "MB Budget Portal", CreatedDate: new Date() };
-      TAB_ORDER.map(exportTableAoa).filter(Boolean).forEach(section => appendAoaSheet(workbook, section.title, section.rows));
-      appendAoaSheet(workbook, "Analysis View", analysisExportAoa());
-      XLSX.writeFile(workbook, exportFileName("Current_Previous_Year_PU_Demand_Analysis", "xlsx"));
+      const blob = currentWorkbookBlob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = exportFileName("Current_Previous_Year_PU_Demand_Analysis", "xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(link.href);
     }
     function exportCurrentPdf() {
       const win = window.open("", "_blank");

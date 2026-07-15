@@ -254,3 +254,19 @@
   .source-plan.compact{border-radius:12px;}
 }
 @media(max-width:430px){.actions{grid-template-columns:1fr}.finance-summary,.risk-rail{grid-template-columns:1fr}.topbar{top:40px}.division-title{font-size:17px}}
+
+.dual-money{display:flex;flex-direction:column;align-items:flex-end;line-height:1.05;font-family:"Times New Roman",Times,serif;font-variant-numeric:tabular-nums}.dual-money .thousand{font-size:11px;font-family:"Times New Roman",Times,serif}.dual-money .crore{margin-top:2px;font-size:9px;font-family:"Times New Roman",Times,serif;opacity:.72}.finance-card .dual-money,.metric-row .dual-money{align-items:flex-start}.bar-row .dual-money,.legend .dual-money{display:inline-flex;vertical-align:middle}
+
+/* Compact header pass */
+@media(min-width:761px){
+  .wrap{margin:0 auto 8px}
+  .division-title{font-size:19px;margin:0 0 1px;padding-top:2px}
+  .topbar{gap:3px;margin-bottom:3px}
+  .tabs,.actions{gap:3px}
+  button,.button-link{min-height:26px;padding:4px 7px;font-size:12px}
+  .hero{padding:3px 7px}
+  h1{font-size:19px}
+  .table-wrap{max-height:calc(100vh - 124px);padding-top:4px}
+  .compare-toolbar,.analysis-toolbar,.pu-focus{padding:6px 7px;margin-bottom:6px}
+  .finance-summary,.risk-rail,.analysis-grid{gap:6px;margin-bottom:7px}
+}

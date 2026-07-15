@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Portal Status / Data Health</title>
+  <link rel="stylesheet" href="../assets/status.css?v=20260715-compact-header-1">
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <div>
+        <h1>Portal Status / Data Health</h1>
+        <p>Static verification dashboard for current data basis, loaded reports, suspense handling and export readiness.</p>
+      </div>
+      <strong id="modePill">Checking portal mode...</strong>
+    </section>
+    <section class="grid" id="summaryCards"></section>
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Loaded Report Tables</h2>
+        <span>Figures in '000. Default basis: completed actuals up to JUN 2026.</span>
+      </div>
+      <div id="tableHealth"></div>
+    </section>
+    <section class="two">
+      <div class="panel">
+        <div class="panel-head"><h2>Attention Checks</h2><span>Items requiring review</span></div>
+        <div id="attentionList"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Export Files</h2><span>Download package readiness</span></div>
+        <div id="exportHealth"></div>
+      </div>
+    </section>
+  </main>
+  <script src="../data/current_payload.js?v=20260713-ppt-export-1"></script>
+  <script src="../data/reports-data.js?v=20260713-ppt-export-1"></script>
+  <script src="../data/year-sources.js?v=20260713-ppt-export-1"></script>
+  <script src="../assets/status.js?v=20260715-modernize-1"></script>
+</body>
+</html>

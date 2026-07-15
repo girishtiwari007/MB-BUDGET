@@ -61,6 +61,11 @@ function fmt(value, decimals = 0) {
   return Number(value).toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
+function moneyCell(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "N/A";
+  return `<span class="dual-money"><span class="thousand">${esc(fmt(value))}</span><span class="crore">${esc(fmt(Number(value) / 10000, 2))} Cr</span></span>`;
+}
+
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 }
@@ -310,8 +315,8 @@ function summaryHtml() {
     <div class="card"><span>Report Mode</span><strong>${esc(REPORTS[state.report].label)}</strong></div>
     <div class="card"><span>Selected Item</span><strong>${esc(state.scope === "yearly" ? (state.importantPuOnly ? "IMPORTANT PRIMARY UNITS" : "ALL PRIMARY UNIT") : optionLabel(state.item || "All"))}</strong></div>
     <div class="card"><span>Metric</span><strong>${esc(metricLabel())}</strong></div>
-    <div class="card"><span>Latest Year Total</span><strong>${fmt(latestTotal)}</strong></div>
-    <div class="card"><span>Highest Value</span><strong>${fmt(maxItem?.value)}</strong></div>
+    <div class="card"><span>Latest Year Total</span><strong>${moneyCell(latestTotal)}</strong></div>
+    <div class="card"><span>Highest Value</span><strong>${moneyCell(maxItem?.value)}</strong></div>
     <div class="card"><span>Years Available</span><strong>${availableYears}</strong></div>
   </div>`;
 }
@@ -326,7 +331,7 @@ function availabilityNote() {
 function insightHtml() {
   const vals = valuesForCurrent().filter((item) => item.value !== null);
   const top = [...vals].sort((a, b) => Math.abs(b.value) - Math.abs(a.value)).slice(0, 3);
-  return `<section class="insights"><div class="section-head"><h2>QUICK INSIGHTS</h2><span>${remarksText()}</span></div>${top.map((item) => `<div><strong>${esc(item.label)}</strong><span>${fmt(item.value)}</span></div>`).join("") || "<p>No values available for the selected report.</p>"}</section>`;
+  return `<section class="insights"><div class="section-head"><h2>QUICK INSIGHTS</h2><span>${remarksText()}</span></div>${top.map((item) => `<div><strong>${esc(item.label)}</strong><span>${moneyCell(item.value)}</span></div>`).join("") || "<p>No values available for the selected report.</p>"}</section>`;
 }
 
 function groupedChart() {
@@ -342,7 +347,7 @@ function groupedChart() {
 function barChart() {
   const vals = valuesForCurrent();
   const max = Math.max(...vals.map((item) => Math.abs(item.value || 0)), 1);
-  return `<section class="chart"><div class="section-head"><h2>${esc(metricLabel())}</h2><span>${remarksText()}</span></div>${vals.map((item, index) => `<div class="bar-row ${isImportantPuName(item.label) ? "important-pu" : ""}"><strong>${esc(item.label)}</strong><div class="track"><div class="fill y${index % 4 + 1}" style="width:${item.value === null ? 0 : Math.abs(item.value) / max * 100}%"></div></div><span>${fmt(item.value)}</span></div>`).join("")}</section>`;
+  return `<section class="chart"><div class="section-head"><h2>${esc(metricLabel())}</h2><span>${remarksText()}</span></div>${vals.map((item, index) => `<div class="bar-row ${isImportantPuName(item.label) ? "important-pu" : ""}"><strong>${esc(item.label)}</strong><div class="track"><div class="fill y${index % 4 + 1}" style="width:${item.value === null ? 0 : Math.abs(item.value) / max * 100}%"></div></div><span>${moneyCell(item.value)}</span></div>`).join("")}</section>`;
 }
 
 function pieChart() {
@@ -354,7 +359,7 @@ function pieChart() {
     cursor += item.abs / sum * 100;
     return `${colors[index % colors.length]} ${start}% ${cursor}%`;
   }).join(",");
-  return `<section class="chart"><div class="section-head"><h2>SHARE VIEW</h2><span>${remarksText()}</span></div><div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops || "#edf4f8 0 100%"})"></div><div>${vals.map((item, index) => `<div class="legend"><span style="background:${colors[index % colors.length]}"></span>${esc(item.label)}: ${fmt(item.value)} (${fmt(item.abs / sum * 100, 1)}%)</div>`).join("") || "No available values for pie chart."}</div></div></section>`;
+  return `<section class="chart"><div class="section-head"><h2>SHARE VIEW</h2><span>${remarksText()}</span></div><div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops || "#edf4f8 0 100%"})"></div><div>${vals.map((item, index) => `<div class="legend"><span style="background:${colors[index % colors.length]}"></span>${esc(item.label)}: ${moneyCell(item.value)} (${fmt(item.abs / sum * 100, 1)}%)</div>`).join("") || "No available values for pie chart."}</div></div></section>`;
 }
 
 function heatmap() {
@@ -364,8 +369,8 @@ function heatmap() {
   return `<section class="chart"><div class="section-head"><h2>HEATMAP</h2><span>${remarksText()}</span></div><table class="heat"><thead><tr><th>FINANCIAL YEAR</th>${DATA.months.map((month) => `<th>${month}</th>`).join("")}<th>Total</th></tr></thead><tbody>${fy.map((year) => `<tr><td>${esc(year)}</td>${DATA.months.map((month, index) => {
     const value = monthValue(s, year, index);
     const cls = value === null ? "" : Math.abs(value) > max * .66 ? "veryhot" : Math.abs(value) > max * .33 ? "hot" : "";
-    return `<td class="${cls}">${fmt(value)}</td>`;
-  }).join("")}<td>${fmt(periodTotal(s, year))}</td></tr>`).join("")}</tbody></table></section>`;
+    return `<td class="${cls}">${moneyCell(value)}</td>`;
+  }).join("")}<td>${moneyCell(periodTotal(s, year))}</td></tr>`).join("")}</tbody></table></section>`;
 }
 
 function legend(labels) {
@@ -375,7 +380,7 @@ function legend(labels) {
 function tableHtml() {
   const fy = years();
   const s = series(state.scope, state.item);
-  return `<section class="tablebox"><div class="section-head"><h2>DATA TABLE</h2><span>${remarksText()}</span></div><table class="data-table"><thead><tr><th>FINANCIAL YEAR</th>${DATA.months.map((month) => `<th>${month}</th>`).join("")}<th>Total</th></tr></thead><tbody>${fy.map((year) => `<tr><td>${esc(year)}</td>${DATA.months.map((month, index) => `<td>${fmt(monthValue(s, year, index))}</td>`).join("")}<td>${fmt(periodTotal(s, year))}</td></tr>`).join("")}</tbody></table></section>`;
+  return `<section class="tablebox"><div class="section-head"><h2>DATA TABLE</h2><span>${remarksText()}</span></div><table class="data-table"><thead><tr><th>FINANCIAL YEAR</th>${DATA.months.map((month) => `<th>${month}</th>`).join("")}<th>Total</th></tr></thead><tbody>${fy.map((year) => `<tr><td>${esc(year)}</td>${DATA.months.map((month, index) => `<td>${moneyCell(monthValue(s, year, index))}</td>`).join("")}<td>${moneyCell(periodTotal(s, year))}</td></tr>`).join("")}</tbody></table></section>`;
 }
 
 function demandSuspenseNoteHtml() {
@@ -385,7 +390,7 @@ function demandSuspenseNoteHtml() {
   const latest = latestYear();
   const rows = items.map((item) => {
     const { oba, bp, ae } = budgetValues("demand", item, latest);
-    return `<tr class="special-demand"><td>${esc(optionLabel(item))}</td><td>${esc(latest)}</td><td>${fmt(oba)}</td><td>${fmt(bp)}</td><td>${fmt(ae)}</td></tr>`;
+    return `<tr class="special-demand"><td>${esc(optionLabel(item))}</td><td>${esc(latest)}</td><td>${moneyCell(oba)}</td><td>${moneyCell(bp)}</td><td>${moneyCell(ae)}</td></tr>`;
   }).join("");
   return `<section class="special-demand-panel"><h2>Demand 12N / 10N - Separate Suspense Verification</h2><p>This suspense/negative demand is excluded from normal demand selectors, charts and appendix totals. It remains visible here for audit checking.</p><table><thead><tr><th>Demand</th><th>Year</th><th>OBA / RG</th><th>BP</th><th>AE</th></tr></thead><tbody>${rows}</tbody></table></section>`;
 }
@@ -397,7 +402,7 @@ function importantYearlyBreakdownHtml() {
     const s = series("pu", name);
     const values = fy.map((year) => periodTotal(s, year));
     const grandTotal = values.reduce((sum, value) => sum + Number(value || 0), 0);
-    return `<tr class="important-row"><td>${esc(optionLabel(name))}</td>${values.map((value) => `<td>${fmt(value)}</td>`).join("")}<td>${fmt(grandTotal)}</td></tr>`;
+    return `<tr class="important-row"><td>${esc(optionLabel(name))}</td>${values.map((value) => `<td>${moneyCell(value)}</td>`).join("")}<td>${moneyCell(grandTotal)}</td></tr>`;
   }).join("");
   return `<section class="tablebox focus-table"><div class="section-head"><h2>IMPORTANT PU YEAR-WISE BREAKUP</h2><span>PU 27, 28, 30, 32, 60 shown separately</span></div><table class="data-table"><thead><tr><th>PRIMARY UNIT</th>${fy.map((year) => `<th>${esc(year)}</th>`).join("")}<th>Total</th></tr></thead><tbody>${rows || `<tr><td colspan="${fy.length + 2}">No important PU data available.</td></tr>`}</tbody></table></section>`;
 }
@@ -413,7 +418,7 @@ function importantBudgetBreakdownHtml() {
       const { oba, bp, ae } = budgetValues("pu", name, year);
       const bpPercent = bp ? ae / bp * 100 : null;
       const obaPercent = oba ? ae / oba * 100 : null;
-      return `<tr class="important-row"><td>${esc(optionLabel(name))}</td><td>${esc(year)}</td><td>${fmt(oba)}</td><td>${fmt(bp)}</td><td>${fmt(ae)}</td><td>${fmt(ae === null || bp === null ? null : ae - bp)}</td><td>${fmt(bpPercent, 1)}</td><td>${fmt(obaPercent, 1)}</td></tr>`;
+      return `<tr class="important-row"><td>${esc(optionLabel(name))}</td><td>${esc(year)}</td><td>${moneyCell(oba)}</td><td>${moneyCell(bp)}</td><td>${moneyCell(ae)}</td><td>${moneyCell(ae === null || bp === null ? null : ae - bp)}</td><td>${fmt(bpPercent, 1)}</td><td>${fmt(obaPercent, 1)}</td></tr>`;
     });
   }).join("");
   const scopeText = names.length === 1 ? "selected important PU" : "each important PU";
@@ -568,6 +573,10 @@ function reportExportStyles(mode) {
     td:first-child,th:first-child{text-align:left}
     tbody tr:nth-child(even) td{background:#e8f2f8}
     .important-row td,.important-pu td{background:#fff4cc;font-weight:700}
+    .dual-money{display:flex;flex-direction:column;align-items:flex-end;line-height:1.05;font-family:"Times New Roman",Times,serif;font-variant-numeric:tabular-nums}
+    .dual-money .thousand{font-size:11px;font-family:"Times New Roman",Times,serif}
+    .dual-money .crore{margin-top:1px;font-size:9px;font-family:"Times New Roman",Times,serif;opacity:.72}
+    .card .dual-money,.bar-row .dual-money,.legend .dual-money,.insights .dual-money{display:inline-flex;vertical-align:middle}
     .summary,.report-layout{display:block}
     .card,.chart,.tablebox,.insights{border:1px solid #c8d6e2;margin:0 0 8px;padding:7px}
     .bar-row{display:grid;grid-template-columns:165px 1fr 105px;gap:8px;align-items:center;margin:5px 0;font-size:10px}
@@ -582,7 +591,7 @@ function monthlySourceTable(scope, title) {
   const items = Object.keys(DATA.monthly?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL" && !isDemandSuspenseName(item)).sort();
   const rows = items.flatMap((item) => years().map((year) => {
     const arr = DATA.monthly?.[scope]?.[item]?.[year];
-    return `<tr class="${isImportantPuName(item) ? "important-row" : ""}"><td>${esc(optionLabel(item))}</td><td>${esc(year)}</td>${DATA.months.map((_, index) => `<td>${fmt(monthValue({ [year]: arr }, year, index))}</td>`).join("")}<td>${fmt(total(arr, activeMonthLimit(year)))}</td></tr>`;
+    return `<tr class="${isImportantPuName(item) ? "important-row" : ""}"><td>${esc(optionLabel(item))}</td><td>${esc(year)}</td>${DATA.months.map((_, index) => `<td>${moneyCell(monthValue({ [year]: arr }, year, index))}</td>`).join("")}<td>${moneyCell(total(arr, activeMonthLimit(year)))}</td></tr>`;
   })).join("");
   return `<section class="export-section"><h2>${esc(title)}</h2><table><thead><tr><th>ITEM</th><th>FINANCIAL YEAR</th>${DATA.months.map((month) => `<th>${esc(month)}</th>`).join("")}<th>Total</th></tr></thead><tbody>${rows}</tbody></table></section>`;
 }
@@ -591,7 +600,7 @@ function budgetSourceTable(scope, title) {
   const items = Object.keys(DATA.budget?.[scope] || {}).filter((item) => item.toUpperCase() !== "TOTAL" && !isDemandSuspenseName(item)).sort();
   const rows = items.flatMap((item) => years().map((year) => {
     const { oba, bp, ae } = budgetValues(scope, item, year);
-    return `<tr class="${isImportantPuName(item) ? "important-row" : ""}"><td>${esc(optionLabel(item))}</td><td>${esc(year)}</td><td>${fmt(oba)}</td><td>${fmt(bp)}</td><td>${fmt(ae)}</td><td>${fmt(ae === null || bp === null ? null : ae - bp)}</td><td>${fmt(bp ? ae / bp * 100 : null, 1)}</td><td>${fmt(oba ? ae / oba * 100 : null, 1)}</td></tr>`;
+    return `<tr class="${isImportantPuName(item) ? "important-row" : ""}"><td>${esc(optionLabel(item))}</td><td>${esc(year)}</td><td>${moneyCell(oba)}</td><td>${moneyCell(bp)}</td><td>${moneyCell(ae)}</td><td>${moneyCell(ae === null || bp === null ? null : ae - bp)}</td><td>${fmt(bp ? ae / bp * 100 : null, 1)}</td><td>${fmt(oba ? ae / oba * 100 : null, 1)}</td></tr>`;
   })).join("");
   return `<section class="export-section"><h2>${esc(title)}</h2><table><thead><tr><th>ITEM</th><th>FINANCIAL YEAR</th><th>OBA</th><th>BP</th><th>AE</th><th>AE - BP</th><th>% BP Utilized</th><th>% OBA Utilized</th></tr></thead><tbody>${rows}</tbody></table></section>`;
 }

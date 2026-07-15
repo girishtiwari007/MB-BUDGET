@@ -32,3 +32,21 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#eef3f7;color:#1
   .frame.active{display:block;min-height:calc(100dvh - 116px);height:calc(100dvh - 116px);padding-bottom:0;background:#eef3f7;}
 }
 @media(max-width:390px){.nav{grid-auto-columns:minmax(84px,1fr)}.nav button{font-size:10.5px}.identity strong{font-size:17px}.metrics{grid-template-columns:1fr}}
+
+/* Compact header pass */
+@media(min-width:761px){
+  .brand-row{padding:8px 14px;gap:10px}
+  .emblem{width:46px;height:46px;font-size:18px;border-width:2px}
+  .identity strong{font-size:21px;line-height:1.08}
+  .identity em{font-size:12px;margin-top:1px}
+  .tag{padding:5px 8px;font-size:11px}
+  .bar{padding:0 10px;border-top-width:3px}
+  .nav button{padding:8px 11px;font-size:12px}
+  .home{margin:10px auto 18px}
+  .hero-head{padding:12px 14px;gap:12px}
+  .home h1{font-size:25px;margin-bottom:4px}
+  .notice{padding:8px 10px;font-size:12px;line-height:1.32}
+  .metric{padding:9px 10px}
+  .metric strong{font-size:17px}
+  .section-title{margin:11px 0 7px}
+}

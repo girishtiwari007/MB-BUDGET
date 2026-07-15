@@ -25,3 +25,17 @@
 @media(max-width:760px){.sync-controls{grid-template-columns:1fr}.sync-controls input{min-height:42px;border-radius:10px}.sync-grid{grid-template-columns:1fr}.sync-preview{border-radius:12px}.sync-preview:before{content:"Swipe left/right to review sync file list";position:sticky;left:0;display:block;width:max-content;margin:0 0 6px;padding:5px 8px;border:1px solid #d9c173;border-radius:5px;background:#fff9e5;color:#654c00;font-size:11px;font-weight:700}.sync-preview table{min-width:820px}}
 
 .sync-selectbar{position:sticky;left:0;z-index:3;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;padding:9px;border:1px solid var(--line);border-radius:6px;background:#f8fbfd}.sync-selectbar strong{color:var(--blue);margin-right:auto}.sync-preview input[type=checkbox]{width:17px;height:17px;accent-color:var(--teal)}.sync-preview th:first-child,.sync-preview td:first-child{text-align:center;width:58px}@media(max-width:760px){.sync-selectbar{border-radius:12px}.sync-selectbar .secondary{flex:1 1 130px}.sync-preview input[type=checkbox]{width:22px;height:22px}}
+
+/* Compact header pass */
+@media(min-width:761px){
+  .admin-wrap{margin:6px auto 16px}
+  .admin-hero{padding:10px 12px;margin-bottom:8px}
+  .admin-hero h1{font-size:22px}
+  .admin-hero p{font-size:12px;margin-top:2px}
+  .locked,.admin-app{padding:10px 12px}
+  .admin-tabs{margin-bottom:8px;gap:5px}
+  .admin-tabs button{padding:6px 9px;font-size:12px}
+  .panel-head{margin-bottom:7px}
+  .form-grid{gap:8px}
+  .backup-card{padding:9px;margin:7px 0}
+}

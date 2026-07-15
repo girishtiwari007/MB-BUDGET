@@ -17,6 +17,8 @@
   const mbrlrLog = document.getElementById("mbrlrLog");
   const confirmMbrlrSync = document.getElementById("confirmMbrlrSync");
   let lastMbrlrPreview = null;
+  function isLocalApiMode(){ return window.location.protocol === "file:" || ["localhost","127.0.0.1"].includes(window.location.hostname); }
+  function localOnlyMessage(){ return "This action needs the local upload server. Open the portal at http://127.0.0.1:8000/ from scripts/local-upload-server.py, then try again."; }
   function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
   function readSettings(){ return Object.assign(clone(defaults), window.MBBudgetCustom?.settings() || {}); }
   function getPath(obj,path){ return path.split(".").reduce((acc,key)=>acc?.[key],obj); }
@@ -32,6 +34,7 @@
     return `${window.location.origin}${path}`;
   }
   async function postForm(path, form){
+    if(!isLocalApiMode()) throw new Error(localOnlyMessage());
     const localApi = "http://127.0.0.1:8000";
     const urls = [apiUrl(path), `${localApi}${path}`, path, `..${path}`];
     let lastError = null;
@@ -42,7 +45,7 @@
         lastError = error;
       }
     }
-    throw lastError || new Error("Local API unavailable. Open portal through http://127.0.0.1:8000/.");
+    throw lastError || new Error(localOnlyMessage());
   }
   async function auth(){
     if(unlocked) return true;
@@ -170,5 +173,9 @@
   document.getElementById("confirmMbrlrSync")?.addEventListener("click",confirmMbrlrSyncRun);
   mbrlrYear?.addEventListener("input",()=>{lastMbrlrPreview=null; confirmMbrlrSync.disabled=true;});
   fillControls();
+  if(!isLocalApiMode()){
+    backupLog.textContent = localOnlyMessage();
+    mbrlrLog.textContent = localOnlyMessage();
+  }
 })();
 

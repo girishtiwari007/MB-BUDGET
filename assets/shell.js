@@ -1,6 +1,6 @@
 ﻿const frame=document.getElementById("contentFrame");
 const home=document.getElementById("home");
-const pages={fr:"pages/fr.html",current:"pages/current.html",reports:"pages/reports.html",admin:"pages/admin.html"};
+const pages={fr:"pages/fr.html",current:"pages/current.html",reports:"pages/reports.html",status:"pages/status.html",exports:"pages/exports.html",admin:"pages/admin.html"};
 function hardUrl(url){return `${url}${url.includes("?")?"&":"?"}fresh=${Date.now()}`;}
 function applyFrameCustom(){
   try { if (frame.contentWindow?.MBBudgetCustom) frame.contentWindow.MBBudgetCustom.apply(frame.contentDocument); }

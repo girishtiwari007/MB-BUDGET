@@ -1,0 +1,15 @@
+body{margin:0;background:#eef3f7;color:#17212b;font-family:Calibri,Arial,sans-serif}.wrap{width:min(1240px,calc(100vw - 18px));margin:9px auto 22px}.hero{background:#fff;border:1px solid #c8d6e2;border-top:4px solid #b71c1c;padding:15px 16px;box-shadow:0 8px 20px rgba(23,33,43,.08)}.hero h1{margin:0;color:#1f4e79;font-size:28px}.hero p{margin:5px 0 0;color:#607080;font-weight:700}.export-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}.group{background:#fff;border:1px solid #c8d6e2;box-shadow:0 5px 15px rgba(23,33,43,.06)}.group h2{margin:0;padding:10px 12px;background:#1f4e79;color:#fff;font-size:17px;border-bottom:3px solid #b71c1c}.group-body{display:grid;gap:8px;padding:10px}.export-card{border:1px solid #dbe6ee;background:#f8fbfd;padding:10px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}.export-card strong{display:block;color:#17212b}.export-card span{display:block;color:#607080;font-size:12px;font-weight:700;margin-top:3px}.export-card a{display:inline-flex;align-items:center;justify-content:center;min-height:34px;border:1px solid #126a66;background:#126a66;color:#fff;border-radius:5px;padding:6px 10px;text-decoration:none;font-weight:900;white-space:nowrap}.note{margin-top:12px;border:1px solid #d9c173;background:#fff9e5;color:#654c00;padding:10px 12px;font-weight:700}.note strong{color:#4d3700}@media(max-width:760px){.wrap{width:100%;margin:0}.hero,.group,.note{border-left:0;border-right:0;box-shadow:none}.hero h1{font-size:22px}.export-board{grid-template-columns:1fr;margin-top:8px}.export-card{grid-template-columns:1fr}.export-card a{width:100%}}
+
+/* Compact header pass */
+@media(min-width:761px){
+  .wrap{margin:5px auto 14px}
+  .hero{padding:10px 12px;border-top-width:3px}
+  .hero h1{font-size:23px}
+  .hero p{font-size:12px;margin-top:2px}
+  .export-board{gap:9px;margin-top:9px}
+  .group h2{padding:8px 10px;font-size:15px}
+  .group-body{gap:6px;padding:8px}
+  .export-card{padding:8px;gap:8px}
+  .export-card a{min-height:30px;padding:5px 9px}
+  .note{margin-top:9px;padding:8px 10px;font-size:12px}
+}
