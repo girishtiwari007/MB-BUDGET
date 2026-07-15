@@ -243,6 +243,39 @@
       padding: 12px;
     }
     .upload-box h3 { margin: 0 0 8px; color: #1f4e79; font-size: 14px; }
+    .upload-toggle {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin: 12px 0 0;
+    }
+    .upload-toggle button {
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .upload-toggle button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .fr-copy-card {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-left: 4px solid var(--accent);
+      border-radius: 6px;
+      padding: 9px 10px;
+      margin-top: 8px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .fr-copy-card.previous { border-left-color: #d7a72b; }
+    .fr-copy-card strong { display: block; color: #1f4e79; font-size: 13px; margin-bottom: 4px; }
+    .fr-copy-card span { display: block; color: var(--muted); }
     .upload-path, .backup-list {
       margin: 6px 0 0;
       color: var(--muted);
@@ -460,7 +493,7 @@
     const FR_UPLOAD_PASSWORD_HASH = "5da81407a1ca25f429bfa4df57e5de851021113dde761bfac560027448b0907f";
     const FR_UPLOAD_SESSION_KEY = "mbBudgetFrUploadUnlocked";
     const FR_UPLOAD_BROWSER_MANIFEST_KEY = "mbBudgetFrUploadManifest";
-    const FR_UPLOAD_STATE = { file: null, manifest: null, loading: false, unlocked: sessionStorage.getItem(FR_UPLOAD_SESSION_KEY) === "1", password: '', status: 'Select latest FR Excel file, verify the file, then confirm. On GitHub Pages confirmation is recorded in this browser.', statusType: 'muted' };
+    const FR_UPLOAD_STATE = { file: null, manifest: null, loading: false, unlocked: sessionStorage.getItem(FR_UPLOAD_SESSION_KEY) === "1", password: '', view: 'current', asOnDate: new Date().toISOString().slice(0, 10), status: 'Select latest FR Excel file, verify the file, then confirm. On GitHub Pages confirmation is recorded in this browser.', statusType: 'muted' };
 
     const fmt = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 });
     const pct = value => `${Number.isFinite(value) ? value.toFixed(2) : "0.00"}%`;
@@ -811,24 +844,64 @@
 
     function saveFrUploadInBrowser(file) {
       const previous = FR_UPLOAD_STATE.manifest || {};
+      const asOnDate = selectedFrAsOnDateIso();
       const previousActive = previous.activeFile && previous.activeFile !== "No FR source file stored yet" ? previous.activeFile : "";
       const backups = [...(previous.backups || [])];
       if (previousActive) {
         backups.unshift({
-          name: `browser-backup-${new Date().toISOString().slice(0, 10)}`,
+          name: `Previous FR copy - ${new Date().toISOString().slice(0, 10)}`,
+          activeFile: previousActive,
+          originalName: previous.originalName || previousActive,
+          uploadedAt: previous.uploadedAt || asOnDate,
           files: [previousActive, previous.originalName || ""].filter(Boolean)
         });
       }
       const manifest = {
         activeFile: `Browser confirmed: ${file.name}`,
         originalName: file.name,
-        uploadedAt: new Date().toISOString(),
+        uploadedAt: asOnDate,
         backups: backups.slice(0, 2),
         browserStored: true
       };
       localStorage.setItem(FR_UPLOAD_BROWSER_MANIFEST_KEY, JSON.stringify(manifest));
       FR_UPLOAD_STATE.manifest = manifest;
       return manifest;
+    }
+
+    function formatUploadDate(value) {
+      return value ? new Date(value).toLocaleString("en-IN") : "Not available";
+    }
+
+    function selectedFrAsOnDateIso() {
+      const date = FR_UPLOAD_STATE.asOnDate || new Date().toISOString().slice(0, 10);
+      return new Date(`${date}T${new Date().toTimeString().slice(0, 8)}`).toISOString();
+    }
+
+    function frCopyCard(copy, index, current = false) {
+      const title = current ? "Current FR Copy" : `Previous FR Copy ${index + 1}`;
+      const fileName = copy?.originalName || copy?.activeFile || copy?.name || "Not available";
+      const storedName = copy?.activeFile || copy?.name || "Not available";
+      const uploadedAt = formatUploadDate(copy?.uploadedAt);
+      return `<div class="fr-copy-card ${current ? "current" : "previous"}"><strong>${title}</strong><span><b>File:</b> ${htmlEscape(fileName)}</span><span><b>Stored as:</b> ${htmlEscape(storedName)}</span><span><b>As on date:</b> ${htmlEscape(uploadedAt)}</span></div>`;
+    }
+
+    function frUploadToggleHtml() {
+      return `<div class="upload-toggle"><button type="button" class="${FR_UPLOAD_STATE.view === "current" ? "active" : ""}" data-fr-upload-view="current">Current FR</button><button type="button" class="${FR_UPLOAD_STATE.view === "previous" ? "active" : ""}" data-fr-upload-view="previous">Previous FR Copies</button></div>`;
+    }
+
+    function frUploadCopiesHtml(manifest) {
+      const currentCopy = {
+        activeFile: manifest.activeFile || "No FR source file stored yet",
+        originalName: manifest.originalName || "",
+        uploadedAt: manifest.uploadedAt || ""
+      };
+      const backups = (manifest.backups || []).slice(0, 2);
+      if (FR_UPLOAD_STATE.view === "previous") {
+        return backups.length
+          ? backups.map((item, index) => frCopyCard(item, index, false)).join("")
+          : `<div class="fr-copy-card previous"><strong>Previous FR Copies</strong><span>No previous backup copy available yet.</span></div>`;
+      }
+      return frCopyCard(currentCopy, 0, true);
     }
 
     function frUploadPanel() {
@@ -838,7 +911,7 @@
       const uploadedAt = manifest.uploadedAt ? new Date(manifest.uploadedAt).toLocaleString("en-IN") : "Not available";
       const originalName = manifest.originalName || "Not available";
       const backups = (manifest.backups || []).length
-        ? manifest.backups.map(item => `<li><strong>${htmlEscape(item.name)}</strong><br>${(item.files || []).map(file => htmlEscape(file)).join("<br>") || "Backup folder empty"}</li>`).join("")
+        ? manifest.backups.slice(0, 2).map((item, index) => `<li><strong>Previous FR Copy ${index + 1}</strong><br>${htmlEscape(item.originalName || item.activeFile || item.name || "Not available")}<br>As on date: ${htmlEscape(formatUploadDate(item.uploadedAt))}</li>`).join("")
         : "<li>No previous backup copy available yet.</li>";
       const selected = FR_UPLOAD_STATE.file
         ? `${htmlEscape(FR_UPLOAD_STATE.file.name)} (${formatFileSize(FR_UPLOAD_STATE.file.size)})`
@@ -847,6 +920,8 @@
         <div class="upload-card">
           <p class="subtitle">Upload the latest FR Budget Status Excel file separately from current-year revenue data. The confirmed file is stored under <strong>data/fr</strong>, and the previous active FR file is kept in the latest two backup folders.</p>
           <div class="upload-status muted">${isLocalApiHost() ? "Local mode: Confirm & Store writes through the local upload server." : "GitHub Pages mode: password unlock, file verify, and confirmation work in browser. Repository file update is completed by committing the same file to data/fr."}</div>
+          ${frUploadToggleHtml()}
+          ${frUploadCopiesHtml(manifest)}
           <div class="upload-grid">
             <div class="upload-box">
               <h3>Current FR Source</h3>
@@ -861,6 +936,7 @@
             </div>
           </div>
           <label class="file-picker">Upload latest FR file (.xls or .xlsx)<input type="file" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" data-fr-upload-file></label>
+          <label class="file-picker">FR as on date<input type="date" value="${htmlEscape(FR_UPLOAD_STATE.asOnDate)}" data-fr-as-on-date></label>
           <div class="upload-path"><strong>Selected file:</strong> ${selected}</div>
           <div class="upload-actions">
             <button class="reset-btn" type="button" data-fr-upload-check>Verify Selected File</button>
@@ -890,6 +966,8 @@
       }
       if (!isLocalApiHost()) {
         const saved = saveFrUploadInBrowser(file);
+        FR_UPLOAD_STATE.file = null;
+        FR_UPLOAD_STATE.view = "current";
         FR_UPLOAD_STATE.status = `Confirmed for GitHub-hosted portal: ${saved.originalName}. This browser now shows it as latest FR upload. Commit the same file into data/fr when updating the repository.`;
         FR_UPLOAD_STATE.statusType = "good";
         renderPanels();
@@ -911,6 +989,8 @@
         FR_UPLOAD_STATE.statusType = "good";
       } catch (error) {
         const saved = saveFrUploadInBrowser(file);
+        FR_UPLOAD_STATE.file = null;
+        FR_UPLOAD_STATE.view = "current";
         FR_UPLOAD_STATE.status = `Local upload API not available, so browser confirmation was saved instead: ${saved.originalName}.`;
         FR_UPLOAD_STATE.statusType = "good";
       }
@@ -957,6 +1037,14 @@
     });
 
     appEl.addEventListener("change", event => {
+      const asOnDateInput = event.target.closest("[data-fr-as-on-date]");
+      if (asOnDateInput) {
+        FR_UPLOAD_STATE.asOnDate = asOnDateInput.value || new Date().toISOString().slice(0, 10);
+        FR_UPLOAD_STATE.status = `FR as on date set to ${FR_UPLOAD_STATE.asOnDate}.`;
+        FR_UPLOAD_STATE.statusType = "muted";
+        renderPanels();
+        return;
+      }
       const uploadInput = event.target.closest("[data-fr-upload-file]");
       if (uploadInput) {
         FR_UPLOAD_STATE.file = uploadInput.files[0] || null;
@@ -972,6 +1060,12 @@
     });
 
     appEl.addEventListener("click", event => {
+      const uploadViewButton = event.target.closest("[data-fr-upload-view]");
+      if (uploadViewButton) {
+        FR_UPLOAD_STATE.view = uploadViewButton.dataset.frUploadView;
+        renderPanels();
+        return;
+      }
       if (event.target.closest("[data-reset-filter]")) {
         filterState.planHead = "ALL";
         filterState.fund = "ALL";
