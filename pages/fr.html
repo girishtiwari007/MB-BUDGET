@@ -157,6 +157,24 @@
       font-size: 11px;
       opacity: 1;
     }
+    @media (min-width: 761px) {
+      main { padding: 8px 18px 16px; }
+      .table-wrap { max-height: calc(100vh - 174px); }
+      table { font-size: 13px; }
+      th, td { padding: 8px 9px; }
+      th { line-height: 1.16; }
+      .dual-money { line-height: 1.08; }
+      .dual-money .thousand { font-size: 12.5px; font-weight: 700; }
+      .dual-money .crore { font-size: 9.5px; opacity: .82; }
+      .dual-money.single .crore { font-size: 12.5px; }
+      tr.total-row .dual-money .thousand,
+      .stat .dual-money .thousand { font-size: 13px; }
+    }
+    @media (max-width: 760px) {
+      .dual-money { line-height: 1.1; }
+      .dual-money .thousand { font-size: 12px; font-weight: 700; }
+      .dual-money .crore { font-size: 9.5px; opacity: .82; }
+    }
     .stat .dual-money { align-items: flex-start; }
     td.name { min-width: 210px; }
     td.head { text-align: center; font-weight: 700; }
@@ -835,11 +853,11 @@
         .report-figure, .note { color:var(--muted); font-size:10px; font-weight:700; text-align:right; }
         .bar { height:7px; background:#edf1f5; border-radius:99px; overflow:hidden; }
         .bar > span { display:block; height:100%; background:var(--accent); }
-        .dual-money { display:block; text-align:right; line-height:1.05; font-family:"Times New Roman", Times, serif; font-variant-numeric:tabular-nums; }
+        .dual-money { display:block; text-align:right; line-height:1.08; font-family:"Times New Roman", Times, serif; font-variant-numeric:tabular-nums; }
         .dual-money span { display:block; }
-        .dual-money .thousand { font-size:11px; font-family:"Times New Roman", Times, serif; }
-        .dual-money .crore { margin-top:1px; font-size:9px; font-family:"Times New Roman", Times, serif; opacity:.72; }
-        .dual-money.single .crore { margin-top:0; font-size:11px; opacity:1; }
+        .dual-money .thousand { font-size:12px; font-weight:700; font-family:"Times New Roman", Times, serif; }
+        .dual-money .crore { margin-top:1px; font-size:9.5px; font-family:"Times New Roman", Times, serif; opacity:.82; }
+        .dual-money.single .crore { margin-top:0; font-size:12px; opacity:1; }
         .stat .dual-money { text-align:left; }
         .analysis-table, .report-table { font-size:9.5px; }
         ${mode === "excel" ? ".export-section{page-break-after:auto;break-after:auto;margin-bottom:18px}.bar{display:none}" : ""}

@@ -573,9 +573,9 @@ function reportExportStyles(mode) {
     td:first-child,th:first-child{text-align:left}
     tbody tr:nth-child(even) td{background:#e8f2f8}
     .important-row td,.important-pu td{background:#fff4cc;font-weight:700}
-    .dual-money{display:flex;flex-direction:column;align-items:flex-end;line-height:1.05;font-family:"Times New Roman",Times,serif;font-variant-numeric:tabular-nums}
-    .dual-money .thousand{font-size:11px;font-family:"Times New Roman",Times,serif}
-    .dual-money .crore{margin-top:1px;font-size:9px;font-family:"Times New Roman",Times,serif;opacity:.72}
+    .dual-money{display:flex;flex-direction:column;align-items:flex-end;line-height:1.08;font-family:"Times New Roman",Times,serif;font-variant-numeric:tabular-nums}
+    .dual-money .thousand{font-size:12px;font-weight:700;font-family:"Times New Roman",Times,serif}
+    .dual-money .crore{margin-top:1px;font-size:9.5px;font-family:"Times New Roman",Times,serif;opacity:.82}
     .card .dual-money,.bar-row .dual-money,.legend .dual-money,.insights .dual-money{display:inline-flex;vertical-align:middle}
     .summary,.report-layout{display:block}
     .card,.chart,.tablebox,.insights{border:1px solid #c8d6e2;margin:0 0 8px;padding:7px}

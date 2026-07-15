@@ -1196,10 +1196,10 @@
         tr.total td{background:#c8d6e8;font-weight:700}
         tr.important td,tr.important-pu td{background:#fff4cc;font-weight:700}
         tr.special-demand td{background:#fff1f1!important;color:#7a1f1f;font-weight:700}
-        .dual-money{display:block;text-align:right;line-height:1.05;font-family:"Times New Roman",Times,serif;font-variant-numeric:tabular-nums}
+        .dual-money{display:block;text-align:right;line-height:1.08;font-family:"Times New Roman",Times,serif;font-variant-numeric:tabular-nums}
         .dual-money span{display:block}
-        .dual-money .thousand{font-size:11px;font-family:"Times New Roman",Times,serif}
-        .dual-money .crore{margin-top:1px;font-size:9px;font-family:"Times New Roman",Times,serif;opacity:.72}
+        .dual-money .thousand{font-size:12px;font-weight:700;font-family:"Times New Roman",Times,serif}
+        .dual-money .crore{margin-top:1px;font-size:9.5px;font-family:"Times New Roman",Times,serif;opacity:.82}
         .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
         .dot.green{background:#25a55b}.dot.yellow{background:#f2c230}.dot.red{background:#d92323}
         .finance-summary,.risk-rail{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 7px}

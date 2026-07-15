@@ -47,3 +47,26 @@ body{margin:0;font-family:Calibri,Arial,sans-serif;background:#eef3f7;color:#172
   .summary{gap:6px;margin-bottom:7px}
   .card{padding:7px}
 }
+
+/* Readability balance after crore display */
+@media(min-width:761px){
+  .content{max-height:calc(100vh - 146px)}
+  .data-table,.heat{font-size:12.6px}
+  .data-table th,.data-table td,.heat th,.heat td{padding:6px 8px}
+  .data-table th,.heat th{line-height:1.16;min-width:66px}
+  .card strong{font-size:17px}
+  .bar-row{font-size:12.5px}
+  .insights div{font-size:12.5px;padding:8px 0}
+  .dual-money{line-height:1.08}
+  .dual-money .thousand{font-size:12.5px;font-weight:700}
+  .dual-money .crore{font-size:9.5px;opacity:.82}
+  .card .dual-money .thousand,
+  .important-row .dual-money .thousand{font-size:13px}
+}
+@media(max-width:760px){
+  .data-table,.heat{font-size:11.5px}
+  .data-table th,.data-table td,.heat th,.heat td{padding:6px 6px}
+  .dual-money{line-height:1.1}
+  .dual-money .thousand{font-size:12px;font-weight:700}
+  .dual-money .crore{font-size:9.5px;opacity:.82}
+}
