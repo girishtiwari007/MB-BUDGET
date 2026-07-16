@@ -1,0 +1,37 @@
+table.table-highlight-enabled th,
+table.table-highlight-enabled td {
+  transition: background-color .08s ease, box-shadow .08s ease, color .08s ease;
+}
+
+table.table-highlight-enabled tr.table-hover-row > th,
+table.table-highlight-enabled tr.table-hover-row > td,
+table.table-highlight-enabled .table-hover-col {
+  background: #fff4b8 !important;
+  color: #17212b !important;
+}
+
+table.table-highlight-enabled .table-hover-cell {
+  background: #ffe78a !important;
+  box-shadow: inset 0 0 0 2px #b77800;
+  color: #17212b !important;
+}
+
+table.table-highlight-enabled tr.table-pinned-row > th,
+table.table-highlight-enabled tr.table-pinned-row > td,
+table.table-highlight-enabled .table-pinned-col {
+  background: #ffe3a3 !important;
+  color: #17212b !important;
+}
+
+table.table-highlight-enabled .table-pinned-cell {
+  background: #ffd46b !important;
+  box-shadow: inset 0 0 0 2px #8a4b00;
+  color: #17212b !important;
+}
+
+table.table-highlight-enabled th.table-hover-col,
+table.table-highlight-enabled th.table-hover-cell,
+table.table-highlight-enabled th.table-pinned-col,
+table.table-highlight-enabled th.table-pinned-cell {
+  color: #0f2f4d !important;
+}
