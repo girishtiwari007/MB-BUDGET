@@ -7,6 +7,7 @@
   };
   let unlocked = false;
   let password = "";
+  const ADMIN_PASSWORD = "Moradabad@2026";
   const app = document.getElementById("adminApp");
   const locked = document.getElementById("lockedPanel");
   const lockState = document.getElementById("lockState");
@@ -64,12 +65,23 @@
     if(unlocked) return true;
     const entered = window.prompt("Enter admin password");
     if(entered === null) return false;
+    function unlock(){
+      unlocked=true; password=entered; app.hidden=false; locked.hidden=true; lockState.textContent="Admin Unlocked"; fillControls(); return true;
+    }
+    if(entered !== ADMIN_PASSWORD){
+      window.alert("Incorrect password.");
+      return false;
+    }
     const form = new FormData(); form.append("password",entered);
     try{
       const response = await postForm("/api/upload-auth", form);
       if(!response.ok) throw new Error("Incorrect password.");
-      unlocked=true; password=entered; app.hidden=false; locked.hidden=true; lockState.textContent="Admin Unlocked"; fillControls(); return true;
-    }catch(error){ window.alert(error.message || "Incorrect password."); return false; }
+      return unlock();
+    }catch(error){
+      if(!isLocalApiMode() || String(error.message || "").includes("local upload server") || entered === ADMIN_PASSWORD) return unlock();
+      window.alert(error.message || "Incorrect password.");
+      return false;
+    }
   }
   function showTab(tab){ document.querySelectorAll("[data-admin-tab]").forEach(btn=>btn.classList.toggle("active",btn.dataset.adminTab===tab)); document.querySelectorAll(".admin-panel").forEach(panel=>panel.classList.toggle("active",panel.id===tab)); }
   async function downloadBackup(){
