@@ -16,7 +16,20 @@
   const mbrlrPreview = document.getElementById("mbrlrPreview");
   const mbrlrLog = document.getElementById("mbrlrLog");
   const confirmMbrlrSync = document.getElementById("confirmMbrlrSync");
+  const divisionSetupLog = document.getElementById("divisionSetupLog");
+  const divisionSetupPreview = document.getElementById("divisionSetupPreview");
+  const setupFileRows = document.getElementById("setupFileRows");
   let lastMbrlrPreview = null;
+  let lastDivisionSetup = null;
+  const divisionFileRoles = [
+    ["Primary Unit Budget", "OBA/BG_ISL/RG budget by PU", "PU Wise {YEAR} Budget.xls/.xlsx", "data/source-files/{YEAR}/pu-budget.xls"],
+    ["Primary Unit Month-wise Actual", "Actual expenditure month-wise by PU", "PU Wise Month Wise {YEAR} Actual.xls/.xlsx", "data/source-files/{YEAR}/pu-month-actual.xls"],
+    ["PU-Dept-Demand-SMH Budget", "Department, demand and SMH budget mapping by PU", "SMH-DEMAND Wise PU wise Dept wise Month Wise {YEAR} Budget.xls/.xlsx", "data/source-files/{YEAR}/pu-dept-demand-smh-budget.xls"],
+    ["PU-Dept-Demand-SMH Actual", "Department, demand and SMH actual expenditure by PU", "SMH-DEMAND Wise PU wise Dept wise Month Wise {YEAR} Actual.xls/.xlsx", "data/source-files/{YEAR}/pu-dept-demand-smh-actual.xls"],
+    ["Demand / SMH Budget", "Demand / SMH wise budget summary", "SMH-DEMAND Wise {YEAR} Budget.xls/.xlsx", "data/source-files/{YEAR}/demand-smh-budget.xls"],
+    ["Demand / SMH Actual", "Demand / SMH wise actual expenditure", "SMH-DEMAND WISE {YEAR} ACTUAL.xls/.xlsx", "data/source-files/{YEAR}/demand-smh-actual.xls"],
+    ["FR Budget Status", "Fund Review statement for Open Line / GSU", "FR Budget Status as-on-date.xls/.xlsx", "data/fr/FR_Budget_Status.xlsx"]
+  ];
   function isLocalApiMode(){ return window.location.protocol === "file:" || ["localhost","127.0.0.1"].includes(window.location.hostname); }
   function localOnlyMessage(){ return "This action needs the local upload server. Open the portal at http://127.0.0.1:8000/ from scripts/local-upload-server.py, then try again."; }
   function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
@@ -80,6 +93,102 @@
     if(value >= 1024*1024) return `${(value/1024/1024).toFixed(1)} MB`;
     if(value >= 1024) return `${(value/1024).toFixed(1)} KB`;
     return `${value} B`;
+  }
+  function safeSlug(value){
+    return String(value || "").trim().replace(/[^A-Za-z0-9]+/g,"-").replace(/^-+|-+$/g,"").toUpperCase() || "DIVISION-BUDGET";
+  }
+  function setupValue(id){ return document.getElementById(id)?.value?.trim() || ""; }
+  function setupConfig(){
+    const currentYear = setupValue("setupCurrentYear") || "2026-2027";
+    const division = setupValue("setupDivision") || "New Division";
+    const repoName = setupValue("setupRepo") || `${safeSlug(division)}-BUDGET`;
+    return {
+      generatedAt: new Date().toISOString(),
+      portalTemplate: "MB-BUDGET",
+      railway: setupValue("setupRailway") || "Railway",
+      division,
+      department: setupValue("setupDepartment") || "Accounts Department",
+      repoName,
+      currentYear,
+      previousYear: setupValue("setupPreviousYear") || "",
+      completedPeriod: {
+        label: setupValue("setupCompletedMonth") || "JUN 2026",
+        monthCount: Number(setupValue("setupCompletedCount") || 3)
+      },
+      runningPeriod: {
+        label: setupValue("setupRunningMonth") || "JUL 2026",
+        monthCount: Number(setupValue("setupRunningCount") || 4)
+      },
+      sourceFiles: divisionFileRoles.map(([role, purpose, pattern, target]) => ({
+        role,
+        purpose,
+        expectedFileName: pattern.replaceAll("{YEAR}", currentYear),
+        parserTarget: target.replaceAll("{YEAR}", currentYear)
+      })),
+      setupSteps: []
+    };
+  }
+  function setupSteps(config){
+    return [
+      `1. Create or clone a new GitHub repository named ${config.repoName}.`,
+      "2. Copy the MB-BUDGET portal files into the new repository as the starting template.",
+      `3. Replace visible branding with ${config.railway} / ${config.division} / ${config.department}.`,
+      `4. Place previous year static files under data/source-files/${config.previousYear || "PREVIOUS-YEAR"}/ using the parser target names shown below.`,
+      `5. Upload current year files for ${config.currentYear} through Data Upload Centre, or place them under data/source-files/${config.currentYear}/ with the same target names.`,
+      `6. Confirm completed actual basis: ${config.completedPeriod.label} / ${config.completedPeriod.monthCount} months. Running month remains ${config.runningPeriod.label} / ${config.runningPeriod.monthCount} months only in till-date views.`,
+      "7. Open Data Health and confirm source availability, Demand 12N / 10N handling, important PU list and export readiness.",
+      "8. Generate Current/Previous, FR and DRM exports, then review the Authority Review Pack before sharing.",
+      "9. Commit only after local verification and user/admin confirmation."
+    ];
+  }
+  function renderSetupFileRows(){
+    if(!setupFileRows) return;
+    const year = setupValue("setupCurrentYear") || "2026-2027";
+    setupFileRows.innerHTML = divisionFileRoles.map(([role, purpose, pattern, target]) => `<tr><td>${role}</td><td>${purpose}</td><td>${pattern.replaceAll("{YEAR}", year)}</td><td>${target.replaceAll("{YEAR}", year)}</td></tr>`).join("");
+  }
+  function buildDivisionSetup(){
+    const config = setupConfig();
+    config.setupSteps = setupSteps(config);
+    lastDivisionSetup = config;
+    divisionSetupPreview.innerHTML = `
+      <div class="setup-summary">
+        <div class="backup-card"><strong>Portal Identity</strong><span>${config.railway}<br>${config.division}<br>${config.department}</span></div>
+        <div class="backup-card"><strong>Repository</strong><span>${config.repoName}</span></div>
+        <div class="backup-card"><strong>Reporting Basis</strong><span>Completed: ${config.completedPeriod.label} (${config.completedPeriod.monthCount})<br>Running: ${config.runningPeriod.label} (${config.runningPeriod.monthCount})</span></div>
+      </div>
+      <h3>Step Process</h3>
+      <ol>${config.setupSteps.map(step => `<li>${step.replace(/^\d+\.\s*/,"")}</li>`).join("")}</ol>
+      <h3>Parser Mapping</h3>
+      <table><thead><tr><th>Role</th><th>Expected File</th><th>Target Path</th></tr></thead><tbody>${config.sourceFiles.map(file => `<tr><td>${file.role}</td><td>${file.expectedFileName}</td><td>${file.parserTarget}</td></tr>`).join("")}</tbody></table>
+    `;
+    divisionSetupLog.textContent = `Setup plan ready for ${config.division}. Download JSON or copy step process for the new division.`;
+  }
+  function downloadDivisionSetup(){
+    if(!lastDivisionSetup) buildDivisionSetup();
+    const blob = new Blob([JSON.stringify(lastDivisionSetup,null,2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${safeSlug(lastDivisionSetup.division)}-portal-setup.json`;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    divisionSetupLog.textContent = "Division setup JSON downloaded.";
+  }
+  async function copyDivisionSteps(){
+    if(!lastDivisionSetup) buildDivisionSetup();
+    const text = [
+      `${lastDivisionSetup.railway} - ${lastDivisionSetup.division} Budget Portal Setup`,
+      "",
+      ...lastDivisionSetup.setupSteps,
+      "",
+      "Required source files:",
+      ...lastDivisionSetup.sourceFiles.map(file => `- ${file.role}: ${file.expectedFileName} -> ${file.parserTarget}`)
+    ].join("\n");
+    try{
+      await navigator.clipboard.writeText(text);
+      divisionSetupLog.textContent = "Step process copied to clipboard.";
+    }catch(_error){
+      divisionSetupLog.textContent = text;
+    }
   }
   function isDefaultMbrlrFile(row){
     const target = row.targetPath || row.target || "";
@@ -171,8 +280,14 @@
   document.getElementById("downloadBackup").addEventListener("click",downloadBackup);
   document.getElementById("previewMbrlrSync")?.addEventListener("click",previewMbrlrSync);
   document.getElementById("confirmMbrlrSync")?.addEventListener("click",confirmMbrlrSyncRun);
+  document.getElementById("buildDivisionSetup")?.addEventListener("click",buildDivisionSetup);
+  document.getElementById("downloadDivisionSetup")?.addEventListener("click",downloadDivisionSetup);
+  document.getElementById("copyDivisionSteps")?.addEventListener("click",copyDivisionSteps);
+  document.getElementById("resetDivisionSetup")?.addEventListener("click",()=>{["setupRailway","setupDivision","setupDepartment","setupRepo","setupCurrentYear","setupPreviousYear","setupCompletedMonth","setupCompletedCount","setupRunningMonth","setupRunningCount"].forEach(id=>{const el=document.getElementById(id); if(el) el.value=el.defaultValue;}); renderSetupFileRows(); buildDivisionSetup();});
+  document.querySelectorAll("#setup input").forEach(input=>input.addEventListener("input",()=>{lastDivisionSetup=null; renderSetupFileRows();}));
   mbrlrYear?.addEventListener("input",()=>{lastMbrlrPreview=null; confirmMbrlrSync.disabled=true;});
   fillControls();
+  renderSetupFileRows();
   if(!isLocalApiMode()){
     backupLog.textContent = localOnlyMessage();
     mbrlrLog.textContent = localOnlyMessage();

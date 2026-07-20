@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin Portal</title>
-  <link rel="stylesheet" href="../assets/admin.css?v=20260715-compact-header-1">
+  <link rel="stylesheet" href="../assets/admin.css?v=20260720-division-setup-1">
   <link rel="stylesheet" href="../assets/table-highlight.css?v=20260716-row-col-1">
 </head>
 <body>
@@ -26,6 +26,7 @@
         <button class="active" data-admin-tab="customize" type="button">Customize</button>
         <button data-admin-tab="preview" type="button">Simulate / Preview</button>
         <button data-admin-tab="logic" type="button">Calculation Logic</button>
+        <button data-admin-tab="setup" type="button">Division Setup Builder</button>
         <button data-admin-tab="backup" type="button">GitHub Backup</button>
         <button data-admin-tab="mbrlr" type="button">Sync to MBRLR</button>
       </nav>
@@ -62,6 +63,36 @@
         <div class="panel-head"><h2>Calculation Logic</h2><a class="secondary link" href="logic.html" target="logicFrame">Open Logic Page</a></div>
         <iframe class="logic-frame" name="logicFrame" src="logic.html?v=20260714-admin"></iframe>
       </section>
+      <section class="admin-panel" id="setup">
+        <div class="panel-head"><h2>Division Setup Builder</h2><button class="secondary" id="resetDivisionSetup" type="button">Reset Example</button></div>
+        <p class="hint">Prepare a new division portal setup package. This creates a checklist and JSON configuration that another division can use before uploading its own source files.</p>
+        <div class="setup-grid">
+          <label>Railway Name<input id="setupRailway" type="text" value="Northern Railway"></label>
+          <label>Division Name<input id="setupDivision" type="text" value="Moradabad Division"></label>
+          <label>Accounts / Department Label<input id="setupDepartment" type="text" value="Accounts Department"></label>
+          <label>Portal Repo Name<input id="setupRepo" type="text" value="MB-BUDGET"></label>
+          <label>Current Financial Year<input id="setupCurrentYear" type="text" value="2026-2027"></label>
+          <label>Previous Financial Year<input id="setupPreviousYear" type="text" value="2025-2026"></label>
+          <label>Completed Actual Month<input id="setupCompletedMonth" type="text" value="JUN 2026"></label>
+          <label>Completed Month Count<input id="setupCompletedCount" type="number" min="1" max="12" value="3"></label>
+          <label>Running Month<input id="setupRunningMonth" type="text" value="JUL 2026"></label>
+          <label>Running Month Count<input id="setupRunningCount" type="number" min="1" max="12" value="4"></label>
+        </div>
+        <div class="setup-file-map">
+          <h3>Required Source Files For New Division</h3>
+          <table>
+            <thead><tr><th>Role</th><th>Purpose</th><th>Expected File Name Pattern</th><th>Parser Target</th></tr></thead>
+            <tbody id="setupFileRows"></tbody>
+          </table>
+        </div>
+        <div class="action-row">
+          <button class="primary" id="buildDivisionSetup" type="button">Build Setup Plan</button>
+          <button class="secondary" id="downloadDivisionSetup" type="button">Download Setup JSON</button>
+          <button class="secondary" id="copyDivisionSteps" type="button">Copy Step Process</button>
+        </div>
+        <div class="setup-preview" id="divisionSetupPreview">Fill division details and click Build Setup Plan.</div>
+        <pre class="log" id="divisionSetupLog">Division setup builder is idle.</pre>
+      </section>
       <section class="admin-panel" id="backup">
         <h2>GitHub / Complete Portal Backup</h2>
         <p class="hint">Downloads a zip of the complete static portal folder for verification or GitHub Desktop backup. This action is password protected by the server.</p>
@@ -89,7 +120,7 @@
   </main>
   <script src="../assets/portal-custom.js?v=20260714-mobile-app-1"></script>
   <script src="../assets/table-highlight.js?v=20260716-row-col-1"></script>
-  <script src="../assets/admin.js?v=20260714-file-api-1"></script>
+  <script src="../assets/admin.js?v=20260720-division-setup-1"></script>
 </body>
 </html>
 

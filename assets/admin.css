@@ -26,6 +26,9 @@
 
 .sync-selectbar{position:sticky;left:0;z-index:3;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;padding:9px;border:1px solid var(--line);border-radius:6px;background:#f8fbfd}.sync-selectbar strong{color:var(--blue);margin-right:auto}.sync-preview input[type=checkbox]{width:17px;height:17px;accent-color:var(--teal)}.sync-preview th:first-child,.sync-preview td:first-child{text-align:center;width:58px}@media(max-width:760px){.sync-selectbar{border-radius:12px}.sync-selectbar .secondary{flex:1 1 130px}.sync-preview input[type=checkbox]{width:22px;height:22px}}
 
+.setup-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:10px 0}.setup-grid label{display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:12px;font-weight:800}.setup-grid input{border:1px solid var(--line);border-radius:5px;background:#fff;padding:7px 8px;min-height:34px;font:700 13px Calibri,Arial,sans-serif}.setup-file-map,.setup-preview{border:1px solid var(--line);background:#fff;border-radius:6px;padding:10px;margin-top:10px;overflow:auto}.setup-file-map h3,.setup-preview h3{margin:0 0 8px;color:var(--blue);font-size:15px}.setup-file-map table,.setup-preview table{min-width:760px}.setup-file-map td:nth-child(3),.setup-file-map td:nth-child(4),.setup-preview td:nth-child(2),.setup-preview td:nth-child(3){word-break:break-word}.setup-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px}.setup-preview ol{margin:0 0 10px 20px;padding:0;line-height:1.45;font-weight:700;color:#31465a}.setup-preview li{margin-bottom:4px}
+@media(max-width:760px){.setup-grid,.setup-summary{grid-template-columns:1fr}.setup-grid input{min-height:42px;border-radius:10px}.setup-file-map,.setup-preview{border-radius:12px}.setup-file-map:before,.setup-preview:before{content:"Swipe left/right for full setup table";position:sticky;left:0;display:block;width:max-content;margin:0 0 6px;padding:5px 8px;border:1px solid #d9c173;border-radius:5px;background:#fff9e5;color:#654c00;font-size:11px;font-weight:700}}
+
 /* Compact header pass */
 @media(min-width:761px){
   .admin-wrap{margin:6px auto 16px}
@@ -38,4 +41,6 @@
   .panel-head{margin-bottom:7px}
   .form-grid{gap:8px}
   .backup-card{padding:9px;margin:7px 0}
+  .setup-grid{gap:8px}
+  .setup-file-map,.setup-preview{padding:8px;margin-top:8px}
 }
