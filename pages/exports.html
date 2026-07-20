@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Data Export Centre</title>
-  <link rel="stylesheet" href="../assets/exports.css?v=20260715-compact-header-1">
+  <link rel="stylesheet" href="../assets/exports.css?v=20260720-review-pack-1">
   <link rel="stylesheet" href="../assets/table-highlight.css?v=20260716-row-col-1">
 </head>
 <body>
@@ -13,12 +13,35 @@
       <h1>Data Export Centre</h1>
       <p>One place for presentation-ready PDF, Excel and PPTX downloads. Export basis is shown beside each file.</p>
     </section>
+    <section class="basis-guard" id="basisGuard"></section>
     <section class="export-board" id="exportBoard"></section>
+    <section class="review-pack">
+      <div class="pack-head">
+        <div>
+          <h2>Authority Review Pack</h2>
+          <p>Use this checklist before forwarding files or preparing PPT material.</p>
+        </div>
+        <button id="copyReviewPack" type="button">Copy Review Pack</button>
+      </div>
+      <div class="pack-grid" id="reviewPack"></div>
+      <pre class="pack-copy" id="reviewPackText">Review pack summary will appear here.</pre>
+    </section>
+    <section class="freshness">
+      <div class="pack-head">
+        <div>
+          <h2>Export Freshness</h2>
+          <p>Committed files are checked from the repository. Live Excel files should be generated from their report page for the latest view.</p>
+        </div>
+        <strong id="freshnessStamp">Checking files...</strong>
+      </div>
+      <div class="freshness-table" id="freshnessTable"></div>
+    </section>
     <section class="note">
-      <strong>Important:</strong> Upload, backup and sync actions are available only when the local upload server is running. GitHub-hosted portal can download committed export files only.
+      <strong>Important:</strong> For Excel, use live .xlsx export from Current / Previous Analysis and FR Budget pages. Legacy committed .xls snapshots are not shown as primary export actions.
     </section>
   </main>
+  <script src="../data/current_payload.js?v=20260713-ppt-export-1"></script>
   <script src="../assets/table-highlight.js?v=20260716-row-col-1"></script>
-  <script src="../assets/exports.js?v=20260715-modernize-1"></script>
+  <script src="../assets/exports.js?v=20260720-review-pack-1"></script>
 </body>
 </html>

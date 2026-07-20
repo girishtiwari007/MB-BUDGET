@@ -65,6 +65,8 @@
       ["Current / Previous PPTX", "../exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx"],
       ["DRM PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx"],
       ["DRM Excel", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx"],
+      ["Current / Previous Excel", "../exports/Current_Previous_Year_PU_Demand_Analysis.xlsx"],
+      ["FR Budget Excel", "../exports/FR_Budget_Status.xlsx"],
       ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf"],
       ["FR Budget PDF", "../exports/FR_Budget_Status.pdf"]
     ];
