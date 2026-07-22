@@ -537,17 +537,38 @@
     function uploadApiUrl(path) {
       return `${uploadApiBase()}${path}`;
     }
+    function isGithubHostedPortal() {
+      return /github\.io$/i.test(window.location.hostname);
+    }
     function uploadServerHelpText() {
+      if (isGithubHostedPortal()) return "GitHub Pages is read-only for repository files. Upload/parse works here, but Confirm & Store needs either local upload-server mode or an approved GitHub API direct-sync flow.";
       return `Repository store needs the local upload server. Start: python scripts\\local-upload-server.py 8000, then open http://127.0.0.1:8000/.`;
     }
     async function refreshUploadServerStatus() {
       const badge = document.getElementById("uploadServerStatus");
       const storeButton = document.getElementById("storeCurrentUploads");
+      const refreshButton = document.getElementById("refreshUploadServer");
       if (badge) {
         badge.className = "upload-server-status checking";
-        badge.textContent = "Checking local upload server...";
+        badge.textContent = isGithubHostedPortal() ? "GitHub Pages upload page is in browser-verify mode..." : "Checking local upload server...";
       }
       if (storeButton) storeButton.disabled = true;
+      if (isGithubHostedPortal()) {
+        uploadServerReady = false;
+        if (badge) {
+          badge.className = "upload-server-status offline";
+          badge.textContent = uploadServerHelpText();
+        }
+        if (storeButton) {
+          storeButton.disabled = true;
+          storeButton.textContent = "Store unavailable on GitHub Pages";
+        }
+        if (refreshButton) {
+          refreshButton.disabled = true;
+          refreshButton.textContent = "Local Server Only";
+        }
+        return;
+      }
       try {
         const response = await fetch(uploadApiUrl("/api/upload-status"), { cache: "no-store" });
         const payload = await response.json().catch(() => ({}));
