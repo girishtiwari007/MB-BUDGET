@@ -115,6 +115,11 @@
     if(Number.isNaN(date.getTime())) return String(value);
     return date.toLocaleString("en-IN");
   }
+  function latestTimestamp(...values){
+    const dates = values.map(value=>new Date(value)).filter(date=>!Number.isNaN(date.getTime()));
+    if(!dates.length) return "";
+    return new Date(Math.max(...dates.map(date=>date.getTime()))).toISOString();
+  }
   function uploadRoleLabel(role){
     return {
       currPuBudget:"PU Wise Budget",
@@ -127,7 +132,7 @@
   }
   function renderCurrentUploadTable(upload){
     const rows = upload?.active || [];
-    return `<section><h3>Current Year Active Files - ${upload?.year || "2026-2027"}</h3><table><thead><tr><th>Status</th><th>Data File</th><th>Repo File</th><th>Modified</th><th>Size</th></tr></thead><tbody>${rows.map(row=>`<tr><td><span class="status-dot ${row.available ? "ok" : "bad"}"></span>${row.available ? "Success" : "Missing"}</td><td>${uploadRoleLabel(row.role)}</td><td>${row.file?.relativePath || row.target}</td><td>${fmtDate(row.file?.modifiedAt)}</td><td>${fmtSize(row.file?.size)}</td></tr>`).join("")}</tbody></table></section>`;
+    return `<section><h3>Current Year Active Files - ${upload?.year || "2026-2027"}</h3><table><thead><tr><th>Status</th><th>Data File</th><th>Repo File</th><th>Status As On</th><th>Size</th></tr></thead><tbody>${rows.map(row=>`<tr><td><span class="status-dot ${row.available ? "ok" : "bad"}"></span>${row.available ? "Success" : "Missing"}</td><td>${uploadRoleLabel(row.role)}</td><td>${row.file?.relativePath || row.target}</td><td>${fmtDate(row.file?.modifiedAt)}</td><td>${fmtSize(row.file?.size)}</td></tr>`).join("")}</tbody></table></section>`;
   }
   function renderBackupTable(title, backups){
     const rows = backups || [];
@@ -137,16 +142,19 @@
   function renderFrUploadTable(fr){
     const active = fr?.active || [];
     const manifest = fr?.manifest || {};
-    return `<section><h3>FR Active Upload</h3><table><thead><tr><th>Status</th><th>Active File</th><th>Uploaded / Modified</th><th>Original Name</th><th>Size</th></tr></thead><tbody>${active.length ? active.map(file=>`<tr><td><span class="status-dot ok"></span>Success</td><td>${file.relativePath}</td><td>${fmtDate(fr.uploadedAt || file.modifiedAt)}</td><td>${manifest.originalName || file.name}</td><td>${fmtSize(file.size)}</td></tr>`).join("") : `<tr><td><span class="status-dot bad"></span>Missing</td><td colspan="4">No active FR upload found.</td></tr>`}</tbody></table></section>`;
+    return `<section><h3>FR Active Upload</h3><table><thead><tr><th>Status</th><th>Active File</th><th>Status As On</th><th>Original Name</th><th>Size</th></tr></thead><tbody>${active.length ? active.map(file=>`<tr><td><span class="status-dot ok"></span>Success</td><td>${file.relativePath}</td><td>${fmtDate(fr.uploadedAt || file.modifiedAt)}</td><td>${manifest.originalName || file.name}</td><td>${fmtSize(file.size)}</td></tr>`).join("") : `<tr><td><span class="status-dot bad"></span>Missing</td><td colspan="4">No active FR upload found.</td></tr>`}</tbody></table></section>`;
   }
   function renderUploadVersions(payload){
     const current = payload.currentUploads || {};
     const fr = payload.frUploads || {};
     const currentOk = current.status === "success";
     const frOk = fr.status === "success";
+    const frAsOn = fr.uploadedAt || fr.active?.[0]?.modifiedAt || "";
+    const overallAsOn = latestTimestamp(current.latestActiveAt, frAsOn);
     uploadVersionSummary.innerHTML = `
-      <div class="backup-card"><strong>Current Year ${current.year || "2026-2027"}</strong><span><span class="status-dot ${currentOk ? "ok" : "bad"}"></span>${currentOk ? "Success" : "Incomplete"}<br>Data as on: ${fmtDate(current.latestActiveAt)}</span></div>
-      <div class="backup-card"><strong>FR Upload</strong><span><span class="status-dot ${frOk ? "ok" : "bad"}"></span>${frOk ? "Success" : "Missing"}<br>Data as on: ${fmtDate(fr.uploadedAt || fr.active?.[0]?.modifiedAt)}</span></div>
+      <div class="backup-card status-as-on"><strong>Overall Status As On</strong><span>${fmtDate(overallAsOn)}<br>Latest successful upload timestamp</span></div>
+      <div class="backup-card"><strong>Current Year ${current.year || "2026-2027"}</strong><span><span class="status-dot ${currentOk ? "ok" : "bad"}"></span>${currentOk ? "Success" : "Incomplete"}<br>Status as on: ${fmtDate(current.latestActiveAt)}</span></div>
+      <div class="backup-card"><strong>FR Upload</strong><span><span class="status-dot ${frOk ? "ok" : "bad"}"></span>${frOk ? "Success" : "Missing"}<br>Status as on: ${fmtDate(frAsOn)}</span></div>
       <div class="backup-card"><strong>Version Control</strong><span>Current-year backups: ${(current.backups || []).length}/2<br>FR backups: ${(fr.backups || []).length}/2</span></div>`;
     uploadVersionPreview.innerHTML = `${renderCurrentUploadTable(current)}${renderBackupTable("Current Year Last 2 Backup Versions", current.backups)}${renderFrUploadTable(fr)}${renderBackupTable("FR Last 2 Backup Versions", fr.backups)}`;
     uploadVersionLog.textContent = `Version dashboard refreshed from ${payload.repo}.`;

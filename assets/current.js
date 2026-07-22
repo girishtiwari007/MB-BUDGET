@@ -582,7 +582,7 @@
       panel.className = "upload-panel";
       panel.innerHTML = `
         <div class="note upload-note">Use previous-year files as fixed repository reference. Upload only latest current-year files, verify, then confirm/store.</div>
-        <div id="uploadServerStatus" class="upload-server-status checking">Checking local upload server...</div>
+        <div class="upload-server-row"><div id="uploadServerStatus" class="upload-server-status checking">Checking local upload server...</div><button class="export" id="refreshUploadServer" type="button">Recheck Store Access</button></div>
         <section class="upload-section">
           <div class="upload-section-head">
             <div><strong>1. Previous Year Repository Reference</strong><span>Static comparison files already kept in GitHub/repo folders. Load them for verification; do not monthly overwrite here.</span></div>
@@ -613,6 +613,7 @@
       document.getElementById("storeCurrentUploads").addEventListener("click", storeCurrentYearUploads);
       document.getElementById("syncRemote").addEventListener("click", syncRemoteSources);
       document.getElementById("showSourceConfig").addEventListener("click", showSourceConfig);
+      document.getElementById("refreshUploadServer").addEventListener("click", refreshUploadServerStatus);
       refreshUploadServerStatus();
     }
     function roleLabel(role) {
@@ -1500,7 +1501,9 @@
       renderAnalysis();
     });
     window.addEventListener("message", event => { if (event.data?.type === "open-current-tab" && (DATA[event.data.tab] || event.data.tab === "analysis")) render(event.data.tab); });
-    render(activeTab);
+    const initialTab = new URLSearchParams(window.location.search).get("tab");
+    if (initialTab && (DATA[initialTab] || ["analysis", "upload", "current_till"].includes(initialTab))) openTab(initialTab);
+    else render(activeTab);
 
 
 
