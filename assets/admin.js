@@ -17,6 +17,9 @@
   const mbrlrPreview = document.getElementById("mbrlrPreview");
   const mbrlrLog = document.getElementById("mbrlrLog");
   const confirmMbrlrSync = document.getElementById("confirmMbrlrSync");
+  const uploadVersionSummary = document.getElementById("uploadVersionSummary");
+  const uploadVersionPreview = document.getElementById("uploadVersionPreview");
+  const uploadVersionLog = document.getElementById("uploadVersionLog");
   const divisionSetupLog = document.getElementById("divisionSetupLog");
   const divisionSetupPreview = document.getElementById("divisionSetupPreview");
   const setupFileRows = document.getElementById("setupFileRows");
@@ -105,6 +108,60 @@
     if(value >= 1024*1024) return `${(value/1024/1024).toFixed(1)} MB`;
     if(value >= 1024) return `${(value/1024).toFixed(1)} KB`;
     return `${value} B`;
+  }
+  function fmtDate(value){
+    if(!value) return "Not available";
+    const date = new Date(value);
+    if(Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString("en-IN");
+  }
+  function uploadRoleLabel(role){
+    return {
+      currPuBudget:"PU Wise Budget",
+      currPuMonth:"PU Wise Month Actual",
+      currPuDeptDemandSmhBudget:"PU / Dept / Demand / SMH Budget",
+      currPuDeptDemandSmhActual:"PU / Dept / Demand / SMH Actual",
+      currSmhBudget:"Demand / SMH Budget",
+      currSmhMonth:"Demand / SMH Actual"
+    }[role] || role;
+  }
+  function renderCurrentUploadTable(upload){
+    const rows = upload?.active || [];
+    return `<section><h3>Current Year Active Files - ${upload?.year || "2026-2027"}</h3><table><thead><tr><th>Status</th><th>Data File</th><th>Repo File</th><th>Modified</th><th>Size</th></tr></thead><tbody>${rows.map(row=>`<tr><td><span class="status-dot ${row.available ? "ok" : "bad"}"></span>${row.available ? "Success" : "Missing"}</td><td>${uploadRoleLabel(row.role)}</td><td>${row.file?.relativePath || row.target}</td><td>${fmtDate(row.file?.modifiedAt)}</td><td>${fmtSize(row.file?.size)}</td></tr>`).join("")}</tbody></table></section>`;
+  }
+  function renderBackupTable(title, backups){
+    const rows = backups || [];
+    if(!rows.length) return `<section><h3>${title}</h3><p class="hint">No backup copy found yet.</p></section>`;
+    return `<section><h3>${title}</h3><table><thead><tr><th>Backup Version</th><th>Files</th><th>Stored Files</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${row.name}</td><td>${row.fileCount || row.files?.length || 0}</td><td>${(row.files || []).map(file=>file.relativePath || file).join("<br>")}</td></tr>`).join("")}</tbody></table></section>`;
+  }
+  function renderFrUploadTable(fr){
+    const active = fr?.active || [];
+    const manifest = fr?.manifest || {};
+    return `<section><h3>FR Active Upload</h3><table><thead><tr><th>Status</th><th>Active File</th><th>Uploaded / Modified</th><th>Original Name</th><th>Size</th></tr></thead><tbody>${active.length ? active.map(file=>`<tr><td><span class="status-dot ok"></span>Success</td><td>${file.relativePath}</td><td>${fmtDate(fr.uploadedAt || file.modifiedAt)}</td><td>${manifest.originalName || file.name}</td><td>${fmtSize(file.size)}</td></tr>`).join("") : `<tr><td><span class="status-dot bad"></span>Missing</td><td colspan="4">No active FR upload found.</td></tr>`}</tbody></table></section>`;
+  }
+  function renderUploadVersions(payload){
+    const current = payload.currentUploads || {};
+    const fr = payload.frUploads || {};
+    const currentOk = current.status === "success";
+    const frOk = fr.status === "success";
+    uploadVersionSummary.innerHTML = `
+      <div class="backup-card"><strong>Current Year ${current.year || "2026-2027"}</strong><span><span class="status-dot ${currentOk ? "ok" : "bad"}"></span>${currentOk ? "Success" : "Incomplete"}<br>Data as on: ${fmtDate(current.latestActiveAt)}</span></div>
+      <div class="backup-card"><strong>FR Upload</strong><span><span class="status-dot ${frOk ? "ok" : "bad"}"></span>${frOk ? "Success" : "Missing"}<br>Data as on: ${fmtDate(fr.uploadedAt || fr.active?.[0]?.modifiedAt)}</span></div>
+      <div class="backup-card"><strong>Version Control</strong><span>Current-year backups: ${(current.backups || []).length}/2<br>FR backups: ${(fr.backups || []).length}/2</span></div>`;
+    uploadVersionPreview.innerHTML = `${renderCurrentUploadTable(current)}${renderBackupTable("Current Year Last 2 Backup Versions", current.backups)}${renderFrUploadTable(fr)}${renderBackupTable("FR Last 2 Backup Versions", fr.backups)}`;
+    uploadVersionLog.textContent = `Version dashboard refreshed from ${payload.repo}.`;
+  }
+  async function refreshUploadVersions(){
+    if(!await auth()) return;
+    uploadVersionLog.textContent = "Checking local upload server and upload versions...";
+    try{
+      const response = await fetch(apiUrl("/api/upload-status"), {cache:"no-store"});
+      const payload = await response.json().catch(()=>({error:"Version status failed"}));
+      if(!response.ok || !payload.ok) throw new Error(payload.error || "Version status failed");
+      renderUploadVersions(payload);
+    }catch(error){
+      uploadVersionLog.textContent = `${error.message || "Version status failed."}\n${localOnlyMessage()}`;
+    }
   }
   function safeSlug(value){
     return String(value || "").trim().replace(/[^A-Za-z0-9]+/g,"-").replace(/^-+|-+$/g,"").toUpperCase() || "DIVISION-BUDGET";
@@ -290,6 +347,7 @@
   document.getElementById("resetStyle").addEventListener("click",()=>{localStorage.removeItem(window.MBBudgetCustom.key); fillControls(); window.MBBudgetCustom.apply(document);});
   document.getElementById("exportStyle").addEventListener("click",()=>{const blob=new Blob([JSON.stringify(collect(),null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="portal-style-settings.json";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);});
   document.getElementById("downloadBackup").addEventListener("click",downloadBackup);
+  document.getElementById("refreshUploadVersions")?.addEventListener("click",refreshUploadVersions);
   document.getElementById("previewMbrlrSync")?.addEventListener("click",previewMbrlrSync);
   document.getElementById("confirmMbrlrSync")?.addEventListener("click",confirmMbrlrSyncRun);
   document.getElementById("buildDivisionSetup")?.addEventListener("click",buildDivisionSetup);
@@ -303,6 +361,7 @@
   if(!isLocalApiMode()){
     backupLog.textContent = localOnlyMessage();
     mbrlrLog.textContent = localOnlyMessage();
+    if(uploadVersionLog) uploadVersionLog.textContent = localOnlyMessage();
   }
 })();
 

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin Portal</title>
-  <link rel="stylesheet" href="../assets/admin.css?v=20260720-division-setup-1">
+  <link rel="stylesheet" href="../assets/admin.css?v=20260722-upload-versions-1">
   <link rel="stylesheet" href="../assets/table-highlight.css?v=20260716-row-col-1">
 </head>
 <body>
@@ -26,6 +26,7 @@
         <button class="active" data-admin-tab="customize" type="button">Customize</button>
         <button data-admin-tab="preview" type="button">Simulate / Preview</button>
         <button data-admin-tab="logic" type="button">Calculation Logic</button>
+        <button data-admin-tab="uploads" type="button">Data Upload Versions</button>
         <button data-admin-tab="setup" type="button">Division Setup Builder</button>
         <button data-admin-tab="backup" type="button">GitHub Backup</button>
         <button data-admin-tab="mbrlr" type="button">Sync to MBRLR</button>
@@ -62,6 +63,18 @@
       <section class="admin-panel" id="logic">
         <div class="panel-head"><h2>Calculation Logic</h2><a class="secondary link" href="logic.html" target="logicFrame">Open Logic Page</a></div>
         <iframe class="logic-frame" name="logicFrame" src="logic.html?v=20260714-admin"></iframe>
+      </section>
+      <section class="admin-panel" id="uploads">
+        <div class="panel-head"><h2>Data Upload Version Control</h2><button class="secondary" id="refreshUploadVersions" type="button">Refresh Versions</button></div>
+        <p class="hint">Admin view of current-year source uploads and FR upload status. The local upload server keeps the latest two backup snapshots for verification.</p>
+        <div class="sync-grid" id="uploadVersionSummary">
+          <div class="backup-card"><strong>Current Year</strong><span>Waiting for refresh.</span></div>
+          <div class="backup-card"><strong>FR Status</strong><span>Waiting for refresh.</span></div>
+          <div class="backup-card"><strong>Upload Action</strong><span>Use Current / Previous Analysis upload page for parser verification and store.</span></div>
+        </div>
+        <div class="action-row"><a class="primary link" href="current.html?tab=upload">Open Detailed Upload Page</a></div>
+        <div class="sync-preview" id="uploadVersionPreview">Click Refresh Versions to see active files and last two backups.</div>
+        <pre class="log" id="uploadVersionLog">Upload version dashboard is idle.</pre>
       </section>
       <section class="admin-panel" id="setup">
         <div class="panel-head"><h2>Division Setup Builder</h2><button class="secondary" id="resetDivisionSetup" type="button">Reset Example</button></div>
@@ -120,7 +133,7 @@
   </main>
   <script src="../assets/portal-custom.js?v=20260714-mobile-app-1"></script>
   <script src="../assets/table-highlight.js?v=20260716-row-col-1"></script>
-  <script src="../assets/admin.js?v=20260720-admin-static-auth-1"></script>
+  <script src="../assets/admin.js?v=20260722-upload-versions-1"></script>
 </body>
 </html>
 

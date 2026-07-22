@@ -7,6 +7,7 @@
     const UPLOAD_PASSWORD = "Moradabad@2026";
     const UPLOAD_STATE = {};
     const UPLOAD_FILES = {};
+    let uploadServerReady = false;
     let ORIGINAL_DATA = JSON.parse(JSON.stringify(DATA || {}));
     const REPORTS_DATA = window.REPORTS_DATA || {};
     const CURRENT_YEAR_UPLOAD_ROLES = [
@@ -530,6 +531,48 @@
       }).join(", ");
       return `<section class="chart-panel"><h3>Pie Chart</h3><div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops})"></div><div class="legend">${parts.map((item, index) => `<div><span style="background:${colors[index]}"></span>${htmlEscape(item.label)}: ${moneyCellHtml(item.value)} (${formatNumber(item.abs / total * 100, 1)}%)</div>`).join("")}</div></div></section>`;
     }
+    function uploadApiBase() {
+      return "";
+    }
+    function uploadApiUrl(path) {
+      return `${uploadApiBase()}${path}`;
+    }
+    function uploadServerHelpText() {
+      return `Repository store needs the local upload server. Start: python scripts\\local-upload-server.py 8000, then open http://127.0.0.1:8000/.`;
+    }
+    async function refreshUploadServerStatus() {
+      const badge = document.getElementById("uploadServerStatus");
+      const storeButton = document.getElementById("storeCurrentUploads");
+      if (badge) {
+        badge.className = "upload-server-status checking";
+        badge.textContent = "Checking local upload server...";
+      }
+      if (storeButton) storeButton.disabled = true;
+      try {
+        const response = await fetch(uploadApiUrl("/api/upload-status"), { cache: "no-store" });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+        uploadServerReady = true;
+        if (badge) {
+          badge.className = "upload-server-status ready";
+          badge.textContent = `Upload server ready - ${payload.repo || "MB-BUDGET repo"}`;
+        }
+        if (storeButton) {
+          storeButton.disabled = false;
+          storeButton.textContent = "Confirm & Store Current Year Files";
+        }
+      } catch (error) {
+        uploadServerReady = false;
+        if (badge) {
+          badge.className = "upload-server-status offline";
+          badge.textContent = `Store disabled: ${uploadServerHelpText()}`;
+        }
+        if (storeButton) {
+          storeButton.disabled = true;
+          storeButton.textContent = "Store needs Local Server";
+        }
+      }
+    }
     function renderUpload() {
       const { year } = syncYearEntry();
       const currentRows = CURRENT_YEAR_UPLOAD_ROLES.map((role, index) => uploadCard(role, index + 1)).join("");
@@ -539,6 +582,7 @@
       panel.className = "upload-panel";
       panel.innerHTML = `
         <div class="note upload-note">Use previous-year files as fixed repository reference. Upload only latest current-year files, verify, then confirm/store.</div>
+        <div id="uploadServerStatus" class="upload-server-status checking">Checking local upload server...</div>
         <section class="upload-section">
           <div class="upload-section-head">
             <div><strong>1. Previous Year Repository Reference</strong><span>Static comparison files already kept in GitHub/repo folders. Load them for verification; do not monthly overwrite here.</span></div>
@@ -569,6 +613,7 @@
       document.getElementById("storeCurrentUploads").addEventListener("click", storeCurrentYearUploads);
       document.getElementById("syncRemote").addEventListener("click", syncRemoteSources);
       document.getElementById("showSourceConfig").addEventListener("click", showSourceConfig);
+      refreshUploadServerStatus();
     }
     function roleLabel(role) {
       return SOURCE_ROLE_LABELS[role] || role;
@@ -712,6 +757,11 @@
       }
     }
     async function storeCurrentYearUploads() {
+      if (!uploadServerReady) {
+        logUpload("Store blocked: " + uploadServerHelpText());
+        refreshUploadServerStatus();
+        return;
+      }
       const missing = CURRENT_YEAR_UPLOAD_ROLES.filter(role => !UPLOAD_FILES[role]);
       if (missing.length) {
         missing.forEach(role => setUploadStatus(role, "Upload latest file before store", false));
@@ -730,12 +780,14 @@
       CURRENT_YEAR_UPLOAD_ROLES.forEach(role => form.append(role, UPLOAD_FILES[role], currentYearRoleTarget(role)));
       try {
         logUpload("Saving current-year files into repository folder...");
-        const response = await fetch("/api/current-year-upload", { method: "POST", body: form });
+        const response = await fetch(uploadApiUrl("/api/current-year-upload"), { method: "POST", body: form });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
         logUpload(`Stored ${payload.saved?.length || CURRENT_YEAR_UPLOAD_ROLES.length} files for ${payload.year}. Backup: ${payload.backup || "not needed"}.`);
       } catch (error) {
-        logUpload("Store failed: " + error.message + " Start the local upload server with scripts\\local-upload-server.py; GitHub Pages cannot write repository files directly.");
+        uploadServerReady = false;
+        refreshUploadServerStatus();
+        logUpload("Store failed: " + error.message + " " + uploadServerHelpText());
       }
     }
     function showSourceConfig() {

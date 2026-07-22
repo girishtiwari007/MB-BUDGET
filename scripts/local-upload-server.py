@@ -107,6 +107,56 @@ def file_info(path, root=REPO_ROOT):
     }
 
 
+def current_upload_versions(year=CURRENT_SYNC_YEAR):
+    year = safe_year(year)
+    year_dir = REPO_ROOT / "data" / "source-files" / year
+    active = []
+    for role, target_name in ROLE_TARGETS.items():
+        file_path = year_dir / target_name
+        active.append({
+            "role": role,
+            "target": target_name,
+            "available": file_path.exists(),
+            "file": file_info(file_path) if file_path.exists() else None,
+        })
+    backups = []
+    backup_root = year_dir / "backups"
+    if backup_root.exists():
+        for backup_dir in sorted([p for p in backup_root.iterdir() if p.is_dir()], key=lambda p: p.name, reverse=True)[:2]:
+            files = [file_info(file_path) for file_path in sorted(backup_dir.glob("*")) if file_path.is_file()]
+            backups.append({"name": backup_dir.name, "files": files, "fileCount": len(files)})
+    latest_active = max([item["file"]["modifiedAt"] for item in active if item["file"]], default="")
+    return {
+        "year": year,
+        "active": active,
+        "backups": backups,
+        "latestActiveAt": latest_active,
+        "status": "success" if all(item["available"] for item in active) else "incomplete",
+    }
+
+
+def fr_upload_versions():
+    active = []
+    for fr_file in sorted(FR_UPLOAD_ROOT.glob(f"{FR_TARGET_BASENAME}.*")):
+        if fr_file.is_file():
+            active.append(file_info(fr_file))
+    manifest_path = FR_UPLOAD_ROOT / FR_MANIFEST_NAME
+    manifest = {}
+    if manifest_path.exists():
+        try:
+            with manifest_path.open("r", encoding="utf-8") as handle:
+                manifest = json.load(handle)
+        except Exception:
+            manifest = {}
+    return {
+        "active": active,
+        "manifest": manifest,
+        "backups": manifest.get("backups", []),
+        "uploadedAt": manifest.get("uploadedAt", ""),
+        "status": "success" if active else "missing",
+    }
+
+
 def mbrlr_sync_plan(year=CURRENT_SYNC_YEAR):
     year = safe_year(year)
     source_year_dir = REPO_ROOT / "data" / "source-files" / year
@@ -243,6 +293,19 @@ class Handler(SimpleHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(204)
         self.end_headers()
+
+    def do_GET(self):
+        if self.path == "/api/upload-status":
+            self.send_json(200, {
+                "ok": True,
+                "repo": str(REPO_ROOT),
+                "message": "Local upload server is ready",
+                "currentUploads": current_upload_versions(),
+                "frUploads": fr_upload_versions(),
+            })
+            return
+        super().do_GET()
+
     def send_json(self, status, payload):
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
