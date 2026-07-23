@@ -1,5 +1,6 @@
 ﻿const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
     let DATA = window.CURRENT_PAYLOAD || {};
+    const PAYLOAD_META = window.CURRENT_PAYLOAD_META || {};
     const DATA_SOURCE_CONFIG = window.YEAR_DATA_SOURCES || {};
     let TAB_ORDER = ["demand", "staff", "nonstaff", "pu_prev", "demand_prev"].filter(key => DATA[key]);
     const STAFF_CODES = new Set(["01", "02", "03", "04", "07", "08", "10", "11", "12", "13", "14", "15", "16", "17", "20", "25", "26", "29", "34", "39", "40", "42", "43", "44", "53", "54", "63"]);
@@ -44,7 +45,7 @@
     let uploadUnlocked = false;
     const COMPLETED_PERIOD = { month:"JUN", year:2026, count:3, label:"JUN 2026", title:"Completed Month Projection - June 2026 (03 months)" };
     const RUNNING_PERIOD = { month:"JUL", year:2026, count:4, label:"JUL 2026", title:"Till Date / Running Month - July 2026 (04 months)" };
-    const DATA_LOAD_TIMESTAMP = new Date().toLocaleString("en-IN");
+    const DATA_LOAD_TIMESTAMP = PAYLOAD_META.statusAsOn ? new Date(PAYLOAD_META.statusAsOn).toLocaleString("en-IN") : new Date().toLocaleString("en-IN");
     function normalizePuCurrentColumns() {
       ["staff", "nonstaff"].forEach(key => {
         const tab = DATA[key];

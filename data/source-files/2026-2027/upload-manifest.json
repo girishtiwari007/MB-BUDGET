@@ -1,0 +1,54 @@
+{
+  "uploadedAt": "2026-07-23T11:37:20+05:30",
+  "statusAsOn": "2026-07-22T16:30:38+05:30",
+  "financialYear": "2026-2027",
+  "sourceFolder": "C:\\Users\\HP\\Downloads\\PORTAL DATA",
+  "activeFiles": [
+    {
+      "role": "currPuBudget",
+      "source": "PU-BUDGET.xls",
+      "target": "data/source-files/2026-2027/pu-budget.xls",
+      "sourceModifiedAt": "2026-07-22T16:29:02+05:30",
+      "size": 22016
+    },
+    {
+      "role": "currPuMonth",
+      "source": "PU-MONTH-ACTUAL.xls",
+      "target": "data/source-files/2026-2027/pu-month-actual.xls",
+      "sourceModifiedAt": "2026-07-22T16:29:17+05:30",
+      "size": 16384
+    },
+    {
+      "role": "currPuDeptDemandSmhBudget",
+      "source": "PU-DEPT-DEMAND-SMH-BUDGET.xls",
+      "target": "data/source-files/2026-2027/pu-dept-demand-smh-budget.xls",
+      "sourceModifiedAt": "2026-07-22T16:29:51+05:30",
+      "size": 1486336
+    },
+    {
+      "role": "currPuDeptDemandSmhActual",
+      "source": "PU-DEPT-DEMAND-SMH-ACTUAL.xls",
+      "target": "data/source-files/2026-2027/pu-dept-demand-smh-actual.xls",
+      "sourceModifiedAt": "2026-07-22T16:30:03+05:30",
+      "size": 497152
+    },
+    {
+      "role": "currSmhBudget",
+      "source": "DEMAND-SMH-BUGDET.xls",
+      "target": "data/source-files/2026-2027/demand-smh-budget.xls",
+      "sourceModifiedAt": "2026-07-22T16:30:26+05:30",
+      "size": 9216
+    },
+    {
+      "role": "currSmhMonth",
+      "source": "DEMAND-SMH-ACTUAL.xls",
+      "target": "data/source-files/2026-2027/demand-smh-actual.xls",
+      "sourceModifiedAt": "2026-07-22T16:30:38+05:30",
+      "size": 8192
+    }
+  ],
+  "backups": [
+    "data/source-files/2026-2027/backups/20260723-113540",
+    "data/source-files/2026-2027/backups/20260713-121327"
+  ]
+}
