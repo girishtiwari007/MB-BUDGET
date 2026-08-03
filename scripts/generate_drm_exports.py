@@ -202,7 +202,7 @@ def apply_completed_period(payload):
             next_row["OBAPercent"] = number_value(next_row.get("AE")) / number_value(next_row.get("OBA")) * 100 if number_value(next_row.get("OBA")) else 0
             rows.append(next_row)
         tab["columns"] = [{**col, "label": relabel_period(col.get("label"), period["month"], period["year"], period["count"])} for col in tab.get("columns", [])]
-        tab["title"] = f'{tab.get("title", "")} - Completed Month Projection - June 2026 (04 months)'
+        tab["title"] = f'{tab.get("title", "")} - Completed Month Projection - July 2026 (04 months)'
         tab["rows"] = add_total(rows)
     return view
 
