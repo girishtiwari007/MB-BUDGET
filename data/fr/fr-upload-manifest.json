@@ -1,7 +1,15 @@
 {
-  "uploadedAt": "2026-07-13T17:16:48",
+  "uploadedAt": "2026-08-03T12:26:17",
+  "dataAsOn": "2026-07-28",
   "activeFile": "data/fr/FR_Budget_Status.xlsx",
-  "originalName": "FR 30 June 2026.xlsx",
-  "backup": "",
-  "backups": []
+  "originalName": "FR 28.07.2026.xlsx",
+  "backup": "20260803-122820",
+  "backups": [
+    {
+      "name": "20260803-122820",
+      "files": [
+        "data/fr/backups/20260803-122820/FR_Budget_Status.xlsx"
+      ]
+    }
+  ]
 }
