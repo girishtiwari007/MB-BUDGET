@@ -1,11 +1,11 @@
 (function(){
-  const EXPECTED = { month: "JUN 2026", months: 3 };
+  const EXPECTED = { month: "JUL 2026", months: 4 };
   const committedFiles = [
-    ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf", "PDF", "Completed JUN 2026"],
-    ["Current / Previous Excel", "../exports/Current_Previous_Year_PU_Demand_Analysis.xlsx", "XLSX", "Completed JUN 2026"],
-    ["Current / Previous PPTX", "../exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx", "PPTX", "Completed JUN 2026"],
-    ["DRM PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx", "PPTX", "Completed JUN 2026"],
-    ["DRM Excel", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx", "XLSX", "Completed JUN 2026"],
+    ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf", "PDF", "Completed JUL 2026"],
+    ["Current / Previous Excel", "../exports/Current_Previous_Year_PU_Demand_Analysis.xlsx", "XLSX", "Completed JUL 2026"],
+    ["Current / Previous PPTX", "../exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx", "PPTX", "Completed JUL 2026"],
+    ["DRM PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx", "PPTX", "Completed JUL 2026"],
+    ["DRM Excel", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx", "XLSX", "Completed JUL 2026"],
     ["FR Budget PDF", "../exports/FR_Budget_Status.pdf", "PDF", "FR as uploaded"],
     ["FR Budget Excel", "../exports/FR_Budget_Status.xlsx", "XLSX", "FR as uploaded"]
   ];
@@ -15,7 +15,7 @@
       items: [
         ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf", "Committed PDF snapshot for quick reference."],
         ["Current / Previous Excel (.xlsx)", "../exports/Current_Previous_Year_PU_Demand_Analysis.xlsx", "Committed .xlsx snapshot for sharing."],
-        ["Current / Previous PPTX", "../exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx", "Presentation deck. Completed month basis: JUN 2026."]
+        ["Current / Previous PPTX", "../exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx", "Presentation deck. Completed month basis: JUL 2026."]
       ]
     },
     {
@@ -66,19 +66,19 @@
     const labels = (table.columns || []).map(col => String(col.label || "")).join(" | ");
     const rowMonths = (table.rows || []).map(row => Number(row.Months || 0)).filter(Boolean);
     const maxMonths = rowMonths.length ? Math.max(...rowMonths) : 0;
+    const hasAug = /AUG 2026/i.test(labels);
     const hasJul = /JUL 2026/i.test(labels);
-    const hasJun = /JUN 2026/i.test(labels);
-    return { labels, maxMonths, hasJul, hasJun };
+    return { labels, maxMonths, hasAug, hasJul };
   }
 
   function renderBasisGuard(){
     const basis = payloadBasis();
-    const mismatch = basis.hasJul || basis.maxMonths > EXPECTED.months;
+    const mismatch = basis.hasAug || basis.maxMonths > EXPECTED.months;
     const tone = mismatch ? "warn" : "ok";
     const title = mismatch ? "Source Payload Contains Running-Month Data" : "Default Basis Looks Aligned";
     const detail = mismatch
-      ? `Loaded source mentions JUL 2026 / ${basis.maxMonths || "?"} months. Portal default reports should continue to present completed JUN 2026 / 03-month basis, with JUL only in running-month views.`
-      : "Loaded source appears aligned with completed JUN 2026 / 03-month basis.";
+      ? `Loaded source mentions AUG 2026 / ${basis.maxMonths || "?"} months. Portal default reports should continue to present completed JUL 2026 / 04-month basis, with AUG only in running-month views.`
+      : "Loaded source appears aligned with completed JUL 2026 / 04-month basis.";
     document.getElementById("basisGuard").innerHTML = `
       <div class="guard ${tone}">
         <div><strong>${esc(title)}</strong><span>${esc(detail)}</span></div>
@@ -107,8 +107,8 @@
     return [
       "MB Budget Authority Review Pack",
       "",
-      "Default basis: Completed actuals up to JUN 2026 with 03-month BP projection.",
-      "Running month: JUL 2026 data should be reviewed only in Till Date / Running Month views.",
+      "Default basis: Completed actuals up to JUL 2026 with 04-month BP projection.",
+      "Running month: AUG 2026 data should be reviewed only in Till Date / Running Month views.",
       "Attention: Important PU 27, 28, 30, 32 and 60 should be checked separately.",
       "Suspense: Demand 12N / 10N remains separate and excluded from normal demand totals.",
       "",

@@ -24,7 +24,7 @@
     const currentTotal = totalRow("demand");
     $("summaryCards").innerHTML = [
       card("Portal Mode", mode, mode.includes("Local") ? "Upload and backup APIs should be available." : "Upload/backup actions need local server."),
-      card("Data Basis", "JUN 2026", "Completed month projection. JUL remains running/till-date."),
+      card("Data Basis", "JUL 2026", "Completed month projection. AUG remains running/till-date."),
       card("Current Demand AE", moneyPair(currentTotal.AE), `${latestYear}; main total excludes 12N / 10N.`),
       card("FR Data As On", manifest?.uploadedAt ? new Date(manifest.uploadedAt).toLocaleString("en-IN") : "Not recorded", manifest?.originalName || "FR manifest not available")
     ].join("");
@@ -52,7 +52,7 @@
     const nonstaffTotal = totalRow("nonstaff");
     const pu98 = detailRows(rows("nonstaff")).find(row => /^PU\s*-\s*98\b/i.test(row.Name || ""));
     const issues = [
-      {tone:"warn", title:"Completed month rule", text:"Default report basis is JUN 2026; running JUL 2026 data must remain in Till Date / Running Month views."},
+      {tone:"warn", title:"Completed month rule", text:"Default report basis is JUL 2026; running AUG 2026 data must remain in Till Date / Running Month views."},
       {tone:"bad", title:"Demand 12N / 10N separate", text:`${demandSuspense.length} suspense row(s) detected and should stay outside main demand total.`},
       pu98 ? {tone:"bad", title:"PU - 98 Credit / Recoveries", text:`Remaining balance ${moneyPair(pu98.Remaining)}. Review separately due negative/recovery behavior.`} : null,
       {tone:"warn", title:"Important PU focus", text:`${importantPuRows(rows("nonstaff")).length} important non-staff PU rows detected: 27, 28, 30, 32, 60.`},

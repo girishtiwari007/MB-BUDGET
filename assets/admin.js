@@ -189,11 +189,11 @@
       currentYear,
       previousYear: setupValue("setupPreviousYear") || "",
       completedPeriod: {
-        label: setupValue("setupCompletedMonth") || "JUN 2026",
+        label: setupValue("setupCompletedMonth") || "JUL 2026",
         monthCount: Number(setupValue("setupCompletedCount") || 3)
       },
       runningPeriod: {
-        label: setupValue("setupRunningMonth") || "JUL 2026",
+        label: setupValue("setupRunningMonth") || "AUG 2026",
         monthCount: Number(setupValue("setupRunningCount") || 4)
       },
       sourceFiles: divisionFileRoles.map(([role, purpose, pattern, target]) => ({

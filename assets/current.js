@@ -1,4 +1,4 @@
-﻿const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
     let DATA = window.CURRENT_PAYLOAD || {};
     const PAYLOAD_META = window.CURRENT_PAYLOAD_META || {};
     const DATA_SOURCE_CONFIG = window.YEAR_DATA_SOURCES || {};
@@ -43,8 +43,8 @@
     const compareState = { entity:"pu", years:"1", metric:"ae", chart:"bar", item:"__total" };
     const analysisState = { scope:"current", metric:"ae", attention:"all", pu:"all", view:"overview", logicUnlocked:false };
     let uploadUnlocked = false;
-    const COMPLETED_PERIOD = { month:"JUN", year:2026, count:3, label:"JUN 2026", title:"Completed Month Projection - June 2026 (03 months)" };
-    const RUNNING_PERIOD = { month:"JUL", year:2026, count:4, label:"JUL 2026", title:"Till Date / Running Month - July 2026 (04 months)" };
+    const COMPLETED_PERIOD = { month:"JUL", year:2026, count:4, label:"JUL 2026", title:"Completed Month Projection - July 2026 (04 months)" };
+    const RUNNING_PERIOD = { month:"AUG", year:2026, count:5, label:"AUG 2026", title:"Till Date / Running Month - August 2026 (05 months)" };
     const DATA_LOAD_TIMESTAMP = PAYLOAD_META.statusAsOn ? new Date(PAYLOAD_META.statusAsOn).toLocaleString("en-IN") : new Date().toLocaleString("en-IN");
     function normalizePuCurrentColumns() {
       ["staff", "nonstaff"].forEach(key => {
@@ -189,7 +189,7 @@
       document.getElementById("title").textContent = tab.title;
       const subMenu = tabKey === "pu_prev" ? renderPrevPuSubtabs() : null;
       const puTools = isPuTable(tabKey) ? renderPuFocusControls(tabKey) : null;
-      const note = document.createElement("div"); note.className = "note"; note.textContent = tabKey === "pu_prev" || tabKey === "demand_prev" ? "Remarks - Figures in '000' (thousands). Default projection uses completed actuals up to JUN 2026 (03 months). Previous year RG is treated as OBA; current year BG_ISL is treated as OBA until current-year RG is available." : "Remarks - Figures in '000' (thousands). Default projection uses completed actuals up to JUN 2026 (03 months). July is shown separately in Till Date / Running Month.";
+      const note = document.createElement("div"); note.className = "note"; note.textContent = tabKey === "pu_prev" || tabKey === "demand_prev" ? "Remarks - Figures in '000' (thousands). Default projection uses completed actuals up to JUL 2026 (04 months). Previous year RG is treated as OBA; current year BG_ISL is treated as OBA until current-year RG is available." : "Remarks - Figures in '000' (thousands). Default projection uses completed actuals up to JUL 2026 (04 months). August is the running month and stays in Till Date / Running Month.";
       const specialNote = isDemandTable(tabKey) ? renderDemandSuspenseNote(tab.rows) : null;
       const table = document.createElement("table");
       if (tab.columns.length > 8) table.className = "wide";
@@ -206,7 +206,7 @@
       document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "current_till"));
       document.getElementById("title").textContent = RUNNING_PERIOD.title;
       const sections = ["demand", "staff", "nonstaff", "pu_prev", "demand_prev"].filter(key => ORIGINAL_DATA[key]).map(key => tillDateSection(key)).join("");
-      document.getElementById("tableHost").innerHTML = `<div class="future-note"><strong>${RUNNING_PERIOD.title}</strong><br>Data load timestamp: ${htmlEscape(DATA_LOAD_TIMESTAMP)}. This tab keeps July as running/till-date data. Default analysis tabs use completed June actuals and 03-month BP projection.</div>${sections}`;
+      document.getElementById("tableHost").innerHTML = `<div class="future-note"><strong>${RUNNING_PERIOD.title}</strong><br>Data load timestamp: ${htmlEscape(DATA_LOAD_TIMESTAMP)}. This tab keeps August as running/till-date data. Default analysis tabs use completed July actuals and 04-month BP projection.</div>${sections}`;
     }
     function tillDateSection(tabKey) {
       const tab = ORIGINAL_DATA[tabKey];
@@ -215,7 +215,7 @@
       const specialNote = isDemandTable(tabKey) ? demandSuspenseNoteHtml(rows) : "";
       const header = `<thead><tr>${tab.columns.map(col => `<th>${htmlEscape(String(col.label || "").replace(/\n/g, " "))}</th>`).join("")}</tr></thead>`;
       const body = rows.map(row => `<tr class="${rowClassName(row)}">${tab.columns.map(col => `<td>${formatCellHtml(row[col.key], col.format)}</td>`).join("")}</tr>`).join("");
-      return `<section class="till-section"><h3>${htmlEscape(tab.title)} - ${RUNNING_PERIOD.title}</h3><div class="note">Remarks - Figures in '000' (thousands). July is running and shown only in this tab.</div>${specialNote}<table class="${tab.columns.length > 8 ? "wide" : ""}">${header}<tbody>${body}</tbody></table></section>`;
+      return `<section class="till-section"><h3>${htmlEscape(tab.title)} - ${RUNNING_PERIOD.title}</h3><div class="note">Remarks - Figures in '000' (thousands). August is running and shown only in this tab.</div>${specialNote}<table class="${tab.columns.length > 8 ? "wide" : ""}">${header}<tbody>${body}</tbody></table></section>`;
     }
     function puCode(row) { return codeFromLabel(rowName(row), "PU"); }
     function isImportantPuRow(row) { return IMPORTANT_PU_CODES.has(puCode(row)); }
@@ -425,8 +425,8 @@
       if (!analysisState.logicUnlocked) return `<section class="protected-panel"><h3>Calculation Logic & Data Source Locked</h3><p>Enter the upload password to view source mapping and calculation logic from this Analysis page.</p><button class="export" type="button" data-unlock-analysis-logic>Unlock Logic & Sources</button></section>`;
       const logicRows = [
         ["OBA / RG", "Current year uses BG_ISL 2026-27 as OBA until current RG is available. Previous year comparison uses RG 2025-26."],
-        ["BP", "Budget Proportion = OBA / 12 * completed month count. Default completed month count is 03 for APR-JUN 2026."],
-        ["AE", "Actual Expenditure uses completed actuals up to JUN 2026 in default tabs. July running figures stay in Till Date / Running Month."],
+        ["BP", "Budget Proportion = OBA / 12 * completed month count. Default completed month count is 04 for APR-JUL 2026."],
+        ["AE", "Actual Expenditure uses completed actuals up to JUL 2026 in default tabs. August running figures stay in Till Date / Running Month."],
         ["AE - BP", "Actual Expenditure minus Budget Proportion. Positive values need attention for excess booking pace."],
         ["Budget Remaining", "OBA minus Actual Expenditure. Negative values are highlighted as excess/low-balance risk."],
         ["% BP", "Actual Expenditure / Budget Proportion * 100."],
@@ -469,7 +469,7 @@
       const yoyMovement = rows.filter(row => row.AnalysisYoY).sort((a,b) => Math.abs(b.AnalysisYoY) - Math.abs(a.AnalysisYoY)).slice(0, 12);
       const importantRows = rows.filter(row => row.Important).sort((a,b) => Math.abs(analysisMetricValue(b)) - Math.abs(analysisMetricValue(a))).slice(0, 12);
       const body = renderAnalysisBody(rows, ranked, overBp, negativeBalance, yoyMovement, importantRows);
-      document.getElementById("tableHost").innerHTML = `<div class="analysis-shell"><div class="analysis-top"><div><div class="note analysis-note">Remarks - Figures in '000' (thousands). Default period is completed JUN 2026 / 03-month BP projection.</div><div class="analysis-context"><strong>Selected View:</strong> ${htmlEscape(analysisScopeLabel(analysisState.scope))} | <strong>Finance Focus:</strong> ${htmlEscape(analysisMetricLabel(analysisState.metric))} | <strong>Attention:</strong> ${htmlEscape(analysisAttentionLabel(analysisState.attention))}</div></div>${renderAnalysisViewTabs()}</div>${renderAnalysisControls()}${renderAnalysisSuspensePanel()}${renderFinanceSummary(rows, totals)}${renderRiskRail(rows)}${renderAttentionStrip(rows)}${body}</div>`;
+      document.getElementById("tableHost").innerHTML = `<div class="analysis-shell"><div class="analysis-top"><div><div class="note analysis-note">Remarks - Figures in '000' (thousands). Default period is completed JUL 2026 / 04-month BP projection.</div><div class="analysis-context"><strong>Selected View:</strong> ${htmlEscape(analysisScopeLabel(analysisState.scope))} | <strong>Finance Focus:</strong> ${htmlEscape(analysisMetricLabel(analysisState.metric))} | <strong>Attention:</strong> ${htmlEscape(analysisAttentionLabel(analysisState.attention))}</div></div>${renderAnalysisViewTabs()}</div>${renderAnalysisControls()}${renderAnalysisSuspensePanel()}${renderFinanceSummary(rows, totals)}${renderRiskRail(rows)}${renderAttentionStrip(rows)}${body}</div>`;
     }
     function compareDataset() {
       const key = compareState.entity === "demand" ? "demand_prev" : "pu_prev";
@@ -895,7 +895,7 @@
         const match = header.match(/ACTUALS\s+UPTO\s+([A-Z]{3})\s+(20\d{2})/);
         if (match) matches.push({ idx, month: match[1], year: Number(match[2]), count: monthCount(match[1]), label: `${match[1]} ${match[2]}` });
       });
-      if (!matches.length) return { idx: colIndex(headers, ["ACTUALS", "UPTO"]), month: "JUN", year: 2026, count: 3, label: "JUN 2026" };
+      if (!matches.length) return { idx: colIndex(headers, ["ACTUALS", "UPTO"]), month: "JUL", year: 2026, count: 4, label: "JUL 2026" };
       matches.sort((a, b) => (a.year - b.year) || (a.count - b.count));
       return matches[matches.length - 1];
     }
@@ -1132,7 +1132,7 @@
         if (UPLOAD_STATE.prevSmhBudget && UPLOAD_STATE.currSmhBudget) DATA.demand_prev = buildPreviousFromUpload(UPLOAD_STATE.prevSmhBudget, UPLOAD_STATE.currSmhBudget, "SMH", "Demand No. / SMH-Grant", "Demand / SMH Wise Previous Year Comparison", true);
         ORIGINAL_DATA = JSON.parse(JSON.stringify(DATA || {}));
         applyCompletedPeriodView();
-        logUpload("Tables updated in this browser session. Default view now uses completed JUN 2026 actuals with 03-month BP projection. July running data is available in Till Date / Running Month.");
+        logUpload("Tables updated in this browser session. Default view now uses completed JUL 2026 actuals with 04-month BP projection. August running data is available in Till Date / Running Month.");
         if (options.stayOnUpload) {
           document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "upload"));
           return;
@@ -1183,7 +1183,7 @@
       return row[col.key] ?? "";
     }
     function exportNote() {
-      return "Remarks - Figures in '000' (thousands). Default basis: completed actuals up to JUN 2026; Till Date / Running Month keeps running-month data separately. Demand 12N / 10N is shown separately and excluded from main totals.";
+      return "Remarks - Figures in '000' (thousands). Default basis: completed actuals up to JUL 2026; Till Date / Running Month keeps running-month data separately. Demand 12N / 10N is shown separately and excluded from main totals.";
     }
     function exportTableAoa(tabKey) {
       const tab = tableForView(tabKey, { skipFocus: true });

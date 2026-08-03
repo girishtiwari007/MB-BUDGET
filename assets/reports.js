@@ -53,8 +53,8 @@ const REPORTS = {
 
 const state = { report: "pu_month", scope: "pu", item: "", metric: "ae_monthwise", month: "APR", chart: "grouped", importantPuOnly: false, basis: "completed" };
 const $ = (id) => document.getElementById(id);
-const COMPLETED_MONTH_INDEX = 2;
-const TILL_DATE_MONTH_INDEX = 3;
+const COMPLETED_MONTH_INDEX = 3;
+const TILL_DATE_MONTH_INDEX = 4;
 
 function fmt(value, decimals = 0) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "N/A";
@@ -646,7 +646,7 @@ function exportReportPdf() {
 }
 
 function remarksText() {
-  return `Remarks - Figures in '000' (thousands). ${state.basis === "completed" ? "Default basis: completed actuals up to JUN 2026 with 03-month projection" : "Till-date basis: JUL 2026 running month with 04-month projection"}`;
+  return `Remarks - Figures in '000' (thousands). ${state.basis === "completed" ? "Default basis: completed actuals up to JUL 2026 with 04-month projection" : "Till-date basis: AUG 2026 running month with 05-month projection"}`;
 }
 
 function renderChart() {

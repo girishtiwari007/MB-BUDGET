@@ -1,13 +1,13 @@
 const REPORT_LOGIC = {
   current_demand: {
     title: "Demand / SMH Wise Current Year",
-    basis: "Default basis is completed actual expenditure up to JUN 2026. July is treated as running/till-date and shown separately.",
+    basis: "Default basis is completed actual expenditure up to JUL 2026. August is treated as running/till-date and shown separately.",
     columns: [
       ["Demand No. / SMH-Grant", "Demand and Sub Major Head grouping from source file."],
       ["Department", "Department mapped from Demand / SMH."],
       ["OBA", "Original Budget Allotment from BG_ISL 2026-27."],
-      ["BP", "OBA / 12 * completed month count. Default month count is 03 for APR-JUN."],
-      ["AE", "Actual Expenditure up to completed month. Default is actual up to JUN 2026."],
+      ["BP", "OBA / 12 * completed month count. Default month count is 04 for APR-JUL."],
+      ["AE", "Actual Expenditure up to completed month. Default is actual up to JUL 2026."],
       ["Variation", "AE - BP."],
       ["% BP", "AE / BP * 100."],
       ["Budget Remaining", "OBA - AE."],
@@ -17,27 +17,27 @@ const REPORT_LOGIC = {
   },
   current_pu_staff: {
     title: "PU Staff Current Year",
-    basis: "Default basis is completed actual expenditure up to JUN 2026. Staff PUs are filtered by staff PU code list.",
+    basis: "Default basis is completed actual expenditure up to JUL 2026. Staff PUs are filtered by staff PU code list.",
     columns: [
       ["PU", "Primary Unit name/code."],
       ["OBA", "Original Budget Allotment from BG_ISL 2026-27."],
-      ["BP", "OBA / 12 * 03 for completed APR-JUN projection."],
-      ["AE", "Actual expenditure up to JUN 2026."],
+      ["BP", "OBA / 12 * 04 for completed APR-JUN projection."],
+      ["AE", "Actual expenditure up to JUL 2026."],
       ["Variation", "AE - BP."],
       ["% BP", "AE / BP * 100."],
       ["Budget Remaining", "OBA - AE."],
       ["% OBA Utilized", "AE / OBA * 100."]
     ],
-    steps: ["Read all PU budget rows.", "Keep staff PU codes only.", "Use completed month actuals up to June.", "Add total row from filtered rows."]
+    steps: ["Read all PU budget rows.", "Keep staff PU codes only.", "Use completed month actuals up to July.", "Add total row from filtered rows."]
   },
   current_pu_nonstaff: {
     title: "PU Non-Staff Current Year",
-    basis: "Default basis is completed actual expenditure up to JUN 2026. Non-staff PUs are all PUs outside staff PU code list.",
+    basis: "Default basis is completed actual expenditure up to JUL 2026. Non-staff PUs are all PUs outside staff PU code list.",
     columns: [
       ["PU", "Primary Unit name/code."],
       ["OBA", "Original Budget Allotment from BG_ISL 2026-27."],
-      ["BP", "OBA / 12 * 03 for completed APR-JUN projection."],
-      ["AE", "Actual expenditure up to JUN 2026."],
+      ["BP", "OBA / 12 * 04 for completed APR-JUN projection."],
+      ["AE", "Actual expenditure up to JUL 2026."],
       ["Variation", "AE - BP."],
       ["% BP", "AE / BP * 100."],
       ["Budget Remaining", "OBA - AE."],
@@ -64,20 +64,20 @@ const REPORT_LOGIC = {
   },
   till_date: {
     title: "Till Date / Running Month",
-    basis: "This page keeps July as running/till-date data. It is separate from default completed-month projection.",
+    basis: "This page keeps August as running/till-date data. It is separate from default completed-month projection.",
     columns: [
       ["OBA", "Original Budget Allotment as available in source."],
-      ["BP", "OBA / 12 * 04 when July running month is included."],
+      ["BP", "OBA / 12 * 05 when August running month is included."],
       ["AE", "Actual expenditure up to JUL 2026 as loaded/uploaded."],
       ["Variation", "AE - BP."],
       ["Budget Remaining", "OBA - AE."],
       ["Utilization", "AE divided by BP or OBA depending on column."]
     ],
-    steps: ["Preserve original uploaded July-running values.", "Show timestamp of data load.", "Do not mix these values into default June-completed projection."]
+    steps: ["Preserve original uploaded August-running values.", "Show timestamp of data load.", "Do not mix these values into default June-completed projection."]
   },
   advanced_monthly: {
     title: "Advanced Report - Month-Wise Expenditure",
-    basis: "Actual Basis selector controls latest-year active months: completed JUN 2026 (03) or till-date JUL 2026 (04).",
+    basis: "Actual Basis selector controls latest-year active months: completed JUL 2026 (04) or till-date AUG 2026 (05).",
     columns: [
       ["Month columns", "Actual expenditure booked in each month."],
       ["N/A months", "Months beyond selected basis are shown as N/A for latest year."],
@@ -87,7 +87,7 @@ const REPORT_LOGIC = {
   },
   advanced_utilization: {
     title: "Advanced Report - Budget Proportion vs Actual Expenditure",
-    basis: "Default basis is completed JUN 2026 (03). Till-date option projects JUL 2026 running month (04).",
+    basis: "Default basis is completed JUL 2026 (04). Till-date option projects AUG 2026 running month (05).",
     columns: [
       ["OBA", "Original Budget Allotment."],
       ["BP", "OBA / 12 * active month count for latest year; source BP is used for older years where available."],
@@ -126,7 +126,7 @@ function renderLogic() {
   const item = REPORT_LOGIC[select.value] || REPORT_LOGIC.current_demand;
   host.innerHTML = `<article class="logic-page">
     <div class="note">Remarks - Figures in '000' (thousands). ${esc(item.basis)}</div>
-    <section class="section"><h2>Calculation Basis</h2><div class="section-body"><div class="chips"><span class="chip">Selected report: ${esc(item.title)}</span><span class="chip">Default completed month: JUN 2026</span><span class="chip">Running month: JUL 2026</span></div></div></section>
+    <section class="section"><h2>Calculation Basis</h2><div class="section-body"><div class="chips"><span class="chip">Selected report: ${esc(item.title)}</span><span class="chip">Default completed month: JUL 2026</span><span class="chip">Running month: AUG 2026</span></div></div></section>
     <section class="section"><h2>Column Formulas</h2><div class="section-body"><table class="formula-table"><thead><tr><th>Column / Control</th><th>Logic Being Used</th></tr></thead><tbody>${item.columns.map(row => `<tr><td>${esc(row[0])}</td><td>${esc(row[1])}</td></tr>`).join("")}</tbody></table></div></section>
     <section class="section"><h2>Calculation Flow</h2><div class="section-body"><ol class="steps">${item.steps.map(step => `<li>${esc(step)}</li>`).join("")}</ol></div></section>
   </article>`;

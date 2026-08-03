@@ -182,7 +182,7 @@ def apply_completed_period(payload):
     reports = json.loads((ROOT / "data" / "reports-data.json").read_text(encoding="utf-8-sig"))
     fy = latest_report_year(reports)
     view = deepcopy(payload)
-    period = {"month": "JUN", "year": 2026, "count": 3, "label": "JUN 2026"}
+    period = {"month": "JUL", "year": 2026, "count": 4, "label": "JUL 2026"}
     for key in ("demand", "staff", "nonstaff"):
         tab = view.get(key)
         if not tab or not tab.get("rows"):
@@ -202,7 +202,7 @@ def apply_completed_period(payload):
             next_row["OBAPercent"] = number_value(next_row.get("AE")) / number_value(next_row.get("OBA")) * 100 if number_value(next_row.get("OBA")) else 0
             rows.append(next_row)
         tab["columns"] = [{**col, "label": relabel_period(col.get("label"), period["month"], period["year"], period["count"])} for col in tab.get("columns", [])]
-        tab["title"] = f'{tab.get("title", "")} - Completed Month Projection - June 2026 (03 months)'
+        tab["title"] = f'{tab.get("title", "")} - Completed Month Projection - June 2026 (04 months)'
         tab["rows"] = add_total(rows)
     return view
 
@@ -476,8 +476,8 @@ def build():
         ("Open Line FR Fund Wise", *fr_fund_table(fr[0])),
     ]
     write_excel(drm_sections)
-    build_pptx_from_template(CURRENT_PPTX, current_sections, "Accounts Dept | FY 2026-2027 | Current / Previous Year Budget Analysis | Completed JUN 2026")
-    build_pptx_from_template(PPTX, drm_sections, "Accounts Dept | FY 2026-2027 | DRM Budget & FR Analysis | Completed JUN 2026")
+    build_pptx_from_template(CURRENT_PPTX, current_sections, "Accounts Dept | FY 2026-2027 | Current / Previous Year Budget Analysis | Completed JUL 2026")
+    build_pptx_from_template(PPTX, drm_sections, "Accounts Dept | FY 2026-2027 | DRM Budget & FR Analysis | Completed JUL 2026")
     for path in (CURRENT_PPTX, PPTX):
         with zipfile.ZipFile(path) as z:
             assert z.testzip() is None
