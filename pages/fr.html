@@ -50,6 +50,25 @@
       line-height: 1.25;
       font-size: 12px;
     }
+    .data-stamp {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 7px;
+    }
+    .data-stamp span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #f8fbfd;
+      color: var(--muted);
+      padding: 4px 9px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .data-stamp strong { color: var(--accent); }
     .tabs {
       display: flex;
       gap: 6px;
@@ -546,6 +565,11 @@
       <div>
         <h1>FR Budget Status</h1>
         <p class="subtitle">SBA = Sanction Budget Allotment, AE = Actual Expenditure, Available = SBA minus AE. Remarks - Figures in '000' (thousands).</p>
+        <div class="data-stamp">
+          <span>Data as on <strong>28.07.2026</strong></span>
+          <span>Source <strong>FR 28.07.2026.xlsx</strong></span>
+          <span>Stored <strong>03.08.2026 12:26:17</strong></span>
+        </div>
       </div>
       <div class="header-actions"><button class="export-btn upload-btn" id="open-fr-upload" type="button">FR Upload</button><button class="export-btn" id="export-all" type="button">Export Excel</button><button class="export-btn" id="export-pdf" type="button">Export PDF</button></div>
     </div>
@@ -581,6 +605,11 @@
     };
     const moneyViewLabel = () => ({ dual: "Figures in '000 with Cr below", thousand: "Figures in '000 only", crore: "Crores only" }[displayState.moneyView] || "Figures in '000 with Cr below");
     const cls = value => value < 0 ? "negative" : value > 0 ? "positive" : "muted";
+    const frDataAsOnText = () => {
+      const title = workbookData.map(sheet => sheet.title || "").join(" ");
+      const match = title.match(/as\s+on\s+([0-9.]+)/i);
+      return match ? match[1] : "Not recorded";
+    };
 
     function totalFor(sheet) {
       return sheet.total?.funds?.TOTAL || { sba: 0, ae: 0, available: 0, spentPct: 0, remainPct: 0 };
@@ -869,8 +898,9 @@
     function frExportDocument(mode = "excel") {
       const generatedAt = new Date().toLocaleString("en-IN");
       const fundLabel = filterState.fund === "ALL" ? "All Fund Types" : filterState.fund === "TOTAL" ? "Overall Total" : filterState.fund;
+      const asOn = frDataAsOnText();
       const sections = tabs.map(tab => `<section class="export-section"><h2>${htmlEscape(tab.label)}</h2>${tab.content()}</section>`).join("");
-      return `<!doctype html><html><head><meta charset="utf-8"><title>FR Budget Status</title><style>${frExportStyles(mode)}</style></head><body><main><h1>FR Budget Status</h1><p class="export-meta">Generated ${htmlEscape(generatedAt)} | Plan Head: ${htmlEscape(filterState.planHead)} | Fund Type: ${htmlEscape(fundLabel)} | ${htmlEscape(moneyViewLabel())}</p>${sections}</main></body></html>`;
+      return `<!doctype html><html><head><meta charset="utf-8"><title>FR Budget Status</title><style>${frExportStyles(mode)}</style></head><body><main><h1>FR Budget Status</h1><p class="export-meta">FR Data as on ${htmlEscape(asOn)} | Generated ${htmlEscape(generatedAt)} | Plan Head: ${htmlEscape(filterState.planHead)} | Fund Type: ${htmlEscape(fundLabel)} | ${htmlEscape(moneyViewLabel())}</p>${sections}</main></body></html>`;
     }
 
     function xlsxMoney(value) {
@@ -923,6 +953,7 @@
       const rows = [
         [xlsxCell(`${sheet.sheetName} - FR Budget Status`, "title")],
         [xlsxCell(sheet.title || "", "meta")],
+        [xlsxCell(`FR Data as on ${frDataAsOnText()}`, "meta")],
         [xlsxCell(`Plan Head: ${filterState.planHead} | Fund Type: ${filterState.fund} | ${moneyViewLabel()}`, "meta")],
         [xlsxCell("Plan Head", "header"), xlsxCell("Plan Head Name", "header"), ...visibleFunds.flatMap(fund => [xlsxCell(`${fund} SBA`, "header"), xlsxCell(`${fund} AE`, "header"), xlsxCell(`${fund} Available`, "header"), xlsxCell(`${fund} Exp %`, "header")]), xlsxCell("Overall SBA", "header"), xlsxCell("Overall AE", "header"), xlsxCell("Overall Available", "header"), xlsxCell("Overall Exp %", "header")]
       ];
@@ -952,6 +983,7 @@
       const rows = [
         [xlsxCell(`${sheet.sheetName} - Plan Head Expenditure`, "title")],
         [xlsxCell(sheet.title || "", "meta")],
+        [xlsxCell(`FR Data as on ${frDataAsOnText()}`, "meta")],
         [xlsxCell(moneyViewLabel(), "meta")],
         [xlsxCell("Plan Head", "header"), xlsxCell("SBA 2026-27", "header"), xlsxCell("AE", "header"), xlsxCell("Variation (3 - 2)", "header"), xlsxCell("%age SBA", "header")],
         [xlsxCell("1", "subHeader"), xlsxCell("2", "subHeader"), xlsxCell("3", "subHeader"), xlsxCell("4", "subHeader"), xlsxCell("5", "subHeader")]
@@ -978,6 +1010,7 @@
       const rows = [
         [xlsxCell(`${sheet.sheetName} - Fund Analysis`, "title")],
         [xlsxCell(sheet.title || "", "meta")],
+        [xlsxCell(`FR Data as on ${frDataAsOnText()}`, "meta")],
         [xlsxCell(moneyViewLabel(), "meta")],
         [xlsxCell("Fund", "header"), xlsxCell("SBA", "header"), xlsxCell("AE", "header"), xlsxCell("Available", "header"), xlsxCell("Expensed %", "header"), xlsxCell("Remaining %", "header")]
       ];
@@ -1255,8 +1288,9 @@
       const title = current ? "Current FR Copy" : `Previous FR Copy ${index + 1}`;
       const fileName = copy?.originalName || copy?.activeFile || copy?.name || "Not available";
       const storedName = copy?.activeFile || copy?.name || "Not available";
-      const uploadedAt = formatUploadDate(copy?.uploadedAt);
-      return `<div class="fr-copy-card ${current ? "current" : "previous"}"><strong>${title}</strong><span><b>File:</b> ${htmlEscape(fileName)}</span><span><b>Stored as:</b> ${htmlEscape(storedName)}</span><span><b>Data as on:</b> ${htmlEscape(uploadedAt)}</span></div>`;
+      const dataAsOn = formatUploadDate(copy?.dataAsOn || copy?.uploadedAt);
+      const storedAt = copy?.uploadedAt && copy?.dataAsOn ? formatUploadDate(copy.uploadedAt) : "";
+      return `<div class="fr-copy-card ${current ? "current" : "previous"}"><strong>${title}</strong><span><b>File:</b> ${htmlEscape(fileName)}</span><span><b>Stored as:</b> ${htmlEscape(storedName)}</span><span><b>Data as on:</b> ${htmlEscape(dataAsOn)}</span>${storedAt ? `<span><b>Stored at:</b> ${htmlEscape(storedAt)}</span>` : ""}</div>`;
     }
 
     function frUploadToggleHtml() {
@@ -1265,7 +1299,7 @@
 
     function frUploadCopiesHtml(manifest) {
       const role = FR_UPLOAD_STATE.view;
-      const roleCopy = manifest[role] || (role === "current" ? { activeFile: manifest.activeFile || "", originalName: manifest.originalName || "", uploadedAt: manifest.uploadedAt || "" } : {});
+      const roleCopy = manifest[role] || (role === "current" ? { activeFile: manifest.activeFile || "", originalName: manifest.originalName || "", uploadedAt: manifest.uploadedAt || "", dataAsOn: manifest.dataAsOn || "" } : {});
       const copyHtml = roleCopy.activeFile ? frCopyCard(roleCopy, 0, role === "current") : `<div class="fr-copy-card ${role === "current" ? "current" : "previous"}"><strong>${frRoleLabel(role)}</strong><span>No ${frRoleLabel(role).toLowerCase()} file confirmed yet.</span></div>`;
       const backupHtml = roleCopy.backup ? frCopyCard(roleCopy.backup, 0, false) : `<div class="fr-copy-card previous"><strong>${frRoleLabel(role)} Backup Copy</strong><span>No backup copy kept yet. One backup will be kept when this ${frRoleLabel(role).toLowerCase()} is replaced.</span></div>`;
       return `${copyHtml}${backupHtml}`;
@@ -1277,7 +1311,8 @@
       const role = FR_UPLOAD_STATE.view;
       const roleCopy = manifest[role] || {};
       const activeFile = roleCopy.activeFile || (role === "current" ? manifest.activeFile : "") || `No ${frRoleLabel(role).toLowerCase()} source file confirmed yet`;
-      const uploadedAt = roleCopy.uploadedAt ? formatUploadDate(roleCopy.uploadedAt) : "Not available";
+      const uploadedAt = roleCopy.dataAsOn || roleCopy.uploadedAt ? formatUploadDate(roleCopy.dataAsOn || roleCopy.uploadedAt) : "Not available";
+      const storedAt = roleCopy.uploadedAt ? formatUploadDate(roleCopy.uploadedAt) : "Not available";
       const originalName = roleCopy.originalName || "Not available";
       const backup = roleCopy.backup;
       const backups = backup
@@ -1289,7 +1324,7 @@
       return `
         <div class="upload-card">
           <p class="subtitle">Upload <strong>Previous FR</strong> and <strong>Current FR</strong> separately. Each upload has its own Data as on date and keeps one backup copy when replaced.</p>
-          <div class="upload-status muted">${isLocalApiHost() ? "Local mode: Confirm & Store writes through the local upload server." : "GitHub Pages mode: password unlock, file verify, and confirmation work in browser. Repository file update is completed by committing the same file to data/fr."}</div>
+          <div class="upload-status muted">${isLocalApiHost() ? "Local mode: Confirm & Store writes through the local upload server and updates repository files for commit/push." : "GitHub Pages mode: verify/preview only. Browser confirmation cannot overwrite repository files and may not survive another device or clean browser; permanent update needs local upload-server commit/push or a GitHub API direct-sync flow."}</div>
           ${frUploadToggleHtml()}
           ${frUploadCopiesHtml(manifest)}
           <div class="upload-grid">
@@ -1298,6 +1333,7 @@
               <div class="upload-path"><strong>Active file:</strong> ${htmlEscape(activeFile)}</div>
               <div class="upload-path"><strong>Original upload:</strong> ${htmlEscape(originalName)}</div>
               <div class="upload-path"><strong>Data as on:</strong> ${htmlEscape(uploadedAt)}</div>
+              <div class="upload-path"><strong>Stored at:</strong> ${htmlEscape(storedAt)}</div>
             </div>
             <div class="upload-box">
               <h3>${htmlEscape(frRoleLabel(role))} Backup Copy</h3>
@@ -1310,7 +1346,7 @@
           <div class="upload-path"><strong>Selected file:</strong> ${selected}</div>
           <div class="upload-actions">
             <button class="reset-btn" type="button" data-fr-upload-check="${role}">Verify ${htmlEscape(frRoleLabel(role))}</button>
-            <button class="export-btn upload-btn" type="button" data-fr-upload-store="${role}">Confirm & Store ${htmlEscape(frRoleLabel(role))}</button>
+            <button class="export-btn upload-btn" type="button" data-fr-upload-store="${role}">${isLocalApiHost() && role === "current" ? "Confirm & Store" : "Confirm Browser Preview"} ${htmlEscape(frRoleLabel(role))}</button>
           </div>
           <div class="upload-status ${FR_UPLOAD_STATE.statusType}">${htmlEscape(FR_UPLOAD_STATE.status)}</div>
         </div>`;
@@ -1338,7 +1374,7 @@
         const saved = saveFrUploadInBrowser(file, role);
         FR_UPLOAD_STATE.files[role] = null;
         FR_UPLOAD_STATE.view = role;
-        FR_UPLOAD_STATE.status = `Confirmed ${frRoleLabel(role)} for GitHub-hosted portal: ${saved[role].originalName}. This browser now shows it with Data as on ${formatUploadDate(saved[role].uploadedAt)}.`;
+        FR_UPLOAD_STATE.status = `Confirmed browser preview for ${frRoleLabel(role)}: ${saved[role].originalName}. This does not overwrite GitHub repository files; commit/push the file through local workflow for permanent portal update.`;
         FR_UPLOAD_STATE.statusType = "good";
         renderPanels();
         return;
@@ -1361,7 +1397,7 @@
         const saved = saveFrUploadInBrowser(file, role);
         FR_UPLOAD_STATE.files[role] = null;
         FR_UPLOAD_STATE.view = role;
-        FR_UPLOAD_STATE.status = `Local upload API not available, so browser confirmation was saved instead for ${frRoleLabel(role)}: ${saved[role].originalName}.`;
+        FR_UPLOAD_STATE.status = `Local upload API not available, so only browser preview was saved for ${frRoleLabel(role)}: ${saved[role].originalName}. Repository files were not overwritten.`;
         FR_UPLOAD_STATE.statusType = "good";
       }
       renderPanels();
@@ -1495,7 +1531,3 @@
   </script>
 </body>
 </html>
-
-
-
-

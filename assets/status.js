@@ -19,6 +19,10 @@
     return `<article class="card"><span>${label}</span><strong>${value}</strong><em>${note || ""}</em></article>`;
   }
   function moneyPair(value){ return `${fmt(value)} | Cr ${crore(value)}`; }
+  function dateText(value){
+    if (!value) return "Not recorded";
+    return new Date(String(value).includes("T") ? value : `${value}T00:00:00`).toLocaleString("en-IN");
+  }
   function renderSummary(manifest){
     const sourceCount = Object.keys(SOURCES.sources || {}).length;
     const currentTotal = totalRow("demand");
@@ -26,7 +30,7 @@
       card("Portal Mode", mode, mode.includes("Local") ? "Upload and backup APIs should be available." : "Upload/backup actions need local server."),
       card("Data Basis", "JUL 2026", "Completed month projection. AUG remains running/till-date."),
       card("Current Demand AE", moneyPair(currentTotal.AE), `${latestYear}; main total excludes 12N / 10N.`),
-      card("FR Data As On", manifest?.uploadedAt ? new Date(manifest.uploadedAt).toLocaleString("en-IN") : "Not recorded", manifest?.originalName || "FR manifest not available")
+      card("FR Data As On", dateText(manifest?.dataAsOn || manifest?.uploadedAt), manifest?.originalName ? `${manifest.originalName}; stored ${dateText(manifest.uploadedAt)}` : "FR manifest not available")
     ].join("");
     if(sourceCount) $("summaryCards").insertAdjacentHTML("beforeend", card("Year Sources", sourceCount, `${previousYear} previous and ${latestYear} current mappings loaded.`));
   }

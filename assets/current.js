@@ -539,10 +539,10 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       return `${uploadApiBase()}${path}`;
     }
     function isGithubHostedPortal() {
-      return /github\.io$/i.test(window.location.hostname);
+      return !["localhost", "127.0.0.1"].includes(window.location.hostname);
     }
     function uploadServerHelpText() {
-      if (isGithubHostedPortal()) return "GitHub Pages is read-only for repository files. Upload/parse works here, but Confirm & Store needs either local upload-server mode or an approved GitHub API direct-sync flow.";
+      if (isGithubHostedPortal()) return "GitHub Pages is read-only for repository files. Upload/parse can verify data in this browser, but it will not permanently update the portal after reopen. Permanent update needs local upload-server commit/push or an approved GitHub API direct-sync flow.";
       return `Repository store needs the local upload server. Start: python scripts\\local-upload-server.py 8000, then open http://127.0.0.1:8000/.`;
     }
     async function refreshUploadServerStatus() {
@@ -562,7 +562,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
         }
         if (storeButton) {
           storeButton.disabled = true;
-          storeButton.textContent = "Store unavailable on GitHub Pages";
+          storeButton.textContent = "GitHub Pages: Verify Only";
         }
         if (refreshButton) {
           refreshButton.disabled = true;
@@ -1526,8 +1526,6 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     const initialTab = new URLSearchParams(window.location.search).get("tab");
     if (initialTab && (DATA[initialTab] || ["analysis", "upload", "current_till"].includes(initialTab))) openTab(initialTab);
     else render(activeTab);
-
-
 
 
 
