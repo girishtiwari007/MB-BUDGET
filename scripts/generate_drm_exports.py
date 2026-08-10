@@ -207,7 +207,9 @@ def apply_completed_period(payload):
             if actual is not None:
                 next_row["AE"] = actual
             next_row["Months"] = period["count"]
-            next_row["BP"] = number_value(next_row.get("OBA")) / 12 * period["count"]
+            # Keep the portal/source BP proportion instead of recomputing a flat monthly ratio.
+            # Source BP can include budget-distribution logic that is not always OBA / 12 * months.
+            next_row["BP"] = number_value(next_row.get("BP"))
             next_row["Variation"] = number_value(next_row.get("AE")) - number_value(next_row.get("BP"))
             next_row["BPPercent"] = number_value(next_row.get("AE")) / number_value(next_row.get("BP")) * 100 if number_value(next_row.get("BP")) else 0
             next_row["Remaining"] = number_value(next_row.get("OBA")) - number_value(next_row.get("AE"))
