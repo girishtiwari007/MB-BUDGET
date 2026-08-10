@@ -50,3 +50,20 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#eef3f7;color:#1
   .metric strong{font-size:17px}
   .section-title{margin:11px 0 7px}
 }
+
+/* Dynamic home dashboard pass - 2026-08-10 */
+.metric{position:relative;overflow:hidden}
+.metric:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:#dce6ee}
+.metric.good:before{background:#25a55b}
+.metric.watch:before{background:#d7a72b}
+.metric.bad:before{background:#b71c1c}
+.metric em{display:block;margin-top:4px;color:#5f6f7e;font-size:11px;font-style:normal;font-weight:700;line-height:1.25}
+.home-status{display:flex;flex-wrap:wrap;gap:7px;padding:10px 12px;background:#f7fafc;border-top:1px solid #dce6ee}
+.home-status span{display:inline-flex;align-items:center;min-height:28px;padding:5px 9px;border:1px solid #c7d4df;background:#fff;color:#1f4e79;font-size:12px;font-weight:800}
+.exception-list li.critical{background:#fff8f8}
+.exception-list li.watch{background:#fffdf2}
+.exception-list li.good{border-left:5px solid #25a55b;background:#f5fbf7}
+@media(max-width:760px){
+  .home-status{padding:8px;gap:6px}
+  .home-status span{width:100%;box-sizing:border-box}
+}

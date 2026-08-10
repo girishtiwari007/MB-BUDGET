@@ -43,10 +43,13 @@
           </div>
         </div>
         <div class="metrics">
-          <div class="metric"><span>Reporting Workspaces</span><strong>3</strong></div>
-          <div class="metric"><span>Year Data Available</span><strong>2023-24 to 2026-27</strong></div>
-          <div class="metric"><span>Primary Unit Report Lines</span><strong>44</strong></div>
-          <div class="metric"><span>Export Formats</span><strong>PDF / Excel / PPTX</strong></div>
+          <div class="metric" id="homeBasisMetric"><span>Reporting Basis</span><strong>Loading</strong></div>
+          <div class="metric" id="homeRunningMetric"><span>Running Month</span><strong>Loading</strong></div>
+          <div class="metric" id="homeDemandMetric"><span>Demand AE</span><strong>Loading</strong></div>
+          <div class="metric" id="homeModeMetric"><span>Portal Mode</span><strong>Loading</strong></div>
+        </div>
+        <div class="home-status" id="homeStatusStrip">
+          <span>Checking latest portal data...</span>
         </div>
       </section>
       <h2 class="section-title">Budget Exception Highlights</h2>
@@ -54,13 +57,8 @@
         <article class="exception-panel">
           <h2>Current Table Exceptions</h2>
           <div class="panel-remarks">Remarks - Figures in '000' (thousands)</div>
-          <ul class="exception-list">
-            <li class="critical"><strong>Demand 12N / 10N</strong><span>Separate suspense verification line. Excluded from main demand totals because it carries negative/suspense booking.</span></li>
-<li class="critical"><strong>PU - 98 - Credit or Recoveries</strong><span>Budget remaining is negative by 13,84,700.</span></li>
-<li class="watch"><strong>PU - 60 - Fuel from Stock-Home</strong><span>Actual expenditure increased by 4,83,795 over previous year.</span></li>
-<li class="watch"><strong>Demand 10 / 08</strong><span>Actual expenditure increased by 3,89,883 over previous year.</span></li>
-<li class="watch"><strong>PU - 27 - Materials from stock</strong><span>Actual expenditure increased by 3,10,197 over previous year.</span></li>
-<li class="watch"><strong>Demand 08 / 06</strong><span>Actual expenditure increased by 2,87,255 over previous year.</span></li>
+          <ul class="exception-list" id="homeExceptionList">
+            <li class="watch"><strong>Loading</strong><span>Reading latest committed budget payload and upload manifests.</span></li>
           </ul>
         </article>
         <article class="guide-panel">
@@ -95,11 +93,13 @@
           </ul>
         </div>
       </section>
-      <p class="note">Designed for Northern Railway Moradabad Division Accounts reporting use.</p>
+      <p class="note" id="homeGeneratedNote">Designed for Northern Railway Moradabad Division Accounts reporting use.</p>
       <footer class="footer">Northern Railway - Moradabad Division | Accounts Department | Budget & FR Analysis Portal</footer>
     </section>
     <iframe class="frame" id="contentFrame" title="Analysis page"></iframe>
   </main>
+  <script src="data/current_payload.js?v=20260810-home-data-1"></script>
+  <script src="assets/home.js?v=20260810-home-data-1"></script>
   <script src="assets/portal-custom.js?v=20260714-mobile-app-1"></script>
   <script src="assets/table-highlight.js?v=20260716-row-col-1"></script>
   <script src="assets/shell.js?v=20260714-mobile-app-1"></script>
