@@ -36,6 +36,12 @@ Run the local upload server from the repo root:
 python .\scripts\local-upload-server.py 8000
 ```
 
+Or double-click/run:
+
+```text
+Start-Local-Upload-Portal.cmd
+```
+
 Open:
 
 ```text

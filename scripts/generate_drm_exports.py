@@ -16,7 +16,13 @@ OUT = ROOT / "exports"
 CURRENT_PPTX = OUT / "Moradabad_Division_Current_Year_Budget_Analysis.pptx"
 PPTX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis.pptx"
 XLSX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis.xlsx"
-TEMPLATE_PPTX = Path(r"C:\Users\HP\Dropbox\Revenue PU Laibilities\PPT PORTAL\Moradabad Division Quarty FR and Revenue Budget Analysis DRM.pptx")
+TEMPLATE_CANDIDATES = [
+    Path(r"C:\Users\HP\Dropbox\Revenue PU Laibilities\PPT PORTAL\Moradabad Division Quarty FR and Revenue Budget Analysis DRM.pptx"),
+    Path(r"C:\Users\HP\Dropbox\Revenue PU Laibilities\PPT PORTAL\Moradabad Division Quarty FR and Revenue Budget Analysis DRM JULY.pptx"),
+    Path(r"C:\Users\HP\Dropbox\Revenue PU Laibilities\PPT PORTAL\Moradabad Division Quarty FR and Revenue Budget Analysis DRM JUN.pptx"),
+    Path(r"C:\Users\HP\Dropbox\Revenue PU Laibilities\PPT PORTAL\Moradabad Division Quarty FR and Revenue Budget Analysis.pptx"),
+]
+TEMPLATE_PPTX = next((path for path in TEMPLATE_CANDIDATES if path.exists()), TEMPLATE_CANDIDATES[0])
 SLIDE_W, SLIDE_H = 12192000, 6858000
 BLUE = "1F4E79"
 NAVY = "003366"
@@ -24,6 +30,12 @@ LIGHT = "E8F2F8"
 YELLOW = "FFF2CC"
 WHITE = "FFFFFF"
 BLACK = "000000"
+GREEN = "25A55B"
+AMBER = "F2C230"
+RED = "D92323"
+GREEN_LIGHT = "DFF3E7"
+AMBER_LIGHT = "FFF2CC"
+RED_LIGHT = "FCE4E4"
 
 
 def load_json_assignment(path, name):
@@ -207,16 +219,31 @@ def apply_completed_period(payload):
     return view
 
 
-def utilization_dot(value):
+def utilization_class(value):
     try:
         v = float(value or 0)
     except Exception:
         v = 0
-    if v >= 100:
-        return "🔴"
+    if v < 0 or v > 100:
+        return "red"
     if v >= 75:
-        return "🟠"
-    return "🟢"
+        return "amber"
+    return "green"
+
+
+def utilization_fill(value, light=False):
+    cls = utilization_class(value)
+    if light:
+        return {"green": GREEN_LIGHT, "amber": AMBER_LIGHT, "red": RED_LIGHT}.get(cls, GREEN_LIGHT)
+    return {"green": GREEN, "amber": AMBER, "red": RED}.get(cls, GREEN)
+
+
+def utilization_text_color(value):
+    return BLACK if utilization_class(value) == "amber" else WHITE
+
+
+def utilization_dot(value):
+    return {"green": "G", "amber": "A", "red": "R"}.get(utilization_class(value), "G")
 
 
 def display_cell(row, col):
@@ -225,7 +252,7 @@ def display_cell(row, col):
     if fmt == "money":
         return money(val)
     if key in ("BPPercent", "OBAPercent"):
-        return f"{pct(val)} {utilization_dot(val)}"
+        return pct(val)
     if fmt == "int":
         return pct(val)
     return str(val)
@@ -336,7 +363,7 @@ def tc_pr(fill):
 
 def table_cell(text, fill, size, bold=False, color=BLACK, align="ctr"):
     anchor = "ctr"
-    return f'''<a:tc><a:txBody><a:bodyPr wrap="square" anchor="{anchor}"/><a:lstStyle/><a:p><a:pPr algn="{align}"/>{text_runs(text, size, bold, color)}</a:p></a:txBody>{tc_pr(fill)}</a:tc>'''
+    return f'''<a:tc><a:txBody><a:bodyPr wrap="square" anchor="{anchor}" lIns="18000" rIns="18000" tIns="10000" bIns="10000"/><a:lstStyle/><a:p><a:pPr algn="{align}"/>{text_runs(text, size, bold, color)}</a:p></a:txBody>{tc_pr(fill)}</a:tc>'''
 
 
 def column_weights(headers):
@@ -360,44 +387,75 @@ def column_weights(headers):
     return [weight / total for weight in weights]
 
 
+def numeric_prefix(value):
+    match = re.search(r"-?\d+(?:\.\d+)?", clean_text(value).replace(",", ""))
+    return float(match.group(0)) if match else 0
+
+
+def is_percent_header(header):
+    label = clean_text(header).lower()
+    return "%" in label or "expensed" in label or "utilized" in label
+
+
 def ppt_table(shape_id, x, y, w, h, headers, rows):
     col_count = len(headers)
     row_count = len(rows) + 1
     row_h = int(h / max(row_count, 1))
-    header_size = 820 if col_count <= 8 else (760 if col_count <= 9 else 620)
+    header_size = 1080 if col_count <= 8 else (980 if col_count <= 9 else 800)
     if col_count <= 8:
-        body_size = 780 if len(rows) <= 10 else 710
+        body_size = 1000 if len(rows) <= 18 else 920
     elif col_count <= 9:
-        body_size = 710 if len(rows) <= 13 else 640
+        body_size = 950 if len(rows) <= 13 else 860
     else:
-        body_size = 560
+        body_size = 740
     col_widths = [int(w * weight) for weight in column_weights(headers)]
     col_widths[-1] += int(w) - sum(col_widths)
     grid = "".join(f'<a:gridCol w="{col_w}"/>' for col_w in col_widths)
     trs = [
         f'<a:tr h="{row_h}">' + "".join(table_cell(head, BLUE, header_size, True, WHITE, "ctr") for head in headers) + "</a:tr>"
     ]
+    percent_cols = {idx for idx, head in enumerate(headers) if is_percent_header(head)}
     for r_idx, row in enumerate(rows):
         first = clean_text(row[0]).strip().lower() if row else ""
-        fill = "C8D6E8" if first == "total" else ("D9EAF7" if r_idx % 2 else WHITE)
+        base_fill = "C8D6E8" if first == "total" else ("D9EAF7" if r_idx % 2 else WHITE)
         cells = []
         for c_idx, value in enumerate(row):
             align = "l" if c_idx == 1 and ("department" in clean_text(headers[c_idx]).lower() or "name" in clean_text(headers[c_idx]).lower()) else "ctr"
-            bold = first == "total" or c_idx in (0, col_count - 1)
-            size = body_size + 120 if first == "total" and col_count <= 9 else body_size
-            cells.append(table_cell(value, fill, size, bold, BLACK, align))
+            bold = first == "total" or c_idx in (0, col_count - 1) or c_idx in percent_cols
+            size = body_size + 130 if first == "total" and col_count <= 9 else body_size
+            fill = base_fill
+            color = BLACK
+            if c_idx in percent_cols and clean_text(value).strip():
+                n = numeric_prefix(value)
+                fill = utilization_fill(n, light=(first != "total"))
+                color = BLACK if first != "total" else utilization_text_color(n)
+            cells.append(table_cell(value, fill, size, bold, color, align))
         trs.append(f'<a:tr h="{row_h}">' + "".join(cells) + "</a:tr>")
     return f'''<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="{shape_id}" name="Table {shape_id}"/><p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr><p:nvPr/></p:nvGraphicFramePr><p:xfrm><a:off x="{x}" y="{y}"/><a:ext cx="{w}" cy="{h}"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr firstRow="1" bandRow="1"><a:tableStyleId>{{5940675A-B579-460E-94D1-54222C63F5DA}}</a:tableStyleId></a:tblPr><a:tblGrid>{grid}</a:tblGrid>{''.join(trs)}</a:tbl></a:graphicData></a:graphic></p:graphicFrame>'''
 
 
 def editable_slide_xml(title, subtitle="", headers=None, rows=None):
     shapes = [
-        ppt_text_box(2, 220000, 70000, SLIDE_W - 440000, 360000, title, 1760, True, None, "22A7D8"),
+        ppt_text_box(2, 130000, 45000, SLIDE_W - 260000, 365000, title, 1900, True, None, "22A7D8"),
     ]
     if subtitle:
-        shapes.append(ppt_text_box(3, 220000, 450000, SLIDE_W - 440000, 230000, subtitle, 860, False, None, BLACK, "r"))
+        shapes.append(ppt_text_box(3, 130000, 430000, SLIDE_W - 260000, 215000, subtitle, 900, False, None, BLACK, "r"))
     if headers and rows is not None:
-        shapes.append(ppt_table(4, 220000, 720000, SLIDE_W - 440000, SLIDE_H - 960000, headers, rows))
+        shapes.append(ppt_table(4, 130000, 670000, SLIDE_W - 260000, SLIDE_H - 800000, headers, rows))
+    sp_tree = "".join(shapes)
+    return f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>{sp_tree}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>'''
+
+
+def cover_slide_xml(title, subtitle):
+    shapes = [
+        ppt_text_box(2, 0, 0, SLIDE_W, 540000, "NORTHERN RAILWAY - MORADABAD DIVISION", 1350, True, NAVY, WHITE),
+        ppt_text_box(3, 420000, 1180000, SLIDE_W - 840000, 760000, title, 2400, True, None, "22A7D8"),
+        ppt_text_box(4, 860000, 2040000, SLIDE_W - 1720000, 430000, subtitle, 980, False, LIGHT, BLACK),
+        ppt_text_box(5, 1350000, 3120000, 2400000, 720000, "Green\nWithin control", 920, True, GREEN_LIGHT, BLACK),
+        ppt_text_box(6, 4860000, 3120000, 2400000, 720000, "Amber\nWatch range", 920, True, AMBER_LIGHT, BLACK),
+        ppt_text_box(7, 8370000, 3120000, 2400000, 720000, "Red\nImmediate review", 920, True, RED_LIGHT, BLACK),
+        ppt_text_box(8, 0, SLIDE_H - 420000, SLIDE_W, 420000, "Figures in thousands with Crore equivalent shown inside table cells", 900, False, BLUE, WHITE),
+    ]
     sp_tree = "".join(shapes)
     return f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>{sp_tree}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>'''
 
@@ -406,7 +464,7 @@ def split_section(title, headers, rows):
     slides = []
     col_count = len(headers)
     if col_count <= 6:
-        max_rows = 16
+        max_rows = 18
     elif col_count <= 9:
         max_rows = 13
     else:
@@ -421,7 +479,7 @@ def split_section(title, headers, rows):
 def build_pptx_from_template(output_path, sections, subtitle):
     if not TEMPLATE_PPTX.exists():
         raise RuntimeError(f"Template PPTX not found: {TEMPLATE_PPTX}")
-    slides = [editable_slide_xml("Moradabad Division", subtitle)]
+    slides = [cover_slide_xml("Moradabad Division Budget & FR Analysis", subtitle)]
     for title, headers, rows in sections:
         slides.extend(split_section(title, headers, rows))
     with zipfile.ZipFile(TEMPLATE_PPTX, "r") as src:
