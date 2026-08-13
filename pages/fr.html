@@ -901,9 +901,7 @@
       const fundLabel = filterState.fund === "ALL" ? "All Fund Types" : filterState.fund === "TOTAL" ? "Overall Total" : filterState.fund;
       const asOn = frDataAsOnText();
       const sections = tabs.map(tab => `<section class="export-section"><h2>${htmlEscape(tab.label)}</h2>${tab.content()}</section>`).join("");
-      return `<!doctype html><html><head><meta charset="utf-8"><title>FR Budget Status</title><style>${frExportStyles(mode)}</style>  <link rel="stylesheet" href="../assets/protection.css?v=20260813-protect-1">
-</head><body><main><h1>FR Budget Status</h1><p class="export-meta">FR Data as on ${htmlEscape(asOn)} | Generated ${htmlEscape(generatedAt)} | Plan Head: ${htmlEscape(filterState.planHead)} | Fund Type: ${htmlEscape(fundLabel)} | ${htmlEscape(moneyViewLabel())}</p>${sections}</main>  <script src="../assets/protection.js?v=20260813-protect-1"></script>
-</body></html>`;
+      return `<!doctype html><html><head><meta charset="utf-8"><title>FR Budget Status</title><style>${frExportStyles(mode)}</style></head><body><main><h1>FR Budget Status</h1><p class="export-meta">FR Data as on ${htmlEscape(asOn)} | Generated ${htmlEscape(generatedAt)} | Plan Head: ${htmlEscape(filterState.planHead)} | Fund Type: ${htmlEscape(fundLabel)} | ${htmlEscape(moneyViewLabel())}</p>${sections}</main></body></html>`;
     }
 
     function xlsxMoney(value) {
