@@ -96,12 +96,6 @@
 
   function buildUi(){
     document.body.classList.add("protection-active");
-    if (!document.getElementById("protectionWatermark")) {
-      const mark = document.createElement("div");
-      mark.className = "protection-watermark";
-      mark.id = "protectionWatermark";
-      document.body.appendChild(mark);
-    }
     if (!document.getElementById("protectionBadge")) {
       const badge = document.createElement("div");
       badge.className = "protection-badge";
