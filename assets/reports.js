@@ -56,6 +56,30 @@ const $ = (id) => document.getElementById(id);
 const COMPLETED_MONTH_INDEX = 3;
 const TILL_DATE_MONTH_INDEX = 4;
 
+function dataTimestampText(value) {
+  if (!value) return new Date().toLocaleString("en-IN");
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("en-IN");
+}
+
+function dataStampText() {
+  const uploadStamp = DATA.statusAsOn || DATA.generatedAt;
+  return `Data as on: ${dataTimestampText(uploadStamp)} | Last upload: ${dataTimestampText(uploadStamp)} | Basis: completed JUL 2026; running AUG 2026`;
+}
+
+function dataStampHtml() {
+  const parts = dataStampText().split(" | ");
+  return parts.map((part) => {
+    const [label, ...rest] = part.split(": ");
+    return `<strong>${esc(label)}:</strong> ${esc(rest.join(": "))}`;
+  }).join(" | ");
+}
+
+function refreshDataStamp() {
+  const stamp = $("reportDataStamp");
+  if (stamp) stamp.innerHTML = dataStampHtml();
+}
+
 function fmt(value, decimals = 0) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "N/A";
   return Number(value).toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
@@ -500,7 +524,7 @@ function selectedReportAoa() {
   return [
     [REPORTS[state.report].title],
     [`Selected: ${state.scope === "yearly" ? (state.importantPuOnly ? "Important Primary Units" : "All Primary Unit") : optionLabel(state.item || "All")}`],
-    [`${remarksText()}. Metric: ${metricLabel()}`],
+    [`${dataStampText()}. ${remarksText()}. Metric: ${metricLabel()}`],
     ["Financial Year", ...DATA.months, "Total"],
     ...fy.map((year) => [year, ...DATA.months.map((_, index) => monthValue(s, year, index)), periodTotal(s, year)]),
   ];
@@ -607,7 +631,7 @@ function budgetSourceTable(scope, title) {
 
 function reportExportDocument(mode) {
   const report = REPORTS[state.report];
-  const selectedView = `<section class="export-section"><h2>${esc(report.title)}</h2><p class="meta">${remarksText()}. ${esc(report.note)}</p>${summaryHtml()}${insightHtml()}${renderChart()}${tableHtml()}${importantBreakdownHtml()}</section>`;
+  const selectedView = `<section class="export-section"><h2>${esc(report.title)}</h2><p class="meta">${esc(dataStampText())}<br>${remarksText()}. ${esc(report.note)}</p>${summaryHtml()}${insightHtml()}${renderChart()}${tableHtml()}${importantBreakdownHtml()}</section>`;
   const appendices = [
     monthlySourceTable("pu", "Appendix A - Primary Unit Month-Wise Actual Expenditure"),
     monthlySourceTable("demand", "Appendix B - Demand / SMH Month-Wise Actual Expenditure"),
@@ -617,8 +641,8 @@ function reportExportDocument(mode) {
   ].join("");
   const generatedAt = new Date().toLocaleString("en-IN");
   const selectedText = state.scope === "yearly" ? (state.importantPuOnly ? "Important Primary Units" : "All Primary Unit") : optionLabel(state.item || "All");
-  const cover = `<section class="export-cover"><div><h1>Advanced Report and Chart Analysis</h1><div class="cover-meta">Selected report: ${esc(report.label)}<br>Selection: ${esc(selectedText)}<br>${remarksText()}<br>Generated ${generatedAt}</div><div class="cover-list">Includes selected chart/table view and appendices for PU, Demand / SMH, Department and utilization source data.</div></div></section>`;
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Advanced Report and Chart Analysis Export</title>${reportExportStyles(mode)}</head><body><main>${cover}<h1>Advanced Report and Chart Analysis</h1><p class="meta">Selected report: ${esc(report.label)}. Generated ${generatedAt}.</p>${selectedView}${appendices}</main></body></html>`;
+  const cover = `<section class="export-cover"><div><h1>Advanced Report and Chart Analysis</h1><div class="cover-meta">Selected report: ${esc(report.label)}<br>Selection: ${esc(selectedText)}<br>${esc(dataStampText())}<br>${remarksText()}<br>Generated ${generatedAt}</div><div class="cover-list">Includes selected chart/table view and appendices for PU, Demand / SMH, Department and utilization source data.</div></div></section>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Advanced Report and Chart Analysis Export</title>${reportExportStyles(mode)}</head><body><main>${cover}<h1>Advanced Report and Chart Analysis</h1><p class="meta">Selected report: ${esc(report.label)}. ${esc(dataStampText())}. Generated ${generatedAt}.</p>${selectedView}${appendices}</main></body></html>`;
 }
 
 async function exportReportExcel() {
@@ -660,6 +684,7 @@ function render() {
   syncControls();
   const report = REPORTS[state.report];
   $("reportTitle").textContent = report.title;
+  refreshDataStamp();
   $("host").innerHTML = `<p class="note">${remarksText()}. ${esc(report.note)}</p>${availabilityNote()}${summaryHtml()}<div class="report-layout">${insightHtml()}${renderChart()}</div>${tableHtml()}${importantBreakdownHtml()}`;
 }
 

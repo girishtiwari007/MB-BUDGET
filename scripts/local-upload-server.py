@@ -211,14 +211,18 @@ def patch_data_metadata(manifest):
         if not reports_path.exists():
             continue
         text = reports_path.read_text(encoding="utf-8")
-        marker = '"statusAsOn": "'
-        start = text.rfind(marker)
-        if start >= 0:
-            start += len(marker)
-            end = text.find('"', start)
-            if end > start:
-                text = text[:start] + manifest["statusAsOn"] + text[end:]
-                reports_path.write_text(text, encoding="utf-8")
+        changed = False
+        for key in ["generatedAt", "statusAsOn"]:
+            marker = f'"{key}": "'
+            start = text.rfind(marker)
+            if start >= 0:
+                start += len(marker)
+                end = text.find('"', start)
+                if end > start:
+                    text = text[:start] + manifest["statusAsOn"] + text[end:]
+                    changed = True
+        if changed:
+            reports_path.write_text(text, encoding="utf-8")
     return True
 
 

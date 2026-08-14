@@ -46,6 +46,14 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     const COMPLETED_PERIOD = { month:"JUL", year:2026, count:4, label:"JUL 2026", title:"Completed Month Projection - July 2026 (04 months)" };
     const RUNNING_PERIOD = { month:"AUG", year:2026, count:5, label:"AUG 2026", title:"Till Date / Running Month - August 2026 (05 months)" };
     const DATA_LOAD_TIMESTAMP = PAYLOAD_META.statusAsOn ? new Date(PAYLOAD_META.statusAsOn).toLocaleString("en-IN") : new Date().toLocaleString("en-IN");
+    function dataStampHtml() {
+      const updated = PAYLOAD_META.updatedAt ? new Date(PAYLOAD_META.updatedAt).toLocaleString("en-IN") : DATA_LOAD_TIMESTAMP;
+      return `<strong>Data as on:</strong> ${htmlEscape(DATA_LOAD_TIMESTAMP)} | <strong>Last upload:</strong> ${htmlEscape(updated)} | <strong>Basis:</strong> Completed ${COMPLETED_PERIOD.label}; running ${RUNNING_PERIOD.label}`;
+    }
+    function refreshDataStamp() {
+      const stamp = document.getElementById("dataStamp");
+      if (stamp) stamp.innerHTML = dataStampHtml();
+    }
     function normalizePuCurrentColumns() {
       ["staff", "nonstaff"].forEach(key => {
         const tab = DATA[key];
@@ -176,6 +184,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     }
     function render(tabKey) {
       activeTab = tabKey;
+      refreshDataStamp();
       if (tabKey === "upload") { renderUpload(); return; }
       if (tabKey === "analysis") { renderAnalysis(); return; }
       if (tabKey === "current_till") { renderTillDate(); return; }
@@ -1183,7 +1192,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       return row[col.key] ?? "";
     }
     function exportNote() {
-      return "Remarks - Figures in '000' (thousands). Default basis: completed actuals up to JUL 2026; Till Date / Running Month keeps running-month data separately. Demand 12N / 10N is shown separately and excluded from main totals.";
+      return `Remarks - Figures in '000' (thousands). Data as on: ${DATA_LOAD_TIMESTAMP}. Default basis: completed actuals up to JUL 2026; Till Date / Running Month keeps running-month data separately. Demand 12N / 10N is shown separately and excluded from main totals.`;
     }
     function exportTableAoa(tabKey) {
       const tab = tableForView(tabKey, { skipFocus: true });
@@ -1526,8 +1535,6 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     const initialTab = new URLSearchParams(window.location.search).get("tab");
     if (initialTab && (DATA[initialTab] || ["analysis", "upload", "current_till"].includes(initialTab))) openTab(initialTab);
     else render(activeTab);
-
-
 
 
 
