@@ -8,7 +8,7 @@ import stat
 import sys
 import zipfile
 from io import BytesIO
-from datetime import datetime
+from datetime import datetime, timezone
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ROLE_TARGETS = {
@@ -105,6 +105,121 @@ def file_info(path, root=REPO_ROOT):
         "size": stat_result.st_size,
         "modifiedAt": datetime.fromtimestamp(stat_result.st_mtime).isoformat(timespec="seconds"),
     }
+
+
+def iso_from_timestamp(timestamp):
+    return datetime.fromtimestamp(timestamp).astimezone().isoformat(timespec="seconds")
+
+
+def current_backup_listing(year_dir):
+    backup_root = year_dir / "backups"
+    if not backup_root.exists():
+        return []
+    return [rel_repo(path) for path in sorted([p for p in backup_root.iterdir() if p.is_dir()], key=lambda p: p.name, reverse=True)[:2]]
+
+
+def current_upload_manifest(year=CURRENT_SYNC_YEAR, source_folder="", backup_name=""):
+    year = safe_year(year)
+    year_dir = REPO_ROOT / "data" / "source-files" / year
+    active_files = []
+    max_mtime = 0
+    for role, target_name in ROLE_TARGETS.items():
+        file_path = year_dir / target_name
+        if not file_path.exists():
+            continue
+        stat_result = file_path.stat()
+        max_mtime = max(max_mtime, stat_result.st_mtime)
+        active_files.append({
+            "role": role,
+            "source": target_name,
+            "target": rel_repo(file_path),
+            "sourceModifiedAt": iso_from_timestamp(stat_result.st_mtime),
+            "size": stat_result.st_size,
+        })
+    timestamp = iso_from_timestamp(max_mtime or datetime.now().timestamp())
+    meta_path = REPO_ROOT / "data" / "current_payload.js"
+    running_month = "AUG 2026"
+    completed_month = "JUL 2026"
+    if meta_path.exists():
+        text = meta_path.read_text(encoding="utf-8", errors="ignore")
+        for key, variable in [("runningMonth", "running_month"), ("completedMonth", "completed_month")]:
+            marker = f'"{key}": "'
+            start = text.find(marker)
+            if start >= 0:
+                start += len(marker)
+                end = text.find('"', start)
+                if end > start:
+                    if variable == "running_month":
+                        running_month = text[start:end]
+                    else:
+                        completed_month = text[start:end]
+    return {
+        "uploadedAt": timestamp,
+        "statusAsOn": timestamp,
+        "financialYear": year,
+        "sourceFolder": source_folder or rel_repo(year_dir),
+        "activeFiles": active_files,
+        "backups": current_backup_listing(year_dir),
+        "runningMonth": running_month,
+        "completedMonth": completed_month,
+        "backup": backup_name,
+    }
+
+
+def write_current_manifest(year=CURRENT_SYNC_YEAR, source_folder="", backup_name=""):
+    manifest = current_upload_manifest(year, source_folder, backup_name)
+    manifest_path = REPO_ROOT / "data" / "source-files" / safe_year(year) / "upload-manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    with manifest_path.open("w", encoding="utf-8") as handle:
+        json.dump(manifest, handle, indent=2)
+    return manifest
+
+
+def patch_data_metadata(manifest):
+    replacements = {
+        '"statusAsOn": ': manifest["statusAsOn"],
+        '"updatedAt": ': manifest["uploadedAt"],
+    }
+    payload_path = REPO_ROOT / "data" / "current_payload.js"
+    if payload_path.exists():
+        text = payload_path.read_text(encoding="utf-8")
+        for label, value in replacements.items():
+            prefix = label + '"'
+            start = text.find(prefix)
+            if start >= 0:
+                start += len(prefix)
+                end = text.find('"', start)
+                if end > start:
+                    text = text[:start] + value + text[end:]
+        source_marker = '"sourceFolder": "'
+        start = text.find(source_marker)
+        if start >= 0:
+            start += len(source_marker)
+            end = text.find('"', start)
+            if end > start:
+                text = text[:start] + str(manifest.get("sourceFolder", "")).replace("\\", "\\\\") + text[end:]
+        backup_marker = '"backup": "'
+        start = text.find(backup_marker)
+        if start >= 0:
+            start += len(backup_marker)
+            end = text.find('"', start)
+            if end > start:
+                text = text[:start] + str(manifest.get("backup", "")) + text[end:]
+        payload_path.write_text(text, encoding="utf-8")
+    for reports_name in ["reports-data.js", "reports-data.json"]:
+        reports_path = REPO_ROOT / "data" / reports_name
+        if not reports_path.exists():
+            continue
+        text = reports_path.read_text(encoding="utf-8")
+        marker = '"statusAsOn": "'
+        start = text.rfind(marker)
+        if start >= 0:
+            start += len(marker)
+            end = text.find('"', start)
+            if end > start:
+                text = text[:start] + manifest["statusAsOn"] + text[end:]
+                reports_path.write_text(text, encoding="utf-8")
+    return True
 
 
 def current_upload_versions(year=CURRENT_SYNC_YEAR):
@@ -367,7 +482,9 @@ class Handler(SimpleHTTPRequestHandler):
                     shutil.copyfileobj(item.file, handle)
                 saved.append({"role": role, "file": str(target.relative_to(REPO_ROOT)).replace(os.sep, "/")})
             keep_two_backups(year_dir / "backups")
-            self.send_json(200, {"ok": True, "year": year, "backup": backup_name, "saved": saved})
+            manifest = write_current_manifest(year, "Browser upload via local server", backup_name)
+            patch_data_metadata(manifest)
+            self.send_json(200, {"ok": True, "year": year, "backup": backup_name, "saved": saved, "manifest": manifest})
         except Exception as exc:
             self.send_json(500, {"error": str(exc)})
 
