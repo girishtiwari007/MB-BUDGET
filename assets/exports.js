@@ -13,8 +13,8 @@
     {
       title: "Current / Previous Analysis",
       items: [
-        ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf", "Committed PDF snapshot for quick reference."],
-        ["Current / Previous Excel (.xlsx)", "../exports/Current_Previous_Year_PU_Demand_Analysis.xlsx", "Committed .xlsx snapshot for sharing."],
+        ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf", "Generated PDF snapshot refreshed by local sync/upload."],
+        ["Current / Previous Excel (.xlsx)", "../exports/Current_Previous_Year_PU_Demand_Analysis.xlsx", "Generated .xlsx snapshot refreshed by local sync/upload."],
         ["Current / Previous PPTX", "../exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx", "Presentation deck. Completed month basis: JUL 2026."]
       ]
     },
@@ -29,8 +29,8 @@
     {
       title: "FR Budget Status",
       items: [
-        ["FR Budget PDF", "../exports/FR_Budget_Status.pdf", "Committed FR PDF snapshot."],
-        ["FR Budget Excel (.xlsx)", "../exports/FR_Budget_Status.xlsx", "Committed .xlsx snapshot for sharing."],
+        ["FR Budget PDF", "../exports/FR_Budget_Status.pdf", "Generated FR PDF snapshot refreshed by FR sync/upload."],
+        ["FR Budget Excel (.xlsx)", "../exports/FR_Budget_Status.xlsx", "Generated .xlsx snapshot refreshed by FR sync/upload."],
         ["FR Upload", "fr.html", "Open FR page upload tab when local server is running."]
       ]
     },

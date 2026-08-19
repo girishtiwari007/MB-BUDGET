@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import stat
+import subprocess
 import sys
 
 from openpyxl import load_workbook
@@ -167,10 +168,25 @@ def update_fr_page(workbook_data, source_name, data_as_on, uploaded_at):
     FR_PAGE.write_text(text, encoding="utf-8")
 
 
+def refresh_exports():
+    script = REPO_ROOT / "scripts" / "generate_drm_exports.py"
+    if not script.exists():
+        print("Export refresh skipped: generator not found")
+        return
+    result = subprocess.run([sys.executable, str(script)], cwd=REPO_ROOT, text=True, capture_output=True)
+    if result.stdout.strip():
+        print(result.stdout.strip())
+    if result.returncode:
+        if result.stderr.strip():
+            print(result.stderr.strip())
+        raise RuntimeError("Export refresh failed")
+
+
 def main():
     if len(sys.argv) < 2:
-        raise SystemExit("Usage: python scripts\\sync-fr-data.py <FR workbook path>")
+        raise SystemExit("Usage: python scripts\\sync-fr-data.py <FR workbook path> [display source name]")
     source = Path(sys.argv[1]).resolve()
+    source_display_name = sys.argv[2] if len(sys.argv) > 2 else source.name
     if not source.exists():
         raise SystemExit(f"FR workbook not found: {source}")
     workbook_data = parse_workbook(source)
@@ -192,13 +208,14 @@ def main():
         "uploadedAt": uploaded_at,
         "dataAsOn": iso_date_from_ddmmyyyy(data_as_on),
         "activeFile": rel(FR_TARGET),
-        "originalName": source.name,
+        "originalName": source_display_name,
         "backup": backup_name,
         "backups": backup_listing(),
     }
     FR_MANIFEST.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    update_fr_page(workbook_data, source.name, data_as_on, display_uploaded_at)
-    print(f"FR sync complete: {source.name}")
+    update_fr_page(workbook_data, source_display_name, data_as_on, display_uploaded_at)
+    refresh_exports()
+    print(f"FR sync complete: {source_display_name}")
     print(f"Data as on: {data_as_on}")
     print(f"Backup: {backup_name or 'not needed'}")
     for sheet in workbook_data:

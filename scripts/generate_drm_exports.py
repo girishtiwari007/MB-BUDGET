@@ -13,6 +13,10 @@ from openpyxl.utils import get_column_letter
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "exports"
+CURRENT_XLSX = OUT / "Current_Previous_Year_PU_Demand_Analysis.xlsx"
+CURRENT_PDF = OUT / "Current_Previous_Year_PU_Demand_Analysis.pdf"
+FR_XLSX = OUT / "FR_Budget_Status.xlsx"
+FR_PDF = OUT / "FR_Budget_Status.pdf"
 CURRENT_PPTX = OUT / "Moradabad_Division_Current_Year_Budget_Analysis.pptx"
 PPTX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis.pptx"
 XLSX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis.xlsx"
@@ -52,6 +56,19 @@ def load_fr_data():
     if not match:
         raise RuntimeError("Cannot locate FR workbookData")
     return json.loads(match.group(1))
+
+
+def load_fr_as_on():
+    text = (ROOT / "pages" / "fr.html").read_text(encoding="utf-8")
+    match = re.search(r"Data as on <strong>(.*?)</strong>", text)
+    return clean_text(match.group(1)) if match else "FR as uploaded"
+
+
+def current_as_on_label():
+    text = (ROOT / "data" / "current_payload.js").read_text(encoding="utf-8")
+    match = re.search(r"window\.CURRENT_PAYLOAD_META\s*=\s*(\{.*?\});", text, re.S)
+    meta = json.loads(match.group(1)) if match else {}
+    return f"{meta.get('completedMonth', 'Completed month')} | uploaded {meta.get('statusAsOn', '')}"
 
 
 def inr(value, decimals=0):
@@ -319,7 +336,7 @@ def style_ws(ws):
     ws.page_setup.fitToWidth = 1
 
 
-def write_excel(sections):
+def write_excel(sections, output_path=XLSX):
     wb = Workbook()
     wb.remove(wb.active)
     for title, headers, body in sections:
@@ -331,7 +348,137 @@ def write_excel(sections):
         for row in body:
             ws.append(row)
         style_ws(ws)
-    wb.save(XLSX)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(output_path)
+
+
+def pdf_escape(value):
+    return clean_text(value).replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def pdf_text_at(x, y, text, size=10, bold=False):
+    font = "F2" if bold else "F1"
+    return f"BT /{font} {size} Tf {x:.2f} {y:.2f} Td ({pdf_escape(text)}) Tj ET\n"
+
+
+def pdf_rect(x, y, w, h, fill=None, stroke=True):
+    commands = []
+    if fill:
+        r = int(fill[0:2], 16) / 255
+        g = int(fill[2:4], 16) / 255
+        b = int(fill[4:6], 16) / 255
+        commands.append(f"{r:.3f} {g:.3f} {b:.3f} rg\n")
+    commands.append(f"{x:.2f} {y:.2f} {w:.2f} {h:.2f} re ")
+    if fill and stroke:
+        commands.append("B\n")
+    elif fill:
+        commands.append("f\n")
+    else:
+        commands.append("S\n")
+    return "".join(commands)
+
+
+def pdf_color(color):
+    r = int(color[0:2], 16) / 255
+    g = int(color[2:4], 16) / 255
+    b = int(color[4:6], 16) / 255
+    return f"{r:.3f} {g:.3f} {b:.3f} rg\n"
+
+
+def shorten_for_pdf(value, limit):
+    text = clean_text(value).replace("\n", " / ")
+    return text if len(text) <= limit else text[: max(0, limit - 1)] + "."
+
+
+def pdf_column_widths(headers, page_width):
+    weights = column_weights(headers)
+    return [page_width * weight for weight in weights]
+
+
+def pdf_table_pages(title, headers, rows):
+    page_w, page_h, margin = 842, 595, 18
+    table_w = page_w - margin * 2
+    col_widths = pdf_column_widths(headers, table_w)
+    row_h = 24
+    header_h = 30
+    max_rows = int((page_h - 95 - header_h) // row_h)
+    pages = []
+    for start in range(0, max(len(rows), 1), max_rows):
+        part = rows[start:start + max_rows]
+        y = page_h - margin - 18
+        content = "0 0 0 RG 0.4 w\n"
+        content += pdf_color(BLUE)
+        content += pdf_text_at(margin, y, title if start == 0 else f"{title} continued", 15, True)
+        y -= 18
+        content += pdf_color("666666")
+        content += pdf_text_at(margin, y, "Figures in '000 with Crore equivalent below where applicable. Generated from latest portal data.", 8)
+        y -= 22
+        x = margin
+        for idx, header in enumerate(headers):
+            w = col_widths[idx]
+            content += pdf_rect(x, y - header_h + 4, w, header_h, BLUE)
+            content += pdf_color(WHITE)
+            content += pdf_text_at(x + 2, y - 9, shorten_for_pdf(header, max(6, int(w / 4.2))), 7, True)
+            x += w
+        y -= header_h
+        for ridx, row in enumerate(part):
+            first = clean_text(row[0]).strip().lower() if row else ""
+            fill = "D9EAF7" if ridx % 2 else WHITE
+            if first == "total":
+                fill = "C8D6E8"
+            x = margin
+            for cidx, value in enumerate(row):
+                w = col_widths[cidx]
+                cell_fill = fill
+                text_color = BLACK
+                if is_percent_header(headers[cidx]) and clean_text(value).strip():
+                    cell_fill = utilization_fill(numeric_prefix(value), light=(first != "total"))
+                    text_color = BLACK if first != "total" else utilization_text_color(numeric_prefix(value))
+                content += pdf_rect(x, y - row_h + 4, w, row_h, cell_fill)
+                content += pdf_color(text_color)
+                limit = max(5, int(w / 4.7))
+                content += pdf_text_at(x + 2, y - 8, shorten_for_pdf(value, limit), 7.2, first == "total")
+                x += w
+            y -= row_h
+        pages.append((page_w, page_h, content))
+    return pages
+
+
+def write_pdf(sections, output_path):
+    pages = []
+    for title, headers, body in sections:
+        pages.extend(pdf_table_pages(title, headers, body))
+    objects = [
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "",
+    ]
+    page_refs = []
+    next_obj = 3
+    for page_w, page_h, content in pages:
+        content_bytes = content.encode("latin-1", errors="replace")
+        page_obj = next_obj
+        content_obj = next_obj + 1
+        page_refs.append(f"{page_obj} 0 R")
+        objects.append(f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {page_w} {page_h}] /Resources << /Font << /F1 {len(pages) * 2 + 3} 0 R /F2 {len(pages) * 2 + 4} 0 R >> >> /Contents {content_obj} 0 R >>")
+        objects.append(f"<< /Length {len(content_bytes)} >>\nstream\n{content}\nendstream")
+        next_obj += 2
+    objects[1] = f"<< /Type /Pages /Count {len(page_refs)} /Kids [{' '.join(page_refs)}] >>"
+    objects.append("<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman >>")
+    objects.append("<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold >>")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    offsets = []
+    data = b"%PDF-1.4\n"
+    for idx, obj in enumerate(objects, 1):
+        offsets.append(len(data))
+        data += f"{idx} 0 obj\n".encode("latin-1")
+        data += obj.encode("latin-1", errors="replace")
+        data += b"\nendobj\n"
+    xref = len(data)
+    data += f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode("latin-1")
+    for offset in offsets:
+        data += f"{offset:010d} 00000 n \n".encode("latin-1")
+    data += f"trailer << /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode("latin-1")
+    output_path.write_bytes(data)
 
 
 def clean_text(value):
@@ -403,13 +550,8 @@ def ppt_table(shape_id, x, y, w, h, headers, rows):
     col_count = len(headers)
     row_count = len(rows) + 1
     row_h = int(h / max(row_count, 1))
-    header_size = 1080 if col_count <= 8 else (980 if col_count <= 9 else 800)
-    if col_count <= 8:
-        body_size = 1000 if len(rows) <= 18 else 920
-    elif col_count <= 9:
-        body_size = 950 if len(rows) <= 13 else 860
-    else:
-        body_size = 740
+    header_size = 1080 if col_count <= 8 else 1000
+    body_size = 1000
     col_widths = [int(w * weight) for weight in column_weights(headers)]
     col_widths[-1] += int(w) - sum(col_widths)
     grid = "".join(f'<a:gridCol w="{col_w}"/>' for col_w in col_widths)
@@ -516,32 +658,54 @@ def build_pptx_from_template(output_path, sections, subtitle):
 def build():
     payload = apply_completed_period(load_json_assignment(ROOT / "data" / "current_payload.js", "window.CURRENT_PAYLOAD"))
     fr = load_fr_data()
+    fr_as_on = load_fr_as_on()
+    current_basis = current_as_on_label()
     demand_cols = payload["demand"]["columns"]
     staff_cols = payload["staff"]["columns"]
     nonstaff_cols = payload["nonstaff"]["columns"]
     current_sections = [
-        ("Demand SMH Wise", *table_from_payload(payload["demand"], demand_cols, payload["demand"]["rows"])),
-        ("PU Staff Current Year", *table_from_payload(payload["staff"], staff_cols, payload["staff"]["rows"])),
-        ("PU Non Staff Current Year", *table_from_payload(payload["nonstaff"], nonstaff_cols, payload["nonstaff"]["rows"])),
-        ("PU Previous Year Comparison", *table_from_payload(payload["pu_prev"])),
-        ("Demand Previous Year Comparison", *table_from_payload(payload["demand_prev"])),
+        (f"Demand SMH Wise - {current_basis}", *table_from_payload(payload["demand"], demand_cols, payload["demand"]["rows"])),
+        (f"PU Staff Current Year - {current_basis}", *table_from_payload(payload["staff"], staff_cols, payload["staff"]["rows"])),
+        (f"PU Non Staff Current Year - {current_basis}", *table_from_payload(payload["nonstaff"], nonstaff_cols, payload["nonstaff"]["rows"])),
+        (f"PU Previous Year Comparison - {current_basis}", *table_from_payload(payload["pu_prev"])),
+        (f"Demand Previous Year Comparison - {current_basis}", *table_from_payload(payload["demand_prev"])),
     ]
     drm_staff_rows = filtered_pu_rows(payload["staff"]["rows"], ["01", "02", "03", "04", "07", "10", "11", "12", "13", "15", "16", "25"])
     drm_nonstaff_rows = filtered_pu_rows(payload["nonstaff"]["rows"], ["27", "28", "30", "32", "60"])
     drm_sections = [
-        ("Demand SMH Wise", *table_from_payload(payload["demand"], demand_cols, payload["demand"]["rows"])),
-        ("PU Wise - Staff", *table_from_payload(payload["staff"], staff_cols, drm_staff_rows)),
-        ("PU Wise - Non-Staff Part 1", *table_from_payload(payload["nonstaff"], nonstaff_cols, drm_nonstaff_rows)),
-        ("Open Line FR Report", *fr_report_table(fr[0])),
-        ("Open Line FR Fund Wise", *fr_fund_table(fr[0])),
+        (f"Demand SMH Wise - {current_basis}", *table_from_payload(payload["demand"], demand_cols, payload["demand"]["rows"])),
+        (f"PU Wise - Staff - {current_basis}", *table_from_payload(payload["staff"], staff_cols, drm_staff_rows)),
+        (f"PU Wise - Non-Staff Part 1 - {current_basis}", *table_from_payload(payload["nonstaff"], nonstaff_cols, drm_nonstaff_rows)),
+        (f"Open Line FR Report - As On {fr_as_on}", *fr_report_table(fr[0])),
+        (f"Open Line FR Fund Wise - As On {fr_as_on}", *fr_fund_table(fr[0])),
     ]
-    write_excel(drm_sections)
+    fr_sections = [
+        (f"Open Line FR Report - As On {fr_as_on}", *fr_report_table(fr[0])),
+        (f"Open Line FR Fund Wise - As On {fr_as_on}", *fr_fund_table(fr[0])),
+        (f"GSU FR Report - As On {fr_as_on}", *fr_report_table(fr[1])),
+        (f"GSU FR Fund Wise - As On {fr_as_on}", *fr_fund_table(fr[1])),
+    ]
+    OUT.mkdir(parents=True, exist_ok=True)
+    write_excel(current_sections, CURRENT_XLSX)
+    write_excel(fr_sections, FR_XLSX)
+    write_excel(drm_sections, XLSX)
+    write_pdf(current_sections, CURRENT_PDF)
+    write_pdf(fr_sections, FR_PDF)
     build_pptx_from_template(CURRENT_PPTX, current_sections, "Accounts Dept | FY 2026-2027 | Current / Previous Year Budget Analysis | Completed JUL 2026")
     build_pptx_from_template(PPTX, drm_sections, "Accounts Dept | FY 2026-2027 | DRM Budget & FR Analysis | Completed JUL 2026")
     for path in (CURRENT_PPTX, PPTX):
         with zipfile.ZipFile(path) as z:
             assert z.testzip() is None
             assert "ppt/presentation.xml" in z.namelist()
+    for path in (CURRENT_XLSX, FR_XLSX, XLSX):
+        with zipfile.ZipFile(path) as z:
+            assert z.testzip() is None
+    for path in (CURRENT_PDF, FR_PDF):
+        assert path.read_bytes().startswith(b"%PDF")
+    print(f"Generated {CURRENT_XLSX}")
+    print(f"Generated {CURRENT_PDF}")
+    print(f"Generated {FR_XLSX}")
+    print(f"Generated {FR_PDF}")
     print(f"Generated {XLSX}")
     print(f"Generated {CURRENT_PPTX}")
     print(f"Generated {PPTX}")

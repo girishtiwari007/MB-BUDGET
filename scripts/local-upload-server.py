@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import stat
+import subprocess
 import sys
 import zipfile
 from io import BytesIO
@@ -224,6 +225,24 @@ def patch_data_metadata(manifest):
         if changed:
             reports_path.write_text(text, encoding="utf-8")
     return True
+
+
+def refresh_exports():
+    script = REPO_ROOT / "scripts" / "generate_drm_exports.py"
+    result = subprocess.run([sys.executable, str(script)], cwd=REPO_ROOT, text=True, capture_output=True)
+    if result.returncode:
+        message = result.stderr.strip() or result.stdout.strip() or "Export refresh failed"
+        raise RuntimeError(message)
+    return result.stdout.strip()
+
+
+def refresh_fr_from_workbook(target, display_name):
+    script = REPO_ROOT / "scripts" / "sync-fr-data.py"
+    result = subprocess.run([sys.executable, str(script), str(target), str(display_name)], cwd=REPO_ROOT, text=True, capture_output=True)
+    if result.returncode:
+        message = result.stderr.strip() or result.stdout.strip() or "FR parse/export refresh failed"
+        raise RuntimeError(message)
+    return result.stdout.strip()
 
 
 def current_upload_versions(year=CURRENT_SYNC_YEAR):
@@ -488,7 +507,8 @@ class Handler(SimpleHTTPRequestHandler):
             keep_two_backups(year_dir / "backups")
             manifest = write_current_manifest(year, "Browser upload via local server", backup_name)
             patch_data_metadata(manifest)
-            self.send_json(200, {"ok": True, "year": year, "backup": backup_name, "saved": saved, "manifest": manifest})
+            export_log = refresh_exports()
+            self.send_json(200, {"ok": True, "year": year, "backup": backup_name, "saved": saved, "manifest": manifest, "exportsRefreshed": True, "exportLog": export_log})
         except Exception as exc:
             self.send_json(500, {"error": str(exc)})
 
@@ -574,9 +594,13 @@ class Handler(SimpleHTTPRequestHandler):
             with target.open("wb") as handle:
                 shutil.copyfileobj(item.file, handle)
             keep_two_backups(FR_UPLOAD_ROOT / "backups")
-            uploaded_at = datetime.now().isoformat(timespec="seconds")
-            manifest = write_fr_manifest(uploaded_at, target, item.filename, backup_name)
-            self.send_json(200, {"ok": True, "saved": manifest})
+            export_log = refresh_fr_from_workbook(target, item.filename)
+            manifest = {}
+            manifest_path = FR_UPLOAD_ROOT / FR_MANIFEST_NAME
+            if manifest_path.exists():
+                with manifest_path.open("r", encoding="utf-8") as handle:
+                    manifest = json.load(handle)
+            self.send_json(200, {"ok": True, "saved": manifest, "exportsRefreshed": True, "exportLog": export_log})
         except Exception as exc:
             self.send_json(500, {"error": str(exc)})
 
