@@ -329,16 +329,25 @@ def table_from_payload(tab, columns=None, rows=None):
 def fr_report_table(sheet):
     headers = ["Plan Head", "Plan Head Name", "SBA 2026-27", "AE", "Variation (AE - SBA)", "% SBA"]
     body = []
-    for rec in sheet["records"] + [sheet["total"]]:
+    for rec in sheet["records"]:
         total = rec["funds"]["TOTAL"]
         body.append([
-            rec.get("planHead") or "Total",
+            rec.get("planHead") or "",
             rec.get("planName") or "",
             money(total["sba"]),
             money(total["ae"]),
             money(total["ae"] - total["sba"]),
             f"{total.get('spentPct', 0):.2f}",
         ])
+    total = sheet["total"]["funds"]["TOTAL"]
+    body.append([
+        "Total",
+        sheet["total"].get("planName") or "",
+        money(total["sba"]),
+        money(total["ae"]),
+        money(total["ae"] - total["sba"]),
+        f"{total.get('spentPct', 0):.2f}",
+    ])
     return headers, body
 
 
@@ -371,7 +380,8 @@ def parse_previous_fr_sheet(ws):
             continue
         is_total_row = label.lower() == "total"
         plan_head = "Total" if is_total_row else str(raw_head).split(".")[0].strip()
-        if not is_total_row and not plan_head.isdigit():
+        plan_name = clean_text(ws.cell(row_idx, 2).value).strip()
+        if not is_total_row and not plan_head.isdigit() and not plan_name:
             continue
         funds = {}
         for fund, col in fund_columns.items():
@@ -383,7 +393,7 @@ def parse_previous_fr_sheet(ws):
             fund_totals = funds
             total_ae = number_value((funds.get("TOTAL") or {}).get("ae"))
         else:
-            rows[plan_head] = funds
+            rows[plan_head if plan_head.isdigit() else plan_name.upper()] = funds
     return {"rows": rows, "fundTotals": fund_totals, "totalAE": total_ae}
 
 
@@ -408,12 +418,17 @@ def fr_report_table_with_previous(sheet, previous_fr):
     previous = previous_fr_sheet(previous_fr, sheet)
     previous_rows = previous.get("rows") or {}
     next_body = []
-    for rec, row in zip(sheet["records"] + [sheet["total"]], body):
-        plan_head = str(rec.get("planHead") or "Total")
-        if plan_head == "Total":
+    records = sheet["records"] + [sheet["total"]]
+    for rec, row in zip(records, body):
+        raw_plan_head = rec.get("planHead")
+        if rec is sheet["total"] or str(raw_plan_head or "").strip().lower() == "total":
             previous_ae = previous.get("totalAE", 0)
         else:
+            plan_head = str(raw_plan_head or "").strip()
+            lookup_key = plan_head if plan_head else clean_text(rec.get("planName") or "").strip().upper()
             previous_ae = ((previous_rows.get(plan_head) or {}).get("TOTAL") or {}).get("ae", 0)
+            if not previous_ae and lookup_key:
+                previous_ae = ((previous_rows.get(lookup_key) or {}).get("TOTAL") or {}).get("ae", 0)
         next_body.append(row + [fr_previous_cr(previous_ae)])
     return headers, next_body
 
