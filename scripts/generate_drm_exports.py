@@ -6,7 +6,7 @@ from html import escape
 from pathlib import Path
 from xml.sax.saxutils import escape as xesc
 
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
@@ -19,7 +19,10 @@ FR_XLSX = OUT / "FR_Budget_Status.xlsx"
 FR_PDF = OUT / "FR_Budget_Status.pdf"
 CURRENT_PPTX = OUT / "Moradabad_Division_Current_Year_Budget_Analysis.pptx"
 PPTX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis.pptx"
+DRM_TILL_ACTUAL_PPTX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_JUL_2025_Actual.pptx"
+DRM_FULL_PREVIOUS_PPTX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx"
 XLSX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis.xlsx"
+PREVIOUS_FR_XLSX = ROOT / "data" / "source-files" / "2025-2026" / "fr-budget-status.xlsx"
 TEMPLATE_CANDIDATES = [
     Path(r"C:\Users\HP\Dropbox\Revenue PU Laibilities\PPT PORTAL\Moradabad Division Quarty FR and Revenue Budget Analysis DRM.pptx"),
     Path(r"C:\Users\HP\Dropbox\Revenue PU Laibilities\PPT PORTAL\Moradabad Division Quarty FR and Revenue Budget Analysis DRM JULY.pptx"),
@@ -162,6 +165,15 @@ def month_actual(reports, scope, label, fy, count):
     bucket = ((reports.get("monthly") or {}).get(scope) or {})
     key = match_monthly_key(scope, label, bucket)
     values = (bucket.get(key) or {}).get(fy) if key else None
+    if values is None and scope == "demand":
+        demand = demand_key(label)
+        smh_match = re.search(r"/\s*([0-9A-Z]+)", str(label or ""), re.I)
+        smh = smh_match.group(1).upper() if smh_match else ""
+        for candidate in bucket:
+            candidate_values = (bucket.get(candidate) or {}).get(fy)
+            if candidate_values is not None and demand_key(candidate) == demand and (not smh or f"SMH {smh}" in candidate.upper()):
+                values = candidate_values
+                break
     if not isinstance(values, list):
         return None
     return sum(number_value(value) for value in values[:count])
@@ -205,6 +217,35 @@ def filtered_pu_rows(rows, codes):
     wanted = {str(code).zfill(2) for code in codes}
     detail = [row for row in detail_rows(rows) if code_from_label(row_name(row), "PU").zfill(2) in wanted]
     return add_total(detail)
+
+
+def previous_actual_map(rows):
+    return {row_name(row): number_value(row.get("AEPrevious")) for row in detail_rows(rows)}
+
+
+def previous_final_actual_map(reports, scope, rows, fy="2025-26"):
+    return {
+        row_name(row): number_value(month_actual(reports, scope, row_name(row), fy, 12))
+        for row in detail_rows(rows)
+    }
+
+
+def add_previous_actual_column(tab, rows, previous_actuals, header_prefix="H", label=None):
+    columns = list(tab["columns"]) + [{
+        "key": "PreviousYearActual",
+        "label": label or f"{header_prefix}\nActual Final Expenditure\nFY 2025-26",
+        "format": "money",
+    }]
+    next_rows = []
+    for row in rows:
+        next_row = dict(row)
+        if is_total(next_row):
+            total_source = normal_total_rows(next_rows)
+            next_row["PreviousYearActual"] = sum(number_value(item.get("PreviousYearActual")) for item in total_source)
+        else:
+            next_row["PreviousYearActual"] = previous_actuals.get(row_name(next_row), 0)
+        next_rows.append(next_row)
+    return columns, next_rows
 
 
 def apply_completed_period(payload):
@@ -307,6 +348,87 @@ def fr_fund_table(sheet):
     for fund, values in sheet["fundAnalysis"].items():
         body.append([fund, money(values["sba"]), money(values["ae"]), money(values["available"]), f"{values.get('spentPct',0):.2f}", f"{values.get('remainPct',0):.2f}"])
     return headers, body
+
+
+def fr_previous_cr(value):
+    return f"{number_value(value) / 10000:.2f} Cr"
+
+
+def parse_previous_fr_sheet(ws):
+    fund_columns = {}
+    for col in range(1, min(ws.max_column, 80) + 1):
+        fund = clean_text(ws.cell(2, col).value).strip().upper()
+        metric = clean_text(ws.cell(3, col + 1).value).strip().upper() if col + 1 <= ws.max_column else ""
+        if fund and metric == "AE":
+            fund_columns[fund] = col
+    rows = {}
+    fund_totals = {}
+    total_ae = 0
+    for row_idx in range(4, ws.max_row + 1):
+        raw_head = ws.cell(row_idx, 1).value
+        label = clean_text(raw_head).strip()
+        if not label:
+            continue
+        is_total_row = label.lower() == "total"
+        plan_head = "Total" if is_total_row else str(raw_head).split(".")[0].strip()
+        if not is_total_row and not plan_head.isdigit():
+            continue
+        funds = {}
+        for fund, col in fund_columns.items():
+            funds[fund] = {
+                "sba": number_value(ws.cell(row_idx, col).value),
+                "ae": number_value(ws.cell(row_idx, col + 1).value),
+            }
+        if is_total_row:
+            fund_totals = funds
+            total_ae = number_value((funds.get("TOTAL") or {}).get("ae"))
+        else:
+            rows[plan_head] = funds
+    return {"rows": rows, "fundTotals": fund_totals, "totalAE": total_ae}
+
+
+def load_previous_fr_data():
+    if not PREVIOUS_FR_XLSX.exists():
+        return {}
+    workbook = load_workbook(PREVIOUS_FR_XLSX, data_only=True)
+    result = {}
+    for source_name, target_name in (("OPEN LINE FR", "OPEN LINE FR"), ("GSU FR", "GSU FR")):
+        if source_name in workbook.sheetnames:
+            result[target_name] = parse_previous_fr_sheet(workbook[source_name])
+    return result
+
+
+def previous_fr_sheet(previous_fr, sheet):
+    return previous_fr.get(sheet.get("sheetName") or "") or {}
+
+
+def fr_report_table_with_previous(sheet, previous_fr):
+    headers, body = fr_report_table(sheet)
+    headers = headers + ["H\nActual Final Expense\nFY 2025-26"]
+    previous = previous_fr_sheet(previous_fr, sheet)
+    previous_rows = previous.get("rows") or {}
+    next_body = []
+    for rec, row in zip(sheet["records"] + [sheet["total"]], body):
+        plan_head = str(rec.get("planHead") or "Total")
+        if plan_head == "Total":
+            previous_ae = previous.get("totalAE", 0)
+        else:
+            previous_ae = ((previous_rows.get(plan_head) or {}).get("TOTAL") or {}).get("ae", 0)
+        next_body.append(row + [fr_previous_cr(previous_ae)])
+    return headers, next_body
+
+
+def fr_fund_table_with_previous(sheet, previous_fr):
+    headers, body = fr_fund_table(sheet)
+    headers = headers + ["H\nActual Final Expense\nFY 2025-26"]
+    previous = previous_fr_sheet(previous_fr, sheet)
+    fund_totals = previous.get("fundTotals") or {}
+    next_body = []
+    for row in body:
+        fund = clean_text(row[0]).strip().upper()
+        previous_ae = (fund_totals.get(fund) or {}).get("ae", 0)
+        next_body.append(row + [fr_previous_cr(previous_ae)])
+    return headers, next_body
 
 
 def style_ws(ws):
@@ -609,7 +731,7 @@ def split_section(title, headers, rows):
     col_count = len(headers)
     if col_count <= 6:
         max_rows = 18
-    elif col_count <= 9:
+    elif col_count <= 10:
         max_rows = 13
     else:
         max_rows = 10
@@ -655,9 +777,38 @@ def build_pptx_from_template(output_path, sections, subtitle):
                 dst.writestr(f"ppt/slides/_rels/slide{i}.xml.rels", slide_rel)
 
 
+def drm_sections(payload, reports, fr, previous_fr, current_basis, fr_as_on, h_mode="full_previous"):
+    staff_rows = filtered_pu_rows(payload["staff"]["rows"], ["01", "02", "03", "04", "07", "10", "11", "12", "13", "15", "16", "25"])
+    nonstaff_rows = filtered_pu_rows(payload["nonstaff"]["rows"], ["27", "28", "30", "32", "60"])
+    if h_mode == "till_actual":
+        demand_actuals = previous_actual_map(payload["demand_prev"]["rows"])
+        pu_actuals = previous_actual_map(payload["pu_prev"]["rows"])
+        h_label = "H\nActual Expenditure\nUpto JUL 2025"
+        subtitle_suffix = "H column: actual expenditure up to JUL 2025"
+    else:
+        demand_actuals = previous_final_actual_map(reports, "demand", payload["demand"]["rows"])
+        pu_actuals = previous_final_actual_map(reports, "pu", payload["pu_prev"]["rows"])
+        h_label = "H\nActual Final Expenditure\nFY 2025-26"
+        subtitle_suffix = "H column: actual final expenditure FY 2025-26"
+    demand_cols, demand_rows = add_previous_actual_column(payload["demand"], payload["demand"]["rows"], demand_actuals, label=h_label)
+    staff_cols, staff_rows = add_previous_actual_column(payload["staff"], staff_rows, pu_actuals, label=h_label)
+    nonstaff_cols, nonstaff_rows = add_previous_actual_column(payload["nonstaff"], nonstaff_rows, pu_actuals, label=h_label)
+    sections = [
+        (f"Demand SMH Wise - {current_basis}", *table_from_payload(payload["demand"], demand_cols, demand_rows)),
+        (f"PU Wise - Staff - {current_basis}", *table_from_payload(payload["staff"], staff_cols, staff_rows)),
+        (f"PU Wise - Non-Staff Part 1 - {current_basis}", *table_from_payload(payload["nonstaff"], nonstaff_cols, nonstaff_rows)),
+        (f"Open Line FR Report - As On {fr_as_on}", *fr_report_table_with_previous(fr[0], previous_fr)),
+        (f"Open Line FR Fund Wise - As On {fr_as_on}", *fr_fund_table_with_previous(fr[0], previous_fr)),
+    ]
+    subtitle = f"Accounts Dept | FY 2026-2027 | DRM Budget & FR Analysis | Completed JUL 2026 | {subtitle_suffix}"
+    return sections, subtitle
+
+
 def build():
     payload = apply_completed_period(load_json_assignment(ROOT / "data" / "current_payload.js", "window.CURRENT_PAYLOAD"))
+    reports = json.loads((ROOT / "data" / "reports-data.json").read_text(encoding="utf-8-sig"))
     fr = load_fr_data()
+    previous_fr = load_previous_fr_data()
     fr_as_on = load_fr_as_on()
     current_basis = current_as_on_label()
     demand_cols = payload["demand"]["columns"]
@@ -670,15 +821,8 @@ def build():
         (f"PU Previous Year Comparison - {current_basis}", *table_from_payload(payload["pu_prev"])),
         (f"Demand Previous Year Comparison - {current_basis}", *table_from_payload(payload["demand_prev"])),
     ]
-    drm_staff_rows = filtered_pu_rows(payload["staff"]["rows"], ["01", "02", "03", "04", "07", "10", "11", "12", "13", "15", "16", "25"])
-    drm_nonstaff_rows = filtered_pu_rows(payload["nonstaff"]["rows"], ["27", "28", "30", "32", "60"])
-    drm_sections = [
-        (f"Demand SMH Wise - {current_basis}", *table_from_payload(payload["demand"], demand_cols, payload["demand"]["rows"])),
-        (f"PU Wise - Staff - {current_basis}", *table_from_payload(payload["staff"], staff_cols, drm_staff_rows)),
-        (f"PU Wise - Non-Staff Part 1 - {current_basis}", *table_from_payload(payload["nonstaff"], nonstaff_cols, drm_nonstaff_rows)),
-        (f"Open Line FR Report - As On {fr_as_on}", *fr_report_table(fr[0])),
-        (f"Open Line FR Fund Wise - As On {fr_as_on}", *fr_fund_table(fr[0])),
-    ]
+    drm_sections_full, drm_subtitle_full = drm_sections(payload, reports, fr, previous_fr, current_basis, fr_as_on, "full_previous")
+    drm_sections_till, drm_subtitle_till = drm_sections(payload, reports, fr, previous_fr, current_basis, fr_as_on, "till_actual")
     fr_sections = [
         (f"Open Line FR Report - As On {fr_as_on}", *fr_report_table(fr[0])),
         (f"Open Line FR Fund Wise - As On {fr_as_on}", *fr_fund_table(fr[0])),
@@ -688,12 +832,14 @@ def build():
     OUT.mkdir(parents=True, exist_ok=True)
     write_excel(current_sections, CURRENT_XLSX)
     write_excel(fr_sections, FR_XLSX)
-    write_excel(drm_sections, XLSX)
+    write_excel(drm_sections_full, XLSX)
     write_pdf(current_sections, CURRENT_PDF)
     write_pdf(fr_sections, FR_PDF)
     build_pptx_from_template(CURRENT_PPTX, current_sections, "Accounts Dept | FY 2026-2027 | Current / Previous Year Budget Analysis | Completed JUL 2026")
-    build_pptx_from_template(PPTX, drm_sections, "Accounts Dept | FY 2026-2027 | DRM Budget & FR Analysis | Completed JUL 2026")
-    for path in (CURRENT_PPTX, PPTX):
+    build_pptx_from_template(PPTX, drm_sections_full, drm_subtitle_full)
+    build_pptx_from_template(DRM_TILL_ACTUAL_PPTX, drm_sections_till, drm_subtitle_till)
+    build_pptx_from_template(DRM_FULL_PREVIOUS_PPTX, drm_sections_full, drm_subtitle_full)
+    for path in (CURRENT_PPTX, PPTX, DRM_TILL_ACTUAL_PPTX, DRM_FULL_PREVIOUS_PPTX):
         with zipfile.ZipFile(path) as z:
             assert z.testzip() is None
             assert "ppt/presentation.xml" in z.namelist()
@@ -709,6 +855,8 @@ def build():
     print(f"Generated {XLSX}")
     print(f"Generated {CURRENT_PPTX}")
     print(f"Generated {PPTX}")
+    print(f"Generated {DRM_TILL_ACTUAL_PPTX}")
+    print(f"Generated {DRM_FULL_PREVIOUS_PPTX}")
 
 
 if __name__ == "__main__":

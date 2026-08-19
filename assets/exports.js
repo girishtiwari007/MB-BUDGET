@@ -4,7 +4,9 @@
     ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf", "PDF", "Completed JUL 2026"],
     ["Current / Previous Excel", "../exports/Current_Previous_Year_PU_Demand_Analysis.xlsx", "XLSX", "Completed JUL 2026"],
     ["Current / Previous PPTX", "../exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx", "PPTX", "Completed JUL 2026"],
-    ["DRM PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx", "PPTX", "Completed JUL 2026"],
+    ["DRM Existing Current-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx", "PPTX", "Completed JUL 2026 + H full FY 2025-26"],
+    ["DRM H Till Actual Month PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_JUL_2025_Actual.pptx", "PPTX", "Completed JUL 2026 + H up to JUL 2025"],
+    ["DRM Full Previous-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx", "PPTX", "Completed JUL 2026 + H full FY 2025-26"],
     ["DRM Excel", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx", "XLSX", "Completed JUL 2026"],
     ["FR Budget PDF", "../exports/FR_Budget_Status.pdf", "PDF", "FR as uploaded"],
     ["FR Budget Excel", "../exports/FR_Budget_Status.xlsx", "XLSX", "FR as uploaded"]
@@ -21,7 +23,9 @@
     {
       title: "DRM Presentation Package",
       items: [
-        ["Export-DRM(PPTX)", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx", "Editable PowerPoint table deck for DRM review."],
+        ["Existing Current-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx", "Editable PowerPoint table deck for DRM review, refreshed from latest portal data."],
+        ["Till Actual Month PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_JUL_2025_Actual.pptx", "H column shows corresponding previous-year actuals up to JUL 2025."],
+        ["Full Previous-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx", "H column shows final actual expenditure for FY 2025-26."],
         ["Export-DRM(Excel)", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx", "Workbook matching the DRM package sections."],
         ["Data Health", "status.html", "Verify completed/running month, suspense rows and export readiness."]
       ]
@@ -115,7 +119,9 @@
       "Files / pages:",
       "- Current / Previous Analysis PDF: exports/Current_Previous_Year_PU_Demand_Analysis.pdf",
       "- Current / Previous Analysis Excel: exports/Current_Previous_Year_PU_Demand_Analysis.xlsx",
-      "- DRM PPTX: exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx",
+      "- DRM Existing Current-Year PPTX: exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx",
+      "- DRM Till Actual Month PPTX: exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_JUL_2025_Actual.pptx",
+      "- DRM Full Previous-Year PPTX: exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx",
       "- DRM Excel: exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx",
       "- FR PDF: exports/FR_Budget_Status.pdf",
       "- FR Excel: exports/FR_Budget_Status.xlsx",
