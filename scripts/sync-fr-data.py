@@ -6,10 +6,10 @@ import os
 import re
 import shutil
 import stat
-import subprocess
 import sys
 
 from openpyxl import load_workbook
+from export_refresh import refresh_exports
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FR_ROOT = REPO_ROOT / "data" / "fr"
@@ -168,20 +168,6 @@ def update_fr_page(workbook_data, source_name, data_as_on, uploaded_at):
     FR_PAGE.write_text(text, encoding="utf-8")
 
 
-def refresh_exports():
-    script = REPO_ROOT / "scripts" / "generate_drm_exports.py"
-    if not script.exists():
-        print("Export refresh skipped: generator not found")
-        return
-    result = subprocess.run([sys.executable, str(script)], cwd=REPO_ROOT, text=True, capture_output=True)
-    if result.stdout.strip():
-        print(result.stdout.strip())
-    if result.returncode:
-        if result.stderr.strip():
-            print(result.stderr.strip())
-        raise RuntimeError("Export refresh failed")
-
-
 def main():
     if len(sys.argv) < 2:
         raise SystemExit("Usage: python scripts\\sync-fr-data.py <FR workbook path> [display source name]")
@@ -214,7 +200,7 @@ def main():
     }
     FR_MANIFEST.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     update_fr_page(workbook_data, source_display_name, data_as_on, display_uploaded_at)
-    refresh_exports()
+    print(refresh_exports("fr-sync"))
     print(f"FR sync complete: {source_display_name}")
     print(f"Data as on: {data_as_on}")
     print(f"Backup: {backup_name or 'not needed'}")

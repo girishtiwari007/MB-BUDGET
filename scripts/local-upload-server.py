@@ -11,6 +11,8 @@ import zipfile
 from io import BytesIO
 from datetime import datetime, timezone
 
+from export_refresh import refresh_exports
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ROLE_TARGETS = {
     "currPuBudget": "pu-budget.xls",
@@ -225,15 +227,6 @@ def patch_data_metadata(manifest):
         if changed:
             reports_path.write_text(text, encoding="utf-8")
     return True
-
-
-def refresh_exports():
-    script = REPO_ROOT / "scripts" / "generate_drm_exports.py"
-    result = subprocess.run([sys.executable, str(script)], cwd=REPO_ROOT, text=True, capture_output=True)
-    if result.returncode:
-        message = result.stderr.strip() or result.stdout.strip() or "Export refresh failed"
-        raise RuntimeError(message)
-    return result.stdout.strip()
 
 
 def refresh_fr_from_workbook(target, display_name):
@@ -507,7 +500,7 @@ class Handler(SimpleHTTPRequestHandler):
             keep_two_backups(year_dir / "backups")
             manifest = write_current_manifest(year, "Browser upload via local server", backup_name)
             patch_data_metadata(manifest)
-            export_log = refresh_exports()
+            export_log = refresh_exports("current-year-browser-upload")
             self.send_json(200, {"ok": True, "year": year, "backup": backup_name, "saved": saved, "manifest": manifest, "exportsRefreshed": True, "exportLog": export_log})
         except Exception as exc:
             self.send_json(500, {"error": str(exc)})

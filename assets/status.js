@@ -23,14 +23,15 @@
     if (!value) return "Not recorded";
     return new Date(String(value).includes("T") ? value : `${value}T00:00:00`).toLocaleString("en-IN");
   }
-  function renderSummary(manifest){
+  function renderSummary(manifest, exportManifest){
     const sourceCount = Object.keys(SOURCES.sources || {}).length;
     const currentTotal = totalRow("demand");
     $("summaryCards").innerHTML = [
       card("Portal Mode", mode, mode.includes("Local") ? "Upload and backup APIs should be available." : "Upload/backup actions need local server."),
       card("Data Basis", "JUL 2026", "Completed month projection. AUG remains running/till-date."),
       card("Current Demand AE", moneyPair(currentTotal.AE), `${latestYear}; main total excludes 12N / 10N.`),
-      card("FR Data As On", dateText(manifest?.dataAsOn || manifest?.uploadedAt), manifest?.originalName ? `${manifest.originalName}; stored ${dateText(manifest.uploadedAt)}` : "FR manifest not available")
+      card("FR Data As On", dateText(manifest?.dataAsOn || manifest?.uploadedAt), manifest?.originalName ? `${manifest.originalName}; stored ${dateText(manifest.uploadedAt)}` : "FR manifest not available"),
+      card("Exports Refreshed", dateText(exportManifest?.refreshedAt), exportManifest?.status === "success" ? `OK; trigger ${exportManifest.trigger || "unknown"}` : "Run local sync/upload to refresh export package.")
     ].join("");
     if(sourceCount) $("summaryCards").insertAdjacentHTML("beforeend", card("Year Sources", sourceCount, `${previousYear} previous and ${latestYear} current mappings loaded.`));
   }
@@ -84,8 +85,14 @@
       return response.ok ? await response.json() : null;
     }catch{ return null; }
   }
-  loadManifest().then(manifest => {
-    renderSummary(manifest);
+  async function loadExportManifest(){
+    try{
+      const response = await fetch("../data/export-refresh-manifest.json?ts=" + Date.now());
+      return response.ok ? await response.json() : null;
+    }catch{ return null; }
+  }
+  Promise.all([loadManifest(), loadExportManifest()]).then(([manifest, exportManifest]) => {
+    renderSummary(manifest, exportManifest);
     renderTables();
     renderAttention(manifest);
     renderExports();

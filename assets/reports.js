@@ -178,7 +178,8 @@ function budgetValues(scope, item, year) {
   const b = budget(scope, item)?.[year] || null;
   const s = series(scope, item);
   const oba = b ? Number(b.oba || 0) : null;
-  const bp = year === latestYear() && oba !== null ? oba / 12 * activeMonthLimit(year) : b ? Number(b.bp || 0) : null;
+  const sourceBp = b && b.bp !== undefined && b.bp !== null && b.bp !== "" ? Number(b.bp || 0) : null;
+  const bp = sourceBp !== null ? sourceBp : year === latestYear() && oba !== null ? oba / 12 * activeMonthLimit(year) : null;
   const ae = year === latestYear() ? periodTotal(s, year) : b ? Number(b.ae || periodTotal(s, year) || 0) : periodTotal(s, year);
   return { oba, bp, ae };
 }
@@ -356,6 +357,75 @@ function insightHtml() {
   const vals = valuesForCurrent().filter((item) => item.value !== null);
   const top = [...vals].sort((a, b) => Math.abs(b.value) - Math.abs(a.value)).slice(0, 3);
   return `<section class="insights"><div class="section-head"><h2>QUICK INSIGHTS</h2><span>${remarksText()}</span></div>${top.map((item) => `<div><strong>${esc(item.label)}</strong><span>${moneyCell(item.value)}</span></div>`).join("") || "<p>No values available for the selected report.</p>"}</section>`;
+}
+
+function attentionTone(value, high = 110, watch = 90) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "neutral";
+  const n = Number(value);
+  if (n < 0 || n >= high) return "red";
+  if (n >= watch) return "amber";
+  return "green";
+}
+
+function attentionFindings() {
+  const fy = latestYear();
+  const selected = state.scope === "yearly" ? "" : state.item;
+  const scope = state.scope === "yearly" ? "pu" : state.scope;
+  const findings = [];
+  if (["pu", "demand"].includes(scope) && selected) {
+    const { oba, bp, ae } = budgetValues(scope, selected, fy);
+    const bpUse = bp ? ae / bp * 100 : null;
+    const obaUse = oba ? ae / oba * 100 : null;
+    const remaining = oba !== null && ae !== null ? oba - ae : null;
+    findings.push({
+      tone: attentionTone(bpUse, 110, 90),
+      title: "% BP Utilized",
+      text: bpUse === null ? "BP not available for selected item." : `${fmt(bpUse, 1)}% of Budget Proportion used; AE ${moneyCell(ae)} against BP ${moneyCell(bp)}.`,
+    });
+    findings.push({
+      tone: attentionTone(obaUse, 70, 45),
+      title: "% OBA Utilized",
+      text: obaUse === null ? "OBA not available for selected item." : `${fmt(obaUse, 1)}% of OBA used; remaining budget ${moneyCell(remaining)}.`,
+    });
+  }
+  if (state.metric === "ae_monthwise" || state.metric === "specific_month" || state.report === "yearly") {
+    const vals = valuesForCurrent().filter((item) => item.value !== null);
+    const largest = [...vals].sort((a, b) => Math.abs(b.value) - Math.abs(a.value))[0];
+    if (largest) {
+      findings.push({
+        tone: isImportantPuName(largest.label) ? "amber" : "green",
+        title: "Highest Actual Driver",
+        text: `${esc(largest.label)} is the largest visible value at ${moneyCell(largest.value)} for the selected view.`,
+      });
+    }
+  }
+  if (state.importantPuOnly || (state.scope === "pu" && selectedImportantPuNames().includes(selected))) {
+    const names = selectedImportantPuNames();
+    const rows = names.map((name) => {
+      const { bp, ae } = budgetValues("pu", name, fy);
+      return { name, bp, ae, bpUse: bp ? ae / bp * 100 : null };
+    }).filter((row) => row.ae !== null);
+    const pressure = rows.filter((row) => row.bpUse !== null && row.bpUse >= 100).length;
+    findings.push({
+      tone: pressure ? "amber" : "green",
+      title: "Important PU Watch",
+      text: `${pressure} of ${rows.length || names.length} important PU row(s) are at or above BP. Keep PU 27, 28, 30, 32 and 60 separately reviewed.`,
+    });
+  }
+  const suspense = demandSuspenseItems(DATA.monthly?.demand || {});
+  if (suspense.length) {
+    findings.push({
+      tone: "red",
+      title: "Demand 12N / 10N Separate",
+      text: "Suspense/negative demand is excluded from normal demand totals and remains in the separate verification table.",
+    });
+  }
+  return findings.slice(0, 5);
+}
+
+function attentionAnalysisHtml() {
+  const findings = attentionFindings();
+  return `<section class="ai-analysis"><div class="section-head"><h2>AI-STYLE ATTENTION ANALYSIS</h2><span>Rule-based finance checks from current filters</span></div>${findings.map((item) => `<article class="${item.tone}"><strong>${esc(item.title)}</strong><span>${item.text}</span></article>`).join("") || "<p>No attention points for current selection.</p>"}</section>`;
 }
 
 function groupedChart() {
@@ -602,7 +672,12 @@ function reportExportStyles(mode) {
     .dual-money .crore{margin-top:1px;font-size:9.5px;font-family:"Times New Roman",Times,serif;opacity:.82}
     .card .dual-money,.bar-row .dual-money,.legend .dual-money,.insights .dual-money{display:inline-flex;vertical-align:middle}
     .summary,.report-layout{display:block}
-    .card,.chart,.tablebox,.insights{border:1px solid #c8d6e2;margin:0 0 8px;padding:7px}
+    .card,.chart,.tablebox,.insights,.ai-analysis{border:1px solid #c8d6e2;margin:0 0 8px;padding:7px}
+    .ai-analysis article{border-left:4px solid #607080;background:#f8fbfd;padding:6px 7px;margin:0 0 5px;font-size:10px}
+    .ai-analysis article strong{display:block;color:#17212b}
+    .ai-analysis article.red{border-left-color:#b42318;background:#fff5f5}
+    .ai-analysis article.amber{border-left-color:#d19a2a;background:#fff9e5}
+    .ai-analysis article.green{border-left-color:#126a66;background:#f5fbf7}
     .bar-row{display:grid;grid-template-columns:165px 1fr 105px;gap:8px;align-items:center;margin:5px 0;font-size:10px}
     .track{height:14px;background:#edf4f8;border:1px solid #dbe6ee}
     .fill{height:100%;background:#1f4e79}
@@ -631,7 +706,7 @@ function budgetSourceTable(scope, title) {
 
 function reportExportDocument(mode) {
   const report = REPORTS[state.report];
-  const selectedView = `<section class="export-section"><h2>${esc(report.title)}</h2><p class="meta">${esc(dataStampText())}<br>${remarksText()}. ${esc(report.note)}</p>${summaryHtml()}${insightHtml()}${renderChart()}${tableHtml()}${importantBreakdownHtml()}</section>`;
+  const selectedView = `<section class="export-section"><h2>${esc(report.title)}</h2><p class="meta">${esc(dataStampText())}<br>${remarksText()}. ${esc(report.note)}</p>${summaryHtml()}${insightHtml()}${attentionAnalysisHtml()}${renderChart()}${tableHtml()}${importantBreakdownHtml()}</section>`;
   const appendices = [
     monthlySourceTable("pu", "Appendix A - Primary Unit Month-Wise Actual Expenditure"),
     monthlySourceTable("demand", "Appendix B - Demand / SMH Month-Wise Actual Expenditure"),
@@ -685,7 +760,7 @@ function render() {
   const report = REPORTS[state.report];
   $("reportTitle").textContent = report.title;
   refreshDataStamp();
-  $("host").innerHTML = `<p class="note">${remarksText()}. ${esc(report.note)}</p>${availabilityNote()}${summaryHtml()}<div class="report-layout">${insightHtml()}${renderChart()}</div>${tableHtml()}${importantBreakdownHtml()}`;
+  $("host").innerHTML = `<p class="note">${remarksText()}. ${esc(report.note)}</p>${availabilityNote()}${summaryHtml()}<div class="report-layout"><div class="analysis-stack">${insightHtml()}${attentionAnalysisHtml()}</div>${renderChart()}</div>${tableHtml()}${importantBreakdownHtml()}`;
 }
 
 document.addEventListener("DOMContentLoaded", setup);

@@ -160,6 +160,21 @@
     }
   }
 
+  async function renderRefreshProof(){
+    const host = document.getElementById("refreshProof");
+    if (!host) return;
+    try {
+      const response = await fetch("../data/export-refresh-manifest.json?ts=" + Date.now(), { cache: "no-store" });
+      if (!response.ok) throw new Error("Manifest not available");
+      const manifest = await response.json();
+      const missing = manifest.missing?.length ? `Missing: ${manifest.missing.join(", ")}` : "All expected export files present.";
+      const tone = manifest.status === "success" ? "ok" : "warn";
+      host.innerHTML = `<div class="guard ${tone}"><div><strong>${esc(manifest.status === "success" ? "Exports Refreshed" : "Export Refresh Needs Review")}</strong><span>Refreshed ${esc(new Date(manifest.refreshedAt).toLocaleString("en-IN"))} by ${esc(manifest.trigger || "unknown")}. ${esc(missing)}</span></div><a href="status.html">Open Status</a></div>`;
+    } catch (_error) {
+      host.innerHTML = `<div class="guard warn"><div><strong>Export Refresh Manifest Not Found</strong><span>Run local sync/upload once to generate the export refresh manifest.</span></div><a href="status.html">Open Status</a></div>`;
+    }
+  }
+
   async function renderFreshness(){
     const rows = await Promise.all(committedFiles.map(async file => {
       const info = await headInfo(file[1]);
@@ -196,6 +211,7 @@
   });
 
   renderBasisGuard();
+  renderRefreshProof();
   renderExports();
   renderReviewPack();
   renderFreshness();

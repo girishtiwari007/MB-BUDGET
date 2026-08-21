@@ -2,8 +2,9 @@ from pathlib import Path
 from datetime import datetime
 import importlib.util
 import shutil
-import subprocess
 import sys
+
+from export_refresh import refresh_exports
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = Path(r"C:\Users\HP\Downloads\PORTAL DATA")
@@ -25,17 +26,6 @@ def load_upload_helpers():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
-
-
-def refresh_exports():
-    script = REPO_ROOT / "scripts" / "generate_drm_exports.py"
-    result = subprocess.run([sys.executable, str(script)], cwd=REPO_ROOT, text=True, capture_output=True)
-    if result.stdout.strip():
-        print(result.stdout.strip())
-    if result.returncode:
-        if result.stderr.strip():
-            print(result.stderr.strip())
-        raise RuntimeError("Export refresh failed")
 
 
 def main():
@@ -70,7 +60,7 @@ def main():
     helpers.keep_two_backups(year_dir / "backups")
     manifest = helpers.write_current_manifest(YEAR, str(source_root), backup_name)
     helpers.patch_data_metadata(manifest)
-    refresh_exports()
+    print(refresh_exports("current-year-local-sync"))
 
     print(f"Local current-year sync complete for {YEAR}")
     print(f"Source folder: {source_root}")
