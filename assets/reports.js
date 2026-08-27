@@ -206,6 +206,7 @@ function optionLabel(option) {
     year_total: "YEAR TOTAL",
     grouped: "GROUPED BAR CHART",
     bar: "BAR CHART",
+    line_markers: "MULTI-SERIES LINE CHART WITH MARKERS",
     pie: "PIE CHART",
     heatmap: "HEATMAP",
     "11 - SnT": "11 - SIGNAL AND TELECOMMUNICATION",
@@ -295,9 +296,9 @@ function metricOptions() {
 }
 
 function chartOptions() {
-  if (state.report === "dept_current") return ["heatmap", "bar"];
-  if (state.report === "yearly" || state.report === "bp_ae" || state.report === "demand_budget") return ["bar", "pie"];
-  return ["grouped", "bar", "pie", "heatmap"];
+  if (state.report === "dept_current") return ["heatmap", "bar", "line_markers"];
+  if (state.report === "yearly" || state.report === "bp_ae" || state.report === "demand_budget") return ["bar", "line_markers", "pie"];
+  return ["grouped", "line_markers", "bar", "pie", "heatmap"];
 }
 
 function metricLabel() {
@@ -454,6 +455,112 @@ function pieChart() {
     return `${colors[index % colors.length]} ${start}% ${cursor}%`;
   }).join(",");
   return `<section class="chart"><div class="section-head"><h2>SHARE VIEW</h2><span>${remarksText()}</span></div><div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops || "#edf4f8 0 100%"})"></div><div>${vals.map((item, index) => `<div class="legend"><span style="background:${colors[index % colors.length]}"></span>${esc(item.label)}: ${moneyCell(item.value)} (${fmt(item.abs / sum * 100, 1)}%)</div>`).join("") || "No available values for pie chart."}</div></div></section>`;
+}
+
+function chartMarkerTone(value, seriesMax) {
+  if (!seriesMax) return "normal";
+  const pct = Math.abs(Number(value || 0)) / seriesMax * 100;
+  if (pct >= 90) return "high";
+  if (pct >= 65) return "watch";
+  return "normal";
+}
+
+function lineMarkerSeries() {
+  const fy = years();
+  if (state.metric === "ae_monthwise" || (state.report === "dept_current" && state.metric === "ae_monthwise")) {
+    const s = series(state.scope, state.item);
+    return {
+      title: "MONTH-WISE ACTUAL EXPENDITURE TREND",
+      xLabels: DATA.months,
+      series: fy.map((year, index) => ({
+        name: year,
+        color: colors[index % colors.length],
+        values: DATA.months.map((_, monthIndex) => monthValue(s, year, monthIndex)),
+      })),
+    };
+  }
+  if (state.metric === "bp_vs_ae" || state.metric === "oba_vs_ae") {
+    const primaryLabel = state.metric === "bp_vs_ae" ? "Budget Proportion" : "OBA / RG";
+    return {
+      title: `${primaryLabel.toUpperCase()} VS ACTUAL EXPENDITURE`,
+      xLabels: fy,
+      series: [
+        {
+          name: primaryLabel,
+          color: colors[0],
+          values: fy.map((year) => state.metric === "bp_vs_ae" ? budgetValues(state.scope, state.item, year).bp : budgetValues(state.scope, state.item, year).oba),
+        },
+        {
+          name: "Actual Expenditure",
+          color: colors[1],
+          values: fy.map((year) => budgetValues(state.scope, state.item, year).ae),
+        },
+      ],
+    };
+  }
+  if (state.metric === "specific_month") {
+    const index = DATA.months.indexOf(state.month);
+    const s = series(state.scope, state.item);
+    return {
+      title: `${state.month} ACTUAL EXPENDITURE YEAR TREND`,
+      xLabels: fy,
+      series: [{
+        name: `${state.month} Actual`,
+        color: colors[0],
+        values: fy.map((year) => monthValue(s, year, index)),
+      }],
+    };
+  }
+  const vals = valuesForCurrent().filter((item) => item.value !== null);
+  return {
+    title: `${metricLabel()} TREND`,
+    xLabels: vals.map((item) => item.label),
+    series: [{
+      name: metricLabel(),
+      color: colors[0],
+      values: vals.map((item) => item.value),
+    }],
+  };
+}
+
+function svgText(text, x, y, cls = "", extra = "") {
+  return `<text x="${x}" y="${y}" class="${cls}" ${extra}>${esc(text)}</text>`;
+}
+
+function lineMarkersChart() {
+  const chart = lineMarkerSeries();
+  const width = 980;
+  const height = 360;
+  const left = 76;
+  const right = 26;
+  const top = 30;
+  const bottom = 76;
+  const plotW = width - left - right;
+  const plotH = height - top - bottom;
+  const allValues = chart.series.flatMap((s) => s.values).filter((value) => value !== null && value !== undefined && !Number.isNaN(Number(value))).map(Number);
+  const min = Math.min(0, ...allValues);
+  const max = Math.max(1, ...allValues);
+  const span = max - min || 1;
+  const xFor = (index) => left + (chart.xLabels.length <= 1 ? plotW / 2 : index / (chart.xLabels.length - 1) * plotW);
+  const yFor = (value) => top + (max - Number(value || 0)) / span * plotH;
+  const ticks = [0, .25, .5, .75, 1].map((ratio) => min + span * ratio);
+  const grid = ticks.map((value) => {
+    const y = yFor(value);
+    return `<line class="line-grid" x1="${left}" y1="${y}" x2="${width - right}" y2="${y}"></line>${svgText(fmt(value), left - 8, y + 4, "line-axis-label", 'text-anchor="end"')}`;
+  }).join("");
+  const xLabels = chart.xLabels.map((label, index) => {
+    const x = xFor(index);
+    const short = String(label).length > 14 ? `${String(label).slice(0, 13)}...` : label;
+    return `${svgText(short, x, height - 42, "line-x-label", 'text-anchor="middle"')}<line class="line-tick" x1="${x}" y1="${top}" x2="${x}" y2="${height - bottom + 4}"></line>`;
+  }).join("");
+  const seriesMax = Math.max(1, ...allValues.map((value) => Math.abs(value)));
+  const lines = chart.series.map((item) => {
+    const points = item.values.map((value, index) => value === null || value === undefined || Number.isNaN(Number(value)) ? null : [xFor(index), yFor(value), value]).filter(Boolean);
+    const d = points.map((point, index) => `${index ? "L" : "M"}${point[0].toFixed(1)},${point[1].toFixed(1)}`).join(" ");
+    const markers = points.map((point) => `<g class="line-marker ${chartMarkerTone(point[2], seriesMax)}"><circle cx="${point[0].toFixed(1)}" cy="${point[1].toFixed(1)}" r="5"></circle><title>${esc(item.name)}: ${fmt(point[2])}</title></g>`).join("");
+    return `<path class="line-path" d="${d}" style="stroke:${item.color}"></path>${markers}`;
+  }).join("");
+  return `<section class="chart line-chart-panel"><div class="section-head"><h2>${esc(chart.title)}</h2><span>${remarksText()}</span></div><div class="line-chart-wrap"><svg class="line-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(chart.title)}">${grid}${xLabels}<line class="line-axis" x1="${left}" y1="${height - bottom}" x2="${width - right}" y2="${height - bottom}"></line><line class="line-axis" x1="${left}" y1="${top}" x2="${left}" y2="${height - bottom}"></line>${lines}</svg></div>${legend(chart.series.map((item) => item.name))}</section>`;
 }
 
 function heatmap() {
@@ -750,6 +857,7 @@ function remarksText() {
 
 function renderChart() {
   if (state.chart === "bar") return barChart();
+  if (state.chart === "line_markers") return lineMarkersChart();
   if (state.chart === "pie") return pieChart();
   if (state.chart === "heatmap") return heatmap();
   return groupedChart();
