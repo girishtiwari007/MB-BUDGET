@@ -71,6 +71,7 @@
       ["DRM Existing Current-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx"],
       ["DRM H Till Actual Month PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_JUL_2025_Actual.pptx"],
       ["DRM Full Previous-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx"],
+      ["DRM Yearly Comparison PPTX", "../exports/Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx"],
       ["DRM Excel", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx"],
       ["Current / Previous Excel", "../exports/Current_Previous_Year_PU_Demand_Analysis.xlsx"],
       ["FR Budget Excel", "../exports/FR_Budget_Status.xlsx"],

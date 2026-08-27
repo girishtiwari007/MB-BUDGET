@@ -89,3 +89,6 @@ body{margin:0;font-family:Calibri,Arial,sans-serif;background:#eef3f7;color:#172
 
 /* Multi-series line chart with markers */
 .line-chart-panel{min-width:0}.line-chart-wrap{width:100%;min-width:760px;overflow:hidden;border:1px solid #dbe6ee;background:linear-gradient(180deg,#ffffff,#f7fbfe);border-radius:6px;padding:4px}.line-chart-svg{display:block;width:100%;height:auto;min-height:270px}.line-grid{stroke:#dfe9f2;stroke-width:1}.line-axis,.line-tick{stroke:#7f94a8;stroke-width:1}.line-tick{opacity:.24}.line-axis-label,.line-x-label{font:700 11px Calibri,Arial,sans-serif;fill:#52677e}.line-x-label{fill:#17212b}.line-path{fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 1px 1px rgba(23,33,43,.15))}.line-marker circle{fill:#fff;stroke:#1f4e79;stroke-width:3}.line-marker.high circle{fill:#fff0f0;stroke:#b42318}.line-marker.watch circle{fill:#fff8dd;stroke:#d19a2a}.line-marker.normal circle{fill:#f5fbf7;stroke:#126a66}@media(max-width:760px){.line-chart-wrap{min-width:680px}.line-path{stroke-width:3.4}.line-marker circle{r:5.5}.line-axis-label,.line-x-label{font-size:11px}}
+
+/* Year selector for multi-year charts */
+#yearWrap{min-width:180px}#yearFilter{min-height:78px;padding:5px 8px}#yearFilter option{padding:3px 4px;font-weight:700}@media(max-width:640px){#yearFilter{min-height:118px}}

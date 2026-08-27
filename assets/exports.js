@@ -7,6 +7,7 @@
     ["DRM Existing Current-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx", "PPTX", "Completed JUL 2026 + H full FY 2025-26"],
     ["DRM H Till Actual Month PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_JUL_2025_Actual.pptx", "PPTX", "Completed JUL 2026 + H up to JUL 2025"],
     ["DRM Full Previous-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx", "PPTX", "Completed JUL 2026 + H full FY 2025-26"],
+    ["DRM Yearly Comparison PPTX", "../exports/Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx", "PPTX", "Yearly comparison"],
     ["DRM Excel", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx", "XLSX", "Completed JUL 2026"],
     ["FR Budget PDF", "../exports/FR_Budget_Status.pdf", "PDF", "FR as uploaded"],
     ["FR Budget Excel", "../exports/FR_Budget_Status.xlsx", "XLSX", "FR as uploaded"]
@@ -28,6 +29,12 @@
         ["Full Previous-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx", "H column shows final actual expenditure for FY 2025-26."],
         ["Export-DRM(Excel)", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx", "Workbook matching the DRM package sections."],
         ["Data Health", "status.html", "Verify completed/running month, suspense rows and export readiness."]
+      ]
+    },
+    {
+      title: "DRM PPT With Yearly Comparison",
+      items: [
+        ["Yearly Comparison PPTX", "../exports/Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx", "Editable DRM comparison deck imported into the portal and refreshed with every local sync/upload export cycle."]
       ]
     },
     {
@@ -122,6 +129,7 @@
       "- DRM Existing Current-Year PPTX: exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx",
       "- DRM Till Actual Month PPTX: exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_JUL_2025_Actual.pptx",
       "- DRM Full Previous-Year PPTX: exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx",
+      "- DRM Yearly Comparison PPTX: exports/Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx",
       "- DRM Excel: exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx",
       "- FR PDF: exports/FR_Budget_Status.pdf",
       "- FR Excel: exports/FR_Budget_Status.xlsx",

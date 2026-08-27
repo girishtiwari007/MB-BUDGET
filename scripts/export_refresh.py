@@ -18,6 +18,7 @@ EXPECTED_EXPORTS = [
     "exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx",
     "exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_JUL_2025_Actual.pptx",
     "exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx",
+    "exports/Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx",
 ]
 
 

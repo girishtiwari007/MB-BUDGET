@@ -51,7 +51,7 @@ const REPORTS = {
   },
 };
 
-const state = { report: "pu_month", scope: "pu", item: "", metric: "ae_monthwise", month: "APR", chart: "grouped", importantPuOnly: false, basis: "completed" };
+const state = { report: "pu_month", scope: "pu", item: "", metric: "ae_monthwise", month: "APR", chart: "grouped", importantPuOnly: false, basis: "completed", yearFilter: ["all"] };
 const $ = (id) => document.getElementById(id);
 const COMPLETED_MONTH_INDEX = 3;
 const TILL_DATE_MONTH_INDEX = 4;
@@ -94,12 +94,22 @@ function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 }
 
-function years() {
+function allYears() {
   return (DATA.years || []).map((year) => year.fy);
 }
 
+function years() {
+  const available = allYears();
+  const selected = Array.isArray(state.yearFilter) ? state.yearFilter.filter((year) => available.includes(year)) : [];
+  return selected.length ? selected : available;
+}
+
 function latestYear() {
-  return years().at(-1);
+  return allYears().at(-1);
+}
+
+function selectedLatestYear() {
+  return years().at(-1) || latestYear();
 }
 
 function activeMonthLimit(fy) {
@@ -193,6 +203,30 @@ function setOptions(select, options, value) {
   if (!options.includes(value)) select.value = options[0] || "";
 }
 
+function setYearOptions() {
+  const select = $("yearFilter");
+  if (!select) return;
+  const available = allYears();
+  const selected = Array.isArray(state.yearFilter) && state.yearFilter.length ? state.yearFilter : ["all"];
+  select.innerHTML = [
+    `<option value="all" ${selected.includes("all") ? "selected" : ""}>ALL YEARS</option>`,
+    ...available.map((year) => `<option value="${esc(year)}" ${selected.includes(year) ? "selected" : ""}>${esc(year)}</option>`),
+  ].join("");
+}
+
+function readSelectedYears() {
+  const select = $("yearFilter");
+  if (!select) return ["all"];
+  const picked = Array.from(select.selectedOptions || []).map((option) => option.value);
+  if (!picked.length || picked.includes("all")) return ["all"];
+  return picked.filter((year) => allYears().includes(year));
+}
+
+function selectedYearsText() {
+  const selected = years();
+  return selected.length === allYears().length ? "All years" : selected.join(", ");
+}
+
 function optionLabel(option) {
   const fixed = {
     pu: "PRIMARY UNIT",
@@ -226,6 +260,7 @@ function setControlVisibility() {
   $("scopeWrap").classList.toggle("hide", !["bp_ae"].includes(state.report));
   $("metricWrap").classList.toggle("hide", !["pu_month", "demand_budget", "bp_ae"].includes(state.report));
   $("chartWrap").classList.toggle("hide", !chartAllowed);
+  $("yearWrap").classList.toggle("hide", false);
   $("importantPuWrap").classList.toggle("hide", !importantAllowed);
 }
 
@@ -242,6 +277,7 @@ function applyReportDefaults(reportKey) {
   state.metric = report.metric;
   state.chart = report.chart;
   state.item = "";
+  state.yearFilter = ["all"];
 }
 
 function setup() {
@@ -256,6 +292,7 @@ function setup() {
   setOptions($("metric"), ["ae_monthwise", "specific_month", "bp_vs_ae", "oba_vs_ae", "year_total"], state.metric);
   setOptions($("month"), DATA.months, state.month);
   setOptions($("chart"), ["grouped", "bar", "pie", "heatmap"], state.chart);
+  setYearOptions();
   $("basis").value = state.basis;
   ["scope", "item", "metric", "month", "chart", "basis"].forEach((id) =>
     $(id).addEventListener("change", (event) => {
@@ -264,6 +301,10 @@ function setup() {
       render();
     }),
   );
+  $("yearFilter").addEventListener("change", () => {
+    state.yearFilter = readSelectedYears();
+    render();
+  });
   $("importantPuOnly").addEventListener("change", (event) => {
     state.importantPuOnly = event.target.checked;
     state.item = "";
@@ -280,6 +321,7 @@ function syncControls() {
   setOptions($("metric"), metricOptions(), state.metric);
   setOptions($("chart"), chartOptions(), state.chart);
   setOptions($("month"), DATA.months, state.month);
+  setYearOptions();
   $("basis").value = state.basis;
   const options = itemsFor(state.scope);
   if (!state.item || !options.includes(state.item)) state.item = options[0] || "";
@@ -333,15 +375,16 @@ function valuesForCurrent() {
 function summaryHtml() {
   const vals = valuesForCurrent().filter((item) => item.value !== null);
   const maxItem = vals.reduce((best, item) => !best || Math.abs(item.value) > Math.abs(best.value) ? item : best, null);
-  const latestYear = years().at(-1);
+  const latestSelectedYear = selectedLatestYear();
   const s = series(state.scope, state.item);
-  const latestTotal = periodTotal(s, latestYear);
+  const latestTotal = periodTotal(s, latestSelectedYear);
   const availableYears = years().filter((year) => hasSeriesYear(s, year)).length || vals.filter((item) => item.value !== null).length;
   return `<div class="summary">
     <div class="card"><span>Report Mode</span><strong>${esc(REPORTS[state.report].label)}</strong></div>
     <div class="card"><span>Selected Item</span><strong>${esc(state.scope === "yearly" ? (state.importantPuOnly ? "IMPORTANT PRIMARY UNITS" : "ALL PRIMARY UNIT") : optionLabel(state.item || "All"))}</strong></div>
+    <div class="card"><span>Year Selection</span><strong>${esc(selectedYearsText())}</strong></div>
     <div class="card"><span>Metric</span><strong>${esc(metricLabel())}</strong></div>
-    <div class="card"><span>Latest Year Total</span><strong>${moneyCell(latestTotal)}</strong></div>
+    <div class="card"><span>${esc(latestSelectedYear)} Total</span><strong>${moneyCell(latestTotal)}</strong></div>
     <div class="card"><span>Highest Value</span><strong>${moneyCell(maxItem?.value)}</strong></div>
     <div class="card"><span>Years Available</span><strong>${availableYears}</strong></div>
   </div>`;
@@ -369,7 +412,7 @@ function attentionTone(value, high = 110, watch = 90) {
 }
 
 function attentionFindings() {
-  const fy = latestYear();
+  const fy = selectedLatestYear();
   const selected = state.scope === "yearly" ? "" : state.item;
   const scope = state.scope === "yearly" ? "pu" : state.scope;
   const findings = [];
@@ -852,7 +895,7 @@ function exportReportPdf() {
 }
 
 function remarksText() {
-  return `Remarks - Figures in '000' (thousands). ${state.basis === "completed" ? "Default basis: completed actuals up to JUL 2026 with 04-month projection" : "Till-date basis: AUG 2026 running month with 05-month projection"}`;
+  return `Remarks - Figures in '000' (thousands). Years: ${selectedYearsText()}. ${state.basis === "completed" ? "Default basis: completed actuals up to JUL 2026 with 04-month projection" : "Till-date basis: AUG 2026 running month with 05-month projection"}`;
 }
 
 function renderChart() {

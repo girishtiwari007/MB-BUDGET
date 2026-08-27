@@ -1,5 +1,6 @@
 import json
 import re
+import shutil
 import zipfile
 from copy import deepcopy
 from html import escape
@@ -21,8 +22,10 @@ CURRENT_PPTX = OUT / "Moradabad_Division_Current_Year_Budget_Analysis.pptx"
 PPTX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis.pptx"
 DRM_TILL_ACTUAL_PPTX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_JUL_2025_Actual.pptx"
 DRM_FULL_PREVIOUS_PPTX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx"
+DRM_YEARLY_COMPARISON_PPTX = OUT / "Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx"
 XLSX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis.xlsx"
 PREVIOUS_FR_XLSX = ROOT / "data" / "source-files" / "2025-2026" / "fr-budget-status.xlsx"
+YEARLY_COMPARISON_TEMPLATE = ROOT / "data" / "templates" / "Moradabad_Division_DRM_Yearly_Comparison_Template.pptx"
 TEMPLATE_CANDIDATES = [
     Path(r"C:\Users\HP\Dropbox\Revenue PU Laibilities\PPT PORTAL\Moradabad Division Quarty FR and Revenue Budget Analysis DRM.pptx"),
     Path(r"C:\Users\HP\Dropbox\Revenue PU Laibilities\PPT PORTAL\Moradabad Division Quarty FR and Revenue Budget Analysis DRM JULY.pptx"),
@@ -792,6 +795,15 @@ def build_pptx_from_template(output_path, sections, subtitle):
                 dst.writestr(f"ppt/slides/_rels/slide{i}.xml.rels", slide_rel)
 
 
+def refresh_yearly_comparison_pptx():
+    if not YEARLY_COMPARISON_TEMPLATE.exists():
+        raise RuntimeError(f"Yearly comparison PPTX template not found: {YEARLY_COMPARISON_TEMPLATE}")
+    shutil.copy2(YEARLY_COMPARISON_TEMPLATE, DRM_YEARLY_COMPARISON_PPTX)
+    with zipfile.ZipFile(DRM_YEARLY_COMPARISON_PPTX) as z:
+        assert z.testzip() is None
+        assert "ppt/presentation.xml" in z.namelist()
+
+
 def drm_sections(payload, reports, fr, previous_fr, current_basis, fr_as_on, h_mode="full_previous"):
     staff_rows = filtered_pu_rows(payload["staff"]["rows"], ["01", "02", "03", "04", "07", "10", "11", "12", "13", "15", "16", "25"])
     nonstaff_rows = filtered_pu_rows(payload["nonstaff"]["rows"], ["27", "28", "30", "32", "60"])
@@ -854,7 +866,8 @@ def build():
     build_pptx_from_template(PPTX, drm_sections_full, drm_subtitle_full)
     build_pptx_from_template(DRM_TILL_ACTUAL_PPTX, drm_sections_till, drm_subtitle_till)
     build_pptx_from_template(DRM_FULL_PREVIOUS_PPTX, drm_sections_full, drm_subtitle_full)
-    for path in (CURRENT_PPTX, PPTX, DRM_TILL_ACTUAL_PPTX, DRM_FULL_PREVIOUS_PPTX):
+    refresh_yearly_comparison_pptx()
+    for path in (CURRENT_PPTX, PPTX, DRM_TILL_ACTUAL_PPTX, DRM_FULL_PREVIOUS_PPTX, DRM_YEARLY_COMPARISON_PPTX):
         with zipfile.ZipFile(path) as z:
             assert z.testzip() is None
             assert "ppt/presentation.xml" in z.namelist()
@@ -872,6 +885,7 @@ def build():
     print(f"Generated {PPTX}")
     print(f"Generated {DRM_TILL_ACTUAL_PPTX}")
     print(f"Generated {DRM_FULL_PREVIOUS_PPTX}")
+    print(f"Generated {DRM_YEARLY_COMPARISON_PPTX}")
 
 
 if __name__ == "__main__":
