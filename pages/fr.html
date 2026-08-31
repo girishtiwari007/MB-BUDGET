@@ -569,10 +569,10 @@
         <div class="data-stamp">
           <span>Data as on <strong>27.08.2026</strong></span>
           <span>Source <strong>FR 27.08.2026.xlsx</strong></span>
-          <span>Stored <strong>27.08.2026 12:48:49</strong></span>
+          <span>Stored <strong>31.08.2026 12:34:04</strong></span>
         </div>
       </div>
-      <div class="header-actions"><button class="export-btn upload-btn" id="open-fr-upload" type="button">FR Upload</button><button class="export-btn" id="export-all" type="button">Export Excel</button><button class="export-btn" id="export-pdf" type="button">Export PDF</button></div>
+      <div class="header-actions"><button class="export-btn upload-btn" id="open-fr-upload" type="button">Local FR Sync</button><button class="export-btn" id="export-all" type="button">Export Excel</button><button class="export-btn" id="export-pdf" type="button">Export PDF</button></div>
     </div>
   </header>
   <nav class="tabs" id="tabs"></nav>
@@ -1309,45 +1309,34 @@
     function frUploadPanel() {
       queueFrManifestLoad();
       const manifest = FR_UPLOAD_STATE.manifest || {};
-      const role = FR_UPLOAD_STATE.view;
-      const roleCopy = manifest[role] || {};
-      const activeFile = roleCopy.activeFile || (role === "current" ? manifest.activeFile : "") || `No ${frRoleLabel(role).toLowerCase()} source file confirmed yet`;
-      const uploadedAt = roleCopy.dataAsOn || roleCopy.uploadedAt ? formatUploadDate(roleCopy.dataAsOn || roleCopy.uploadedAt) : "Not available";
-      const storedAt = roleCopy.uploadedAt ? formatUploadDate(roleCopy.uploadedAt) : "Not available";
-      const originalName = roleCopy.originalName || "Not available";
-      const backup = roleCopy.backup;
-      const backups = backup
-        ? `<li><strong>${htmlEscape(frRoleLabel(role))} Backup Copy</strong><br>${htmlEscape(backup.originalName || backup.activeFile || "Not available")}<br>Data as on: ${htmlEscape(formatUploadDate(backup.uploadedAt))}</li>`
-        : `<li>No backup copy for ${htmlEscape(frRoleLabel(role))} yet.</li>`;
-      const selected = FR_UPLOAD_STATE.files[role]
-        ? `${htmlEscape(FR_UPLOAD_STATE.files[role].name)} (${formatFileSize(FR_UPLOAD_STATE.files[role].size)})`
-        : "No file selected";
+      const activeFile = manifest.activeFile || "No current FR source file confirmed yet";
+      const uploadedAt = manifest.dataAsOn || manifest.uploadedAt ? formatUploadDate(manifest.dataAsOn || manifest.uploadedAt) : "Not available";
+      const storedAt = manifest.uploadedAt ? formatUploadDate(manifest.uploadedAt) : "Not available";
+      const originalName = manifest.originalName || "Not available";
+      const backups = (manifest.backups || []).length
+        ? manifest.backups.map(copy => `<li><strong>${htmlEscape(copy.name || "Backup Copy")}</strong><br>${htmlEscape((copy.files || []).join(", ") || "Not available")}</li>`).join("")
+        : `<li>No backup copy listed yet.</li>`;
       return `
         <div class="upload-card">
-          <p class="subtitle">Upload <strong>Previous FR</strong> and <strong>Current FR</strong> separately. Each upload has its own Data as on date and keeps one backup copy when replaced.</p>
-          <div class="upload-status muted">${isLocalApiHost() ? "Local mode: Confirm & Store writes through the local upload server and updates repository files for commit/push." : "GitHub Pages mode: verify/preview only. Browser confirmation cannot overwrite repository files and may not survive another device or clean browser; permanent update needs local upload-server commit/push or a GitHub API direct-sync flow."}</div>
-          ${frUploadToggleHtml()}
-          ${frUploadCopiesHtml(manifest)}
+          <p class="subtitle">FR browser upload is disabled in the static portal. Use the local GUI sync tool to select the FR workbook, update the repository copy, recalculate this page and refresh Excel/PDF/PPTX exports.</p>
+          <div class="upload-status muted">Run from the MB-BUDGET repo folder: <strong>py -3 scripts\\local-sync-gui.py</strong></div>
           <div class="upload-grid">
             <div class="upload-box">
-              <h3>${htmlEscape(frRoleLabel(role))} Source</h3>
+              <h3>Current FR Source</h3>
               <div class="upload-path"><strong>Active file:</strong> ${htmlEscape(activeFile)}</div>
               <div class="upload-path"><strong>Original upload:</strong> ${htmlEscape(originalName)}</div>
               <div class="upload-path"><strong>Data as on:</strong> ${htmlEscape(uploadedAt)}</div>
               <div class="upload-path"><strong>Stored at:</strong> ${htmlEscape(storedAt)}</div>
             </div>
             <div class="upload-box">
-              <h3>${htmlEscape(frRoleLabel(role))} Backup Copy</h3>
+              <h3>Last Backup Copies</h3>
               <ol class="backup-list">${backups}</ol>
               <button class="reset-btn" type="button" data-refresh-fr-manifest>Refresh Source List</button>
             </div>
           </div>
-          <label class="file-picker">Upload ${htmlEscape(frRoleLabel(role))} file (.xls or .xlsx)<input type="file" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" data-fr-upload-file="${role}"></label>
-          <label class="file-picker">${htmlEscape(frRoleLabel(role))} data as on date<input type="date" value="${htmlEscape(FR_UPLOAD_STATE.asOnDate[role] || TODAY_ISO)}" data-fr-as-on-date="${role}"></label>
-          <div class="upload-path"><strong>Selected file:</strong> ${selected}</div>
           <div class="upload-actions">
-            <button class="reset-btn" type="button" data-fr-upload-check="${role}">Verify ${htmlEscape(frRoleLabel(role))}</button>
-            <button class="export-btn upload-btn" type="button" data-fr-upload-store="${role}">${isLocalApiHost() && role === "current" ? "Confirm & Store" : "Confirm Browser Preview"} ${htmlEscape(frRoleLabel(role))}</button>
+            <a class="export-btn upload-btn" href="../scripts/local-sync-gui.py" download>Download/Open GUI Script</a>
+            <button class="reset-btn" type="button" data-refresh-fr-manifest>Refresh Source List</button>
           </div>
           <div class="upload-status ${FR_UPLOAD_STATE.statusType}">${htmlEscape(FR_UPLOAD_STATE.status)}</div>
         </div>`;
@@ -1411,7 +1400,7 @@
       { id: "open-analysis", label: "OPEN LINE Analysis", content: () => filterBar() + analysisTable(workbookData[0]) },
       { id: "gsu-analysis", label: "GSU Analysis", content: () => filterBar() + analysisTable(workbookData[1]) },
     ];
-    const uploadTab = { id: "fr-upload", label: "FR Upload", content: () => frUploadPanel() };
+    const uploadTab = { id: "fr-upload", label: "Local FR Sync", content: () => frUploadPanel() };
     const panelList = () => [...tabs, uploadTab];
 
     const tabsEl = document.getElementById("tabs");

@@ -1,14 +1,24 @@
 (function(){
-  const EXPECTED = { month: "JUL 2026", months: 4 };
+  const META = window.CURRENT_PAYLOAD_META || {};
+  const PERIOD_MONTHS = ["APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", "JAN", "FEB", "MAR"];
+  function period(label, fallback) {
+    const text = String(label || fallback || "JUL 2026").trim().toUpperCase();
+    const month = (text.match(/([A-Z]{3})\s+20\d{2}/) || [null, text.slice(0, 3)])[1];
+    const count = Math.max(1, PERIOD_MONTHS.indexOf(month) + 1 || 4);
+    return { label: text, count };
+  }
+  const COMPLETED = period(META.completedMonth, "JUL 2026");
+  const RUNNING = period(META.runningMonth, "AUG 2026");
+  const EXPECTED = { month: COMPLETED.label, months: COMPLETED.count };
   const committedFiles = [
-    ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf", "PDF", "Completed JUL 2026"],
-    ["Current / Previous Excel", "../exports/Current_Previous_Year_PU_Demand_Analysis.xlsx", "XLSX", "Completed JUL 2026"],
-    ["Current / Previous PPTX", "../exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx", "PPTX", "Completed JUL 2026"],
-    ["DRM Existing Current-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx", "PPTX", "Completed JUL 2026 + H full FY 2025-26"],
-    ["DRM H Till Actual Month PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_JUL_2025_Actual.pptx", "PPTX", "Completed JUL 2026 + H up to JUL 2025"],
-    ["DRM Full Previous-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx", "PPTX", "Completed JUL 2026 + H full FY 2025-26"],
+    ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf", "PDF", `Completed ${COMPLETED.label}`],
+    ["Current / Previous Excel", "../exports/Current_Previous_Year_PU_Demand_Analysis.xlsx", "XLSX", `Completed ${COMPLETED.label}`],
+    ["Current / Previous PPTX", "../exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx", "PPTX", `Completed ${COMPLETED.label}`],
+    ["DRM Existing Current-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx", "PPTX", `Completed ${COMPLETED.label} + H full FY 2025-26`],
+    ["DRM H Till Actual Month PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_JUL_2025_Actual.pptx", "PPTX", `Completed ${COMPLETED.label} + H up to ${COMPLETED.label.replace("2026", "2025")}`],
+    ["DRM Full Previous-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx", "PPTX", `Completed ${COMPLETED.label} + H full FY 2025-26`],
     ["DRM Yearly Comparison PPTX", "../exports/Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx", "PPTX", "Yearly comparison"],
-    ["DRM Excel", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx", "XLSX", "Completed JUL 2026"],
+    ["DRM Excel", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx", "XLSX", `Completed ${COMPLETED.label}`],
     ["FR Budget PDF", "../exports/FR_Budget_Status.pdf", "PDF", "FR as uploaded"],
     ["FR Budget Excel", "../exports/FR_Budget_Status.xlsx", "XLSX", "FR as uploaded"]
   ];
@@ -18,7 +28,7 @@
       items: [
         ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf", "Generated PDF snapshot refreshed by local sync/upload."],
         ["Current / Previous Excel (.xlsx)", "../exports/Current_Previous_Year_PU_Demand_Analysis.xlsx", "Generated .xlsx snapshot refreshed by local sync/upload."],
-        ["Current / Previous PPTX", "../exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx", "Presentation deck. Completed month basis: JUL 2026."]
+        ["Current / Previous PPTX", "../exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx", `Presentation deck. Completed month basis: ${COMPLETED.label}.`]
       ]
     },
     {
@@ -42,7 +52,7 @@
       items: [
         ["FR Budget PDF", "../exports/FR_Budget_Status.pdf", "Generated FR PDF snapshot refreshed by FR sync/upload."],
         ["FR Budget Excel (.xlsx)", "../exports/FR_Budget_Status.xlsx", "Generated .xlsx snapshot refreshed by FR sync/upload."],
-        ["FR Upload", "fr.html", "Open FR page upload tab when local server is running."]
+        ["Local FR Sync", "fr.html", "Open FR page local sync status and launcher instructions."]
       ]
     },
     {
@@ -77,19 +87,19 @@
     const labels = (table.columns || []).map(col => String(col.label || "")).join(" | ");
     const rowMonths = (table.rows || []).map(row => Number(row.Months || 0)).filter(Boolean);
     const maxMonths = rowMonths.length ? Math.max(...rowMonths) : 0;
-    const hasAug = /AUG 2026/i.test(labels);
-    const hasJul = /JUL 2026/i.test(labels);
-    return { labels, maxMonths, hasAug, hasJul };
+    const hasRunning = labels.toUpperCase().includes(RUNNING.label);
+    const hasCompleted = labels.toUpperCase().includes(COMPLETED.label);
+    return { labels, maxMonths, hasRunning, hasCompleted };
   }
 
   function renderBasisGuard(){
     const basis = payloadBasis();
-    const mismatch = basis.hasAug || basis.maxMonths > EXPECTED.months;
+    const mismatch = basis.hasRunning || basis.maxMonths > EXPECTED.months;
     const tone = mismatch ? "warn" : "ok";
     const title = mismatch ? "Source Payload Contains Running-Month Data" : "Default Basis Looks Aligned";
     const detail = mismatch
-      ? `Loaded source mentions AUG 2026 / ${basis.maxMonths || "?"} months. Portal default reports should continue to present completed JUL 2026 / 04-month basis, with AUG only in running-month views.`
-      : "Loaded source appears aligned with completed JUL 2026 / 04-month basis.";
+      ? `Loaded source mentions ${RUNNING.label} / ${basis.maxMonths || "?"} months. Portal default reports should continue to present completed ${COMPLETED.label} / ${String(COMPLETED.count).padStart(2, "0")}-month basis, with ${RUNNING.label} only in running-month views.`
+      : `Loaded source appears aligned with completed ${COMPLETED.label} / ${String(COMPLETED.count).padStart(2, "0")}-month basis.`;
     document.getElementById("basisGuard").innerHTML = `
       <div class="guard ${tone}">
         <div><strong>${esc(title)}</strong><span>${esc(detail)}</span></div>
@@ -118,8 +128,8 @@
     return [
       "MB Budget Authority Review Pack",
       "",
-      "Default basis: Completed actuals up to JUL 2026 with 04-month BP projection.",
-      "Running month: AUG 2026 data should be reviewed only in Till Date / Running Month views.",
+      `Default basis: Completed actuals up to ${COMPLETED.label} with ${String(COMPLETED.count).padStart(2, "0")}-month BP projection.`,
+      `Running month: ${RUNNING.label} data should be reviewed only in Till Date / Running Month views.`,
       "Attention: Important PU 27, 28, 30, 32 and 60 should be checked separately.",
       "Suspense: Demand 12N / 10N remains separate and excluded from normal demand totals.",
       "",

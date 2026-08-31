@@ -1,62 +1,62 @@
 {
-  "refreshedAt": "2026-08-27T15:51:09",
-  "trigger": "yearly-comparison-ppt-integration",
+  "refreshedAt": "2026-08-31T13:05:33",
+  "trigger": "period-sensing-dynamic-labels",
   "status": "success",
   "missing": [],
   "files": [
     {
       "path": "exports/Current_Previous_Year_PU_Demand_Analysis.xlsx",
       "exists": true,
-      "size": 22504,
-      "modifiedAt": "2026-08-27T15:51:08"
+      "size": 22461,
+      "modifiedAt": "2026-08-31T13:05:32"
     },
     {
       "path": "exports/Current_Previous_Year_PU_Demand_Analysis.pdf",
       "exists": true,
-      "size": 164201,
-      "modifiedAt": "2026-08-27T15:51:09"
+      "size": 164202,
+      "modifiedAt": "2026-08-31T13:05:32"
     },
     {
       "path": "exports/FR_Budget_Status.xlsx",
       "exists": true,
-      "size": 10617,
-      "modifiedAt": "2026-08-27T15:51:08"
+      "size": 10618,
+      "modifiedAt": "2026-08-31T13:05:32"
     },
     {
       "path": "exports/FR_Budget_Status.pdf",
       "exists": true,
       "size": 42693,
-      "modifiedAt": "2026-08-27T15:51:09"
+      "modifiedAt": "2026-08-31T13:05:32"
     },
     {
       "path": "exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx",
       "exists": true,
-      "size": 90547,
-      "modifiedAt": "2026-08-27T15:51:09"
+      "size": 90483,
+      "modifiedAt": "2026-08-31T13:05:32"
     },
     {
       "path": "exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx",
       "exists": true,
-      "size": 14892,
-      "modifiedAt": "2026-08-27T15:51:09"
+      "size": 14894,
+      "modifiedAt": "2026-08-31T13:05:32"
     },
     {
       "path": "exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx",
       "exists": true,
       "size": 68428,
-      "modifiedAt": "2026-08-27T15:51:09"
+      "modifiedAt": "2026-08-31T13:05:32"
     },
     {
       "path": "exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_JUL_2025_Actual.pptx",
       "exists": true,
-      "size": 68404,
-      "modifiedAt": "2026-08-27T15:51:09"
+      "size": 68395,
+      "modifiedAt": "2026-08-31T13:05:32"
     },
     {
       "path": "exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx",
       "exists": true,
       "size": 68428,
-      "modifiedAt": "2026-08-27T15:51:09"
+      "modifiedAt": "2026-08-31T13:05:32"
     },
     {
       "path": "exports/Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx",

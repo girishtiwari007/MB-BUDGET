@@ -67,13 +67,13 @@
       </section>
       <section class="admin-panel" id="uploads">
         <div class="panel-head"><h2>Data Upload Version Control</h2><button class="secondary" id="refreshUploadVersions" type="button">Refresh Versions</button></div>
-        <p class="hint">Admin view of current-year source uploads and FR upload status. The local upload server keeps the latest two backup snapshots for verification.</p>
+        <p class="hint">Admin view of current-year source sync and FR sync status. Write/update actions now run through the local GUI sync tool, which keeps backup snapshots and refreshes all exports.</p>
         <div class="sync-grid" id="uploadVersionSummary">
           <div class="backup-card"><strong>Current Year</strong><span>Waiting for refresh.</span></div>
           <div class="backup-card"><strong>FR Status</strong><span>Waiting for refresh.</span></div>
-          <div class="backup-card"><strong>Upload Action</strong><span>Use Current / Previous Analysis upload page for parser verification and store.</span></div>
+          <div class="backup-card"><strong>Sync Action</strong><span>Use the local GUI tool for folder/file selection, recalculation and export refresh.</span></div>
         </div>
-        <div class="action-row"><a class="primary link" href="current.html?tab=upload">Open Detailed Upload Page</a></div>
+        <div class="action-row"><a class="primary link" href="../start-local-sync-gui.cmd" download>Download/Open Local Sync Launcher</a><a class="secondary link" href="current.html?tab=upload">Open Local Sync Instructions</a></div>
         <div class="sync-preview" id="uploadVersionPreview">Click Refresh Versions to see active files and last two backups.</div>
         <pre class="log" id="uploadVersionLog">Upload version dashboard is idle.</pre>
       </section>
@@ -138,5 +138,4 @@
   <script src="../assets/protection.js?v=20260813-protect-1"></script>
 </body>
 </html>
-
 

@@ -71,10 +71,25 @@ def load_fr_as_on():
 
 
 def current_as_on_label():
+    meta = load_current_meta()
+    return f"{meta.get('completedMonth', 'Completed month')} | uploaded {meta.get('statusAsOn', '')}"
+
+
+def load_current_meta():
     text = (ROOT / "data" / "current_payload.js").read_text(encoding="utf-8")
     match = re.search(r"window\.CURRENT_PAYLOAD_META\s*=\s*(\{.*?\});", text, re.S)
-    meta = json.loads(match.group(1)) if match else {}
-    return f"{meta.get('completedMonth', 'Completed month')} | uploaded {meta.get('statusAsOn', '')}"
+    return json.loads(match.group(1)) if match else {}
+
+
+def period_from_meta():
+    meta = load_current_meta()
+    label = str(meta.get("completedMonth") or "JUL 2026").strip().upper()
+    match = re.search(r"([A-Z]{3})\s+(20\d{2})", label)
+    month = match.group(1) if match else label[:3]
+    year = int(match.group(2)) if match else 2026
+    months = ["APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", "JAN", "FEB", "MAR"]
+    count = months.index(month) + 1 if month in months else 4
+    return {"month": month, "year": year, "count": count, "label": f"{month} {year}"}
 
 
 def inr(value, decimals=0):
@@ -186,9 +201,13 @@ def relabel_period(text, month="JUN", year=2026, count=3):
     label = f"{month} {year}"
     return (str(text or "")
         .replace("JUL 2026", label)
+        .replace("AUG 2026", label)
         .replace("JUL 2025", f"{month} 2025")
+        .replace("AUG 2025", f"{month} 2025")
         .replace("/ 12 * 4", f"/ 12 * {count}")
-        .replace("BP UPTO JUL 2026", f"BP UPTO {label}"))
+        .replace("/ 12 * 5", f"/ 12 * {count}")
+        .replace("BP UPTO JUL 2026", f"BP UPTO {label}")
+        .replace("BP UPTO AUG 2026", f"BP UPTO {label}"))
 
 
 def summary_row(label, oba, ae, months=3, bp_override=None):
@@ -255,7 +274,7 @@ def apply_completed_period(payload):
     reports = json.loads((ROOT / "data" / "reports-data.json").read_text(encoding="utf-8-sig"))
     fy = latest_report_year(reports)
     view = deepcopy(payload)
-    period = {"month": "JUL", "year": 2026, "count": 4, "label": "JUL 2026"}
+    period = period_from_meta()
     for key in ("demand", "staff", "nonstaff"):
         tab = view.get(key)
         if not tab or not tab.get("rows"):
@@ -277,7 +296,7 @@ def apply_completed_period(payload):
             next_row["OBAPercent"] = number_value(next_row.get("AE")) / number_value(next_row.get("OBA")) * 100 if number_value(next_row.get("OBA")) else 0
             rows.append(next_row)
         tab["columns"] = [{**col, "label": relabel_period(col.get("label"), period["month"], period["year"], period["count"])} for col in tab.get("columns", [])]
-        tab["title"] = f'{tab.get("title", "")} - Completed Month Projection - July 2026 (04 months)'
+        tab["title"] = f'{tab.get("title", "")} - Completed Month Projection - {period["label"]} ({period["count"]:02d} months)'
         tab["rows"] = add_total(rows)
     return view
 
@@ -805,6 +824,7 @@ def refresh_yearly_comparison_pptx():
 
 
 def drm_sections(payload, reports, fr, previous_fr, current_basis, fr_as_on, h_mode="full_previous"):
+    period = period_from_meta()
     staff_rows = filtered_pu_rows(payload["staff"]["rows"], ["01", "02", "03", "04", "07", "10", "11", "12", "13", "15", "16", "25"])
     nonstaff_rows = filtered_pu_rows(payload["nonstaff"]["rows"], ["27", "28", "30", "32", "60"])
     if h_mode == "till_actual":
@@ -827,7 +847,7 @@ def drm_sections(payload, reports, fr, previous_fr, current_basis, fr_as_on, h_m
         (f"Open Line FR Report - As On {fr_as_on}", *fr_report_table_with_previous(fr[0], previous_fr)),
         (f"Open Line FR Fund Wise - As On {fr_as_on}", *fr_fund_table_with_previous(fr[0], previous_fr)),
     ]
-    subtitle = f"Accounts Dept | FY 2026-2027 | DRM Budget & FR Analysis | Completed JUL 2026 | {subtitle_suffix}"
+    subtitle = f"Accounts Dept | FY 2026-2027 | DRM Budget & FR Analysis | Completed {period['label']} | {subtitle_suffix}"
     return sections, subtitle
 
 
@@ -862,7 +882,8 @@ def build():
     write_excel(drm_sections_full, XLSX)
     write_pdf(current_sections, CURRENT_PDF)
     write_pdf(fr_sections, FR_PDF)
-    build_pptx_from_template(CURRENT_PPTX, current_sections, "Accounts Dept | FY 2026-2027 | Current / Previous Year Budget Analysis | Completed JUL 2026")
+    period = period_from_meta()
+    build_pptx_from_template(CURRENT_PPTX, current_sections, f"Accounts Dept | FY 2026-2027 | Current / Previous Year Budget Analysis | Completed {period['label']}")
     build_pptx_from_template(PPTX, drm_sections_full, drm_subtitle_full)
     build_pptx_from_template(DRM_TILL_ACTUAL_PPTX, drm_sections_till, drm_subtitle_till)
     build_pptx_from_template(DRM_FULL_PREVIOUS_PPTX, drm_sections_full, drm_subtitle_full)

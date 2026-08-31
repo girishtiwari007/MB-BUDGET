@@ -4,6 +4,7 @@ const DATA = window.REPORTS_DATA || {
   monthly: { pu: {}, demand: {}, dept: {} },
   budget: { pu: {}, demand: {} },
 };
+const META = window.CURRENT_PAYLOAD_META || {};
 
 const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
 const colors = ["#1f4e79", "#b94b4b", "#78a641", "#735999", "#126a66", "#d19a2a"];
@@ -53,8 +54,15 @@ const REPORTS = {
 
 const state = { report: "pu_month", scope: "pu", item: "", metric: "ae_monthwise", month: "APR", chart: "grouped", importantPuOnly: false, basis: "completed", yearFilter: ["all"] };
 const $ = (id) => document.getElementById(id);
-const COMPLETED_MONTH_INDEX = 3;
-const TILL_DATE_MONTH_INDEX = 4;
+const PERIOD_MONTHS = ["APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", "JAN", "FEB", "MAR"];
+function periodFromLabel(label, fallbackLabel) {
+  const text = String(label || fallbackLabel || "JUL 2026").trim().toUpperCase();
+  const month = (text.match(/([A-Z]{3})\s+20\d{2}/) || [null, text.slice(0, 3)])[1];
+  const count = Math.max(1, PERIOD_MONTHS.indexOf(month) + 1 || 4);
+  return { label: text, count, index: count - 1 };
+}
+const COMPLETED_PERIOD = periodFromLabel(META.completedMonth, "JUL 2026");
+const RUNNING_PERIOD = periodFromLabel(META.runningMonth, "AUG 2026");
 
 function dataTimestampText(value) {
   if (!value) return new Date().toLocaleString("en-IN");
@@ -64,7 +72,7 @@ function dataTimestampText(value) {
 
 function dataStampText() {
   const uploadStamp = DATA.statusAsOn || DATA.generatedAt;
-  return `Data as on: ${dataTimestampText(uploadStamp)} | Last upload: ${dataTimestampText(uploadStamp)} | Basis: completed JUL 2026; running AUG 2026`;
+  return `Data as on: ${dataTimestampText(uploadStamp)} | Last upload: ${dataTimestampText(uploadStamp)} | Basis: completed ${COMPLETED_PERIOD.label}; running ${RUNNING_PERIOD.label}`;
 }
 
 function dataStampHtml() {
@@ -114,7 +122,7 @@ function selectedLatestYear() {
 
 function activeMonthLimit(fy) {
   if (fy !== latestYear()) return DATA.months.length;
-  return state.basis === "completed" ? COMPLETED_MONTH_INDEX + 1 : TILL_DATE_MONTH_INDEX + 1;
+  return state.basis === "completed" ? COMPLETED_PERIOD.count : RUNNING_PERIOD.count;
 }
 
 function itemsFor(scope) {
@@ -293,6 +301,7 @@ function setup() {
   setOptions($("month"), DATA.months, state.month);
   setOptions($("chart"), ["grouped", "bar", "pie", "heatmap"], state.chart);
   setYearOptions();
+  setBasisLabels();
   $("basis").value = state.basis;
   ["scope", "item", "metric", "month", "chart", "basis"].forEach((id) =>
     $(id).addEventListener("change", (event) => {
@@ -322,12 +331,22 @@ function syncControls() {
   setOptions($("chart"), chartOptions(), state.chart);
   setOptions($("month"), DATA.months, state.month);
   setYearOptions();
+  setBasisLabels();
   $("basis").value = state.basis;
   const options = itemsFor(state.scope);
   if (!state.item || !options.includes(state.item)) state.item = options[0] || "";
   setOptions($("item"), options, state.item);
   $("importantPuOnly").checked = state.importantPuOnly;
   setControlVisibility();
+}
+
+function setBasisLabels() {
+  const basis = $("basis");
+  if (!basis) return;
+  const completed = basis.querySelector('option[value="completed"]');
+  const tilldate = basis.querySelector('option[value="tilldate"]');
+  if (completed) completed.textContent = `Completed Month - ${COMPLETED_PERIOD.label} (${String(COMPLETED_PERIOD.count).padStart(2, "0")})`;
+  if (tilldate) tilldate.textContent = `Till Date / Running Month - ${RUNNING_PERIOD.label} (${String(RUNNING_PERIOD.count).padStart(2, "0")})`;
 }
 
 function metricOptions() {
@@ -895,7 +914,7 @@ function exportReportPdf() {
 }
 
 function remarksText() {
-  return `Remarks - Figures in '000' (thousands). Years: ${selectedYearsText()}. ${state.basis === "completed" ? "Default basis: completed actuals up to JUL 2026 with 04-month projection" : "Till-date basis: AUG 2026 running month with 05-month projection"}`;
+  return `Remarks - Figures in '000' (thousands). Years: ${selectedYearsText()}. ${state.basis === "completed" ? `Default basis: completed actuals up to ${COMPLETED_PERIOD.label} with ${String(COMPLETED_PERIOD.count).padStart(2, "0")}-month projection` : `Till-date basis: ${RUNNING_PERIOD.label} running month with ${String(RUNNING_PERIOD.count).padStart(2, "0")}-month projection`}`;
 }
 
 function renderChart() {

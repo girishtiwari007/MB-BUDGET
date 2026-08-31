@@ -238,9 +238,27 @@ def refresh_fr_from_workbook(target, display_name):
     return result.stdout.strip()
 
 
+def rebuild_current_year_from_repo(year=CURRENT_SYNC_YEAR):
+    script = REPO_ROOT / "scripts" / "sync-current-year-data.py"
+    year_dir = REPO_ROOT / "data" / "source-files" / safe_year(year)
+    result = subprocess.run([sys.executable, str(script), str(year_dir)], cwd=REPO_ROOT, text=True, capture_output=True)
+    if result.returncode:
+        message = result.stderr.strip() or result.stdout.strip() or "Current-year parse/export refresh failed"
+        raise RuntimeError(message)
+    return result.stdout.strip()
+
+
 def current_upload_versions(year=CURRENT_SYNC_YEAR):
     year = safe_year(year)
     year_dir = REPO_ROOT / "data" / "source-files" / year
+    manifest_path = year_dir / "upload-manifest.json"
+    manifest = {}
+    if manifest_path.exists():
+        try:
+            with manifest_path.open("r", encoding="utf-8") as handle:
+                manifest = json.load(handle)
+        except Exception:
+            manifest = {}
     active = []
     for role, target_name in ROLE_TARGETS.items():
         file_path = year_dir / target_name
@@ -256,12 +274,13 @@ def current_upload_versions(year=CURRENT_SYNC_YEAR):
         for backup_dir in sorted([p for p in backup_root.iterdir() if p.is_dir()], key=lambda p: p.name, reverse=True)[:2]:
             files = [file_info(file_path) for file_path in sorted(backup_dir.glob("*")) if file_path.is_file()]
             backups.append({"name": backup_dir.name, "files": files, "fileCount": len(files)})
-    latest_active = max([item["file"]["modifiedAt"] for item in active if item["file"]], default="")
+    latest_active = manifest.get("statusAsOn") or manifest.get("uploadedAt") or max([item["file"]["modifiedAt"] for item in active if item["file"]], default="")
     return {
         "year": year,
         "active": active,
         "backups": backups,
         "latestActiveAt": latest_active,
+        "manifest": manifest,
         "status": "success" if all(item["available"] for item in active) else "incomplete",
     }
 
@@ -500,7 +519,7 @@ class Handler(SimpleHTTPRequestHandler):
             keep_two_backups(year_dir / "backups")
             manifest = write_current_manifest(year, "Browser upload via local server", backup_name)
             patch_data_metadata(manifest)
-            export_log = refresh_exports("current-year-browser-upload")
+            export_log = rebuild_current_year_from_repo(year)
             self.send_json(200, {"ok": True, "year": year, "backup": backup_name, "saved": saved, "manifest": manifest, "exportsRefreshed": True, "exportLog": export_log})
         except Exception as exc:
             self.send_json(500, {"error": str(exc)})

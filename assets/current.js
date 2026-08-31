@@ -43,8 +43,18 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     const compareState = { entity:"pu", years:"1", metric:"ae", chart:"bar", item:"__total" };
     const analysisState = { scope:"current", metric:"ae", attention:"all", pu:"all", view:"overview", logicUnlocked:false };
     let uploadUnlocked = false;
-    const COMPLETED_PERIOD = { month:"JUL", year:2026, count:4, label:"JUL 2026", title:"Completed Month Projection - July 2026 (04 months)" };
-    const RUNNING_PERIOD = { month:"AUG", year:2026, count:5, label:"AUG 2026", title:"Till Date / Running Month - August 2026 (05 months)" };
+    const PERIOD_MONTHS = ["APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", "JAN", "FEB", "MAR"];
+    function periodFromLabel(label, fallbackLabel, titlePrefix) {
+      const text = String(label || fallbackLabel || "JUL 2026").trim().toUpperCase();
+      const match = text.match(/([A-Z]{3})\s+(20\d{2})/);
+      const month = match ? match[1] : text.slice(0, 3);
+      const year = match ? Number(match[2]) : 2026;
+      const count = Math.max(1, PERIOD_MONTHS.indexOf(month) + 1 || 4);
+      const monthTitle = new Date(`${month} 1, ${year}`).toLocaleString("en-IN", { month: "long", year: "numeric" });
+      return { month, year, count, label: `${month} ${year}`, title: `${titlePrefix} - ${monthTitle} (${String(count).padStart(2, "0")} months)` };
+    }
+    const COMPLETED_PERIOD = periodFromLabel(PAYLOAD_META.completedMonth, "JUL 2026", "Completed Month Projection");
+    const RUNNING_PERIOD = periodFromLabel(PAYLOAD_META.runningMonth, "AUG 2026", "Till Date / Running Month");
     const DATA_LOAD_TIMESTAMP = PAYLOAD_META.statusAsOn ? new Date(PAYLOAD_META.statusAsOn).toLocaleString("en-IN") : new Date().toLocaleString("en-IN");
     function dataStampHtml() {
       const updated = PAYLOAD_META.updatedAt ? new Date(PAYLOAD_META.updatedAt).toLocaleString("en-IN") : DATA_LOAD_TIMESTAMP;
@@ -63,8 +73,8 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
         tab.columns = [
           { key:"Name", label:"PU", format:"text" },
           { key:"OBA", label:"A\nOBA\nBG_ISL 2026-27", format:"money" },
-          { key:"BP", label:"B\nBP\nBP UPTO JUL 2026", format:"money" },
-          { key:"AE", label:"C\nAE\nActuals Upto JUL 2026", format:"money" },
+          { key:"BP", label:`B\nBP\nBP UPTO ${COMPLETED_PERIOD.label}`, format:"money" },
+          { key:"AE", label:`C\nAE\nActuals Upto ${COMPLETED_PERIOD.label}`, format:"money" },
           { key:"Variation", label:"D\nVariation\nC - B", format:"money" },
           { key:"BPPercent", label:"E\n% BP\nC / B", format:"int" },
           { key:"Remaining", label:"F\nBudget Remaining\nA - C", format:"money" },
@@ -99,10 +109,10 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     }
     function relabelPeriod(text, period) {
       return String(text || "")
-        .replace(/JUL\s+2026/g, period.label)
-        .replace(/JUL\s+2025/g, `${period.month} 2025`)
-        .replace(/\/ 12 \* 4/g, `/ 12 * ${period.count}`)
-        .replace(/BP UPTO JUL 2026/g, `BP UPTO ${period.label}`);
+        .replace(/[A-Z]{3}\s+2026/g, period.label)
+        .replace(/[A-Z]{3}\s+2025/g, `${period.month} 2025`)
+        .replace(/\/ 12 \* \d+/g, `/ 12 * ${period.count}`)
+        .replace(/BP UPTO [A-Z]{3} 2026/g, `BP UPTO ${period.label}`);
     }
     function relabelColumns(columns, period) {
       return (columns || []).map(col => ({ ...col, label: relabelPeriod(col.label, period) }));
@@ -198,7 +208,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       document.getElementById("title").textContent = tab.title;
       const subMenu = tabKey === "pu_prev" ? renderPrevPuSubtabs() : null;
       const puTools = isPuTable(tabKey) ? renderPuFocusControls(tabKey) : null;
-      const note = document.createElement("div"); note.className = "note"; note.textContent = tabKey === "pu_prev" || tabKey === "demand_prev" ? "Remarks - Figures in '000' (thousands). Default projection uses completed actuals up to JUL 2026 (04 months). Previous year RG is treated as OBA; current year BG_ISL is treated as OBA until current-year RG is available." : "Remarks - Figures in '000' (thousands). Default projection uses completed actuals up to JUL 2026 (04 months). August is the running month and stays in Till Date / Running Month.";
+      const note = document.createElement("div"); note.className = "note"; note.textContent = tabKey === "pu_prev" || tabKey === "demand_prev" ? `Remarks - Figures in '000' (thousands). Default projection uses completed actuals up to ${COMPLETED_PERIOD.label} (${String(COMPLETED_PERIOD.count).padStart(2, "0")} months). Previous year RG is treated as OBA; current year BG_ISL is treated as OBA until current-year RG is available.` : `Remarks - Figures in '000' (thousands). Default projection uses completed actuals up to ${COMPLETED_PERIOD.label} (${String(COMPLETED_PERIOD.count).padStart(2, "0")} months). ${RUNNING_PERIOD.label} is the running month and stays in Till Date / Running Month.`;
       const specialNote = isDemandTable(tabKey) ? renderDemandSuspenseNote(tab.rows) : null;
       const table = document.createElement("table");
       if (tab.columns.length > 8) table.className = "wide";
@@ -215,7 +225,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "current_till"));
       document.getElementById("title").textContent = RUNNING_PERIOD.title;
       const sections = ["demand", "staff", "nonstaff", "pu_prev", "demand_prev"].filter(key => ORIGINAL_DATA[key]).map(key => tillDateSection(key)).join("");
-      document.getElementById("tableHost").innerHTML = `<div class="future-note"><strong>${RUNNING_PERIOD.title}</strong><br>Data load timestamp: ${htmlEscape(DATA_LOAD_TIMESTAMP)}. This tab keeps August as running/till-date data. Default analysis tabs use completed July actuals and 04-month BP projection.</div>${sections}`;
+      document.getElementById("tableHost").innerHTML = `<div class="future-note"><strong>${RUNNING_PERIOD.title}</strong><br>Data load timestamp: ${htmlEscape(DATA_LOAD_TIMESTAMP)}. This tab keeps ${htmlEscape(RUNNING_PERIOD.label)} as running/till-date data. Default analysis tabs use completed ${htmlEscape(COMPLETED_PERIOD.label)} actuals and ${String(COMPLETED_PERIOD.count).padStart(2, "0")}-month BP projection.</div>${sections}`;
     }
     function tillDateSection(tabKey) {
       const tab = ORIGINAL_DATA[tabKey];
@@ -224,7 +234,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       const specialNote = isDemandTable(tabKey) ? demandSuspenseNoteHtml(rows) : "";
       const header = `<thead><tr>${tab.columns.map(col => `<th>${htmlEscape(String(col.label || "").replace(/\n/g, " "))}</th>`).join("")}</tr></thead>`;
       const body = rows.map(row => `<tr class="${rowClassName(row)}">${tab.columns.map(col => `<td>${formatCellHtml(row[col.key], col.format)}</td>`).join("")}</tr>`).join("");
-      return `<section class="till-section"><h3>${htmlEscape(tab.title)} - ${RUNNING_PERIOD.title}</h3><div class="note">Remarks - Figures in '000' (thousands). August is running and shown only in this tab.</div>${specialNote}<table class="${tab.columns.length > 8 ? "wide" : ""}">${header}<tbody>${body}</tbody></table></section>`;
+      return `<section class="till-section"><h3>${htmlEscape(tab.title)} - ${RUNNING_PERIOD.title}</h3><div class="note">Remarks - Figures in '000' (thousands). ${htmlEscape(RUNNING_PERIOD.label)} is running and shown only in this tab.</div>${specialNote}<table class="${tab.columns.length > 8 ? "wide" : ""}">${header}<tbody>${body}</tbody></table></section>`;
     }
     function puCode(row) { return codeFromLabel(rowName(row), "PU"); }
     function isImportantPuRow(row) { return IMPORTANT_PU_CODES.has(puCode(row)); }
@@ -434,8 +444,8 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       if (!analysisState.logicUnlocked) return `<section class="protected-panel"><h3>Calculation Logic & Data Source Locked</h3><p>Enter the upload password to view source mapping and calculation logic from this Analysis page.</p><button class="export" type="button" data-unlock-analysis-logic>Unlock Logic & Sources</button></section>`;
       const logicRows = [
         ["OBA / RG", "Current year uses BG_ISL 2026-27 as OBA until current RG is available. Previous year comparison uses RG 2025-26."],
-        ["BP", "Budget Proportion = OBA / 12 * completed month count. Default completed month count is 04 for APR-JUL 2026."],
-        ["AE", "Actual Expenditure uses completed actuals up to JUL 2026 in default tabs. August running figures stay in Till Date / Running Month."],
+        ["BP", `Budget Proportion = OBA / 12 * completed month count. Current completed month count is ${String(COMPLETED_PERIOD.count).padStart(2, "0")} for ${COMPLETED_PERIOD.label}.`],
+        ["AE", `Actual Expenditure uses completed actuals up to ${COMPLETED_PERIOD.label} in default tabs. ${RUNNING_PERIOD.label} running figures stay in Till Date / Running Month.`],
         ["AE - BP", "Actual Expenditure minus Budget Proportion. Positive values need attention for excess booking pace."],
         ["Budget Remaining", "OBA minus Actual Expenditure. Negative values are highlighted as excess/low-balance risk."],
         ["% BP", "Actual Expenditure / Budget Proportion * 100."],
@@ -478,7 +488,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       const yoyMovement = rows.filter(row => row.AnalysisYoY).sort((a,b) => Math.abs(b.AnalysisYoY) - Math.abs(a.AnalysisYoY)).slice(0, 12);
       const importantRows = rows.filter(row => row.Important).sort((a,b) => Math.abs(analysisMetricValue(b)) - Math.abs(analysisMetricValue(a))).slice(0, 12);
       const body = renderAnalysisBody(rows, ranked, overBp, negativeBalance, yoyMovement, importantRows);
-      document.getElementById("tableHost").innerHTML = `<div class="analysis-shell"><div class="analysis-top"><div><div class="note analysis-note">Remarks - Figures in '000' (thousands). Default period is completed JUL 2026 / 04-month BP projection.</div><div class="analysis-context"><strong>Selected View:</strong> ${htmlEscape(analysisScopeLabel(analysisState.scope))} | <strong>Finance Focus:</strong> ${htmlEscape(analysisMetricLabel(analysisState.metric))} | <strong>Attention:</strong> ${htmlEscape(analysisAttentionLabel(analysisState.attention))}</div></div>${renderAnalysisViewTabs()}</div>${renderAnalysisControls()}${renderAnalysisSuspensePanel()}${renderFinanceSummary(rows, totals)}${renderRiskRail(rows)}${renderAttentionStrip(rows)}${body}</div>`;
+      document.getElementById("tableHost").innerHTML = `<div class="analysis-shell"><div class="analysis-top"><div><div class="note analysis-note">Remarks - Figures in '000' (thousands). Default period is completed ${htmlEscape(COMPLETED_PERIOD.label)} / ${String(COMPLETED_PERIOD.count).padStart(2, "0")}-month BP projection.</div><div class="analysis-context"><strong>Selected View:</strong> ${htmlEscape(analysisScopeLabel(analysisState.scope))} | <strong>Finance Focus:</strong> ${htmlEscape(analysisMetricLabel(analysisState.metric))} | <strong>Attention:</strong> ${htmlEscape(analysisAttentionLabel(analysisState.attention))}</div></div>${renderAnalysisViewTabs()}</div>${renderAnalysisControls()}${renderAnalysisSuspensePanel()}${renderFinanceSummary(rows, totals)}${renderRiskRail(rows)}${renderAttentionStrip(rows)}${body}</div>`;
     }
     function compareDataset() {
       const key = compareState.entity === "demand" ? "demand_prev" : "pu_prev";
@@ -606,43 +616,48 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     }
     function renderUpload() {
       const { year } = syncYearEntry();
-      const currentRows = CURRENT_YEAR_UPLOAD_ROLES.map((role, index) => uploadCard(role, index + 1)).join("");
-      document.getElementById("title").textContent = `Data Upload and Repository Sources - ${year || "Configured Year"}`;
+      document.getElementById("title").textContent = `Local Data Sync and Repository Sources - ${year || "Configured Year"}`;
       document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "upload"));
       const panel = document.createElement("div");
       panel.className = "upload-panel";
       panel.innerHTML = `
-        <div class="note upload-note">Use previous-year files as fixed repository reference. Upload only latest current-year files, verify, then confirm/store.</div>
-        <div class="upload-server-row"><div id="uploadServerStatus" class="upload-server-status checking">Checking local upload server...</div><button class="export" id="refreshUploadServer" type="button">Recheck Store Access</button></div>
+        <div class="note upload-note">Browser upload controls are disabled in the static portal. Use the local GUI sync tool to select folders/files, update repository data, simulate calculations and refresh every Excel/PDF/PPTX export.</div>
+        <div class="upload-server-row"><div id="uploadServerStatus" class="upload-server-status checking">Checking local read status...</div><button class="export" id="refreshUploadServer" type="button">Recheck Local Status</button></div>
         <section class="upload-section">
           <div class="upload-section-head">
-            <div><strong>1. Previous Year Repository Reference</strong><span>Static comparison files already kept in GitHub/repo folders. Load them for verification; do not monthly overwrite here.</span></div>
+            <div><strong>1. Repository Source Availability</strong><span>Static previous-year files remain fixed in the repository. Current-year source files are updated only through the local GUI/script workflow.</span></div>
             <div class="sync-actions">
-              <button class="export" id="syncRemote" type="button">Load Repo Sources</button>
+              <button class="export" id="syncRemote" type="button">Show Repo Sources</button>
               <button class="export" id="showSourceConfig" type="button">Show Source Plan</button>
             </div>
           </div>
-          <div class="source-plan compact">${sourcePlanTableHtml("previous")}</div>
+          <div class="source-plan compact">${sourcePlanTableHtml("all")}</div>
         </section>
         <section class="upload-section current-update">
           <div class="upload-section-head">
-            <div><strong>2. Current Year Monthly Update - ${htmlEscape(year || "2026-2027")}</strong><span>Upload latest six files first. Then Verify/Recalculate. Store only after figures are checked.</span></div>
+            <div><strong>2. Local GUI Sync Tool - ${htmlEscape(year || "2026-2027")}</strong><span>Select the folder containing the six current-year files, or select a single FR workbook. The tool rebuilds portal data and refreshes exports after sync.</span></div>
             <div class="sync-actions">
-              <button class="export" id="applyUpload" type="button">Verify / Recalculate</button>
-              <button class="export confirm-store" id="storeCurrentUploads" type="button">Confirm & Store Current Year Files</button>
+              <button class="export" id="applyUpload" type="button">Copy Launch Command</button>
+              <a class="export button-link confirm-store" href="../scripts/local-sync-gui.py" download>Download/Open GUI Script</a>
             </div>
           </div>
-          <div class="upload-grid current-only">${currentRows}</div>
+          <div class="upload-grid current-only">
+            <div class="upload-card"><strong>Current Year Folder Sync</strong><span>Expected folder files: PU-BUDGET.xls, PU-MONTH-ACTUAL.xls, PU-DEPT-DEMAND-SMH-BUDGET.xls, PU-DEPT-DEMAND-SMH-ACTUAL.xls, DEMAND-SMH-BUGDET.xls and DEMAND-SMH-ACTUAL.xls.</span><em>Run: py -3 scripts\\local-sync-gui.py</em></div>
+            <div class="upload-card"><strong>FR File Sync</strong><span>Select the latest FR .xls/.xlsx in the GUI. It keeps backup copies, updates Data as on, recalculates FR page data and refreshes exports.</span><em>Alternative command: py -3 scripts\\sync-fr-data.py "path\\to\\FR.xlsx" "FR.xlsx"</em></div>
+          </div>
         </section>
         <section class="upload-section">
-          <div class="upload-section-head"><div><strong>Repository Availability / Action Log</strong><span>Load Repo Sources shows what is available before download. Store keeps last two backup copies.</span></div></div>
-          <div id="uploadLog" class="log">Waiting. Step 1: upload latest current-year files, or click Load Repo Sources to see repository availability.</div>
+          <div class="upload-section-head"><div><strong>Repository Availability / Action Log</strong><span>Local GUI/script sync keeps backup copies and refreshes export snapshots.</span></div></div>
+          <div id="uploadLog" class="log">No browser upload is performed here. Use the local GUI tool for write/update actions, then commit/push after verification.</div>
         </section>`;
       document.getElementById("tableHost").replaceChildren(panel);
-      document.querySelectorAll("[data-upload-role]").forEach(input => input.addEventListener("change", event => readUploadedFile(event.target.files[0], event.target.dataset.uploadRole, { keepFile: true })));
-      document.getElementById("applyUpload").addEventListener("click", applyUploadedData);
-      document.getElementById("storeCurrentUploads").addEventListener("click", storeCurrentYearUploads);
-      document.getElementById("syncRemote").addEventListener("click", syncRemoteSources);
+      document.getElementById("applyUpload").addEventListener("click", () => {
+        const command = `cd /d "${location.pathname.includes("/pages/") ? ".." : "."}" && py -3 scripts\\local-sync-gui.py`;
+        navigator.clipboard?.writeText("py -3 scripts\\local-sync-gui.py").catch(() => {});
+        const log = document.getElementById("uploadLog");
+        if (log) log.textContent = "Launch from MB-BUDGET repo folder:\n\npy -3 scripts\\local-sync-gui.py\n\nThe GUI will update data, simulate calculations and refresh all exports.";
+      });
+      document.getElementById("syncRemote").addEventListener("click", showSourceConfig);
       document.getElementById("showSourceConfig").addEventListener("click", showSourceConfig);
       document.getElementById("refreshUploadServer").addEventListener("click", refreshUploadServerStatus);
       refreshUploadServerStatus();
@@ -659,7 +674,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
         currSmhBudget: "Demand/SMH wise current-year budget.",
         currSmhMonth: "Demand/SMH wise current-year actual up to latest month/date."
       };
-      return `<div class="upload-card"><strong>${number}. ${htmlEscape(roleLabel(role))}</strong><span>${htmlEscape(details[role] || "")}</span><input data-upload-role="${role}" type="file" accept=".xls,.xlsx"><em data-status-role="${role}">No latest file selected</em></div>`;
+      return `<div class="upload-card"><strong>${number}. ${htmlEscape(roleLabel(role))}</strong><span>${htmlEscape(details[role] || "")}</span><em data-status-role="${role}">Use the local GUI sync tool for this file.</em></div>`;
     }
     function logUpload(message) {
       const log = document.getElementById("uploadLog");
@@ -904,7 +919,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
         const match = header.match(/ACTUALS\s+UPTO\s+([A-Z]{3})\s+(20\d{2})/);
         if (match) matches.push({ idx, month: match[1], year: Number(match[2]), count: monthCount(match[1]), label: `${match[1]} ${match[2]}` });
       });
-      if (!matches.length) return { idx: colIndex(headers, ["ACTUALS", "UPTO"]), month: "JUL", year: 2026, count: 4, label: "JUL 2026" };
+      if (!matches.length) return { idx: colIndex(headers, ["ACTUALS", "UPTO"]), month: COMPLETED_PERIOD.month, year: COMPLETED_PERIOD.year, count: COMPLETED_PERIOD.count, label: COMPLETED_PERIOD.label };
       matches.sort((a, b) => (a.year - b.year) || (a.count - b.count));
       return matches[matches.length - 1];
     }
@@ -1141,7 +1156,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
         if (UPLOAD_STATE.prevSmhBudget && UPLOAD_STATE.currSmhBudget) DATA.demand_prev = buildPreviousFromUpload(UPLOAD_STATE.prevSmhBudget, UPLOAD_STATE.currSmhBudget, "SMH", "Demand No. / SMH-Grant", "Demand / SMH Wise Previous Year Comparison", true);
         ORIGINAL_DATA = JSON.parse(JSON.stringify(DATA || {}));
         applyCompletedPeriodView();
-        logUpload("Tables updated in this browser session. Default view now uses completed JUL 2026 actuals with 04-month BP projection. August running data is available in Till Date / Running Month.");
+        logUpload(`Tables updated in this browser session. Default view now uses completed ${COMPLETED_PERIOD.label} actuals with ${String(COMPLETED_PERIOD.count).padStart(2, "0")}-month BP projection. ${RUNNING_PERIOD.label} running data is available in Till Date / Running Month.`);
         if (options.stayOnUpload) {
           document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "upload"));
           return;
@@ -1192,7 +1207,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       return row[col.key] ?? "";
     }
     function exportNote() {
-      return `Remarks - Figures in '000' (thousands). Data as on: ${DATA_LOAD_TIMESTAMP}. Default basis: completed actuals up to JUL 2026; Till Date / Running Month keeps running-month data separately. Demand 12N / 10N is shown separately and excluded from main totals.`;
+      return `Remarks - Figures in '000' (thousands). Data as on: ${DATA_LOAD_TIMESTAMP}. Default basis: completed actuals up to ${COMPLETED_PERIOD.label}; Till Date / Running Month keeps ${RUNNING_PERIOD.label} data separately. Demand 12N / 10N is shown separately and excluded from main totals.`;
     }
     function exportTableAoa(tabKey) {
       const tab = tableForView(tabKey, { skipFocus: true });
@@ -1535,10 +1550,6 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     const initialTab = new URLSearchParams(window.location.search).get("tab");
     if (initialTab && (DATA[initialTab] || ["analysis", "upload", "current_till"].includes(initialTab))) openTab(initialTab);
     else render(activeTab);
-
-
-
-
 
 
 
