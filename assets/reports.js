@@ -56,13 +56,14 @@ const state = { report: "pu_month", scope: "pu", item: "", metric: "ae_monthwise
 const $ = (id) => document.getElementById(id);
 const PERIOD_MONTHS = ["APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", "JAN", "FEB", "MAR"];
 function periodFromLabel(label, fallbackLabel) {
-  const text = String(label || fallbackLabel || "JUL 2026").trim().toUpperCase();
+  const text = String(label || fallbackLabel || "AUG 2026").trim().toUpperCase();
   const month = (text.match(/([A-Z]{3})\s+20\d{2}/) || [null, text.slice(0, 3)])[1];
   const count = Math.max(1, PERIOD_MONTHS.indexOf(month) + 1 || 4);
   return { label: text, count, index: count - 1 };
 }
-const COMPLETED_PERIOD = periodFromLabel(META.completedMonth, "JUL 2026");
-const RUNNING_PERIOD = periodFromLabel(META.runningMonth, "AUG 2026");
+const COMPLETED_PERIOD = periodFromLabel(META.completedMonth, "AUG 2026");
+const RUNNING_PERIOD = periodFromLabel(META.runningMonth, "SEP 2026");
+const BASIS_SOURCE = META.basisSource || "auto-sensed from uploaded file";
 
 function dataTimestampText(value) {
   if (!value) return new Date().toLocaleString("en-IN");
@@ -72,7 +73,7 @@ function dataTimestampText(value) {
 
 function dataStampText() {
   const uploadStamp = DATA.statusAsOn || DATA.generatedAt;
-  return `Data as on: ${dataTimestampText(uploadStamp)} | Last upload: ${dataTimestampText(uploadStamp)} | Basis: completed ${COMPLETED_PERIOD.label}; running ${RUNNING_PERIOD.label}`;
+  return `Data as on: ${dataTimestampText(uploadStamp)} | Last upload: ${dataTimestampText(uploadStamp)} | GUI basis: Completed Actual Month ${COMPLETED_PERIOD.label} (${String(COMPLETED_PERIOD.count).padStart(2, "0")}); running ${RUNNING_PERIOD.label} | Source: ${BASIS_SOURCE}`;
 }
 
 function dataStampHtml() {
@@ -345,7 +346,7 @@ function setBasisLabels() {
   if (!basis) return;
   const completed = basis.querySelector('option[value="completed"]');
   const tilldate = basis.querySelector('option[value="tilldate"]');
-  if (completed) completed.textContent = `Completed Month - ${COMPLETED_PERIOD.label} (${String(COMPLETED_PERIOD.count).padStart(2, "0")})`;
+  if (completed) completed.textContent = `Completed Actual Month - ${COMPLETED_PERIOD.label} (${String(COMPLETED_PERIOD.count).padStart(2, "0")})`;
   if (tilldate) tilldate.textContent = `Till Date / Running Month - ${RUNNING_PERIOD.label} (${String(RUNNING_PERIOD.count).padStart(2, "0")})`;
 }
 
@@ -914,7 +915,7 @@ function exportReportPdf() {
 }
 
 function remarksText() {
-  return `Remarks - Figures in '000' (thousands). Years: ${selectedYearsText()}. ${state.basis === "completed" ? `Default basis: completed actuals up to ${COMPLETED_PERIOD.label} with ${String(COMPLETED_PERIOD.count).padStart(2, "0")}-month projection` : `Till-date basis: ${RUNNING_PERIOD.label} running month with ${String(RUNNING_PERIOD.count).padStart(2, "0")}-month projection`}`;
+  return `Remarks - Figures in '000' (thousands). Years: ${selectedYearsText()}. ${state.basis === "completed" ? `GUI synced basis: completed actuals up to ${COMPLETED_PERIOD.label} with ${String(COMPLETED_PERIOD.count).padStart(2, "0")}-month BP calculation` : `Till-date basis: ${RUNNING_PERIOD.label} running month with ${String(RUNNING_PERIOD.count).padStart(2, "0")}-month BP calculation`}`;
 }
 
 function renderChart() {

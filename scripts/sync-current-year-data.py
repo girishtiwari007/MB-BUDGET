@@ -1,4 +1,5 @@
 from copy import deepcopy
+import argparse
 from datetime import datetime
 from pathlib import Path
 import importlib.util
@@ -101,18 +102,86 @@ def month_count(month):
     return MONTHS.index(key) + 1 if key in MONTHS else 4
 
 
-def actual_periods(headers):
+def period_key(value):
+    match = re.search(r"([A-Z]{3})\s*(20\d{2})", clean(value))
+    return f"{match.group(1)} {match.group(2)}" if match else ""
+
+
+def period_from_label(label, idx=-1):
+    key = period_key(label)
+    if not key:
+        return None
+    month, year = key.split()
+    return {"idx": idx, "month": month, "year": int(year), "count": month_count(month), "label": key}
+
+
+def override_period(matches, label, role, allow_missing=False):
+    if not label:
+        return None
+    key = period_key(label)
+    found = next((item for item in matches if item["label"].upper() == key), None)
+    if not found:
+        if allow_missing:
+            return period_from_label(label)
+        available = ", ".join(item["label"] for item in matches) or "none"
+        raise RuntimeError(f"{role} month {label} is not available in uploaded actual columns. Available: {available}")
+    return found
+
+
+def actual_periods(headers, completed_label=None, running_label=None):
     matches = []
     for idx, header in enumerate(headers):
         match = re.search(r"ACTUALS\s+UPTO\s+([A-Z]{3})\s+(20\d{2})", header)
         if match:
             matches.append({"idx": idx, "month": match.group(1), "year": int(match.group(2)), "count": month_count(match.group(1)), "label": f"{match.group(1)} {match.group(2)}"})
     matches.sort(key=lambda item: (item["year"], item["count"]))
+    completed_override = override_period(matches, completed_label, "Completed actual")
+    running_override = override_period(matches, running_label, "Running", allow_missing=True)
+    if completed_override:
+        completed = completed_override
+        running = running_override or next((item for item in matches if (item["year"], item["count"]) > (completed["year"], completed["count"])), completed)
+        if (running["year"], running["count"]) < (completed["year"], completed["count"]):
+            raise RuntimeError(f"Running month {running['label']} cannot be before completed month {completed['label']}.")
+        return completed, running
+    if running_override and len(matches) >= 2:
+        completed = matches[matches.index(running_override) - 1] if matches.index(running_override) > 0 else running_override
+        return completed, running_override
     if len(matches) >= 2:
         return matches[-2], matches[-1]
     if matches:
         return matches[-1], matches[-1]
-    return {"idx": -1, "month": "JUL", "year": 2026, "count": 4, "label": "JUL 2026"}, {"idx": -1, "month": "AUG", "year": 2026, "count": 5, "label": "AUG 2026"}
+    return {"idx": -1, "month": "AUG", "year": 2026, "count": 5, "label": "AUG 2026"}, {"idx": -1, "month": "SEP", "year": 2026, "count": 6, "label": "SEP 2026"}
+
+
+def available_actual_periods(headers):
+    periods = []
+    seen = set()
+    for idx, header in enumerate(headers):
+        match = re.search(r"ACTUALS\s+UPTO\s+([A-Z]{3})\s+(20\d{2})", header)
+        if match:
+            label = f"{match.group(1)} {match.group(2)}"
+            if label not in seen:
+                seen.add(label)
+                periods.append({"idx": idx, "month": match.group(1), "year": int(match.group(2)), "count": month_count(match.group(1)), "label": label})
+    periods.sort(key=lambda item: (item["year"], item["count"]))
+    return periods
+
+
+def source_file(source_root, role):
+    source_root = Path(source_root).resolve()
+    source_name, target_name = SOURCE_FILES[role]
+    source_path = source_root / source_name
+    if not source_path.exists():
+        source_path = source_root / target_name
+    return source_path
+
+
+def available_period_labels(source_root):
+    path = source_file(source_root, "currSmhBudget")
+    if not path.exists():
+        raise RuntimeError(f"Current-year budget file not found for month sensing: {path.name}")
+    table = workbook_table(path)
+    return [item["label"] for item in available_actual_periods(table["headers"])]
 
 
 def find_bp(headers, period):
@@ -217,19 +286,18 @@ def add_total(rows, previous=False):
     return normal + [total] + suspense
 
 
-def build_current(table, field, first_label, title, demand=False):
+def build_current(table, field, first_label, title, demand=False, completed_month=None, running_month=None):
     name_idx = col_index(table["headers"], [field])
     oba_idx = col_index(table["headers"], ["BG_ISL", "2026-2027"])
-    completed, running = actual_periods(table["headers"])
+    completed, running = actual_periods(table["headers"], completed_month, running_month)
     ae_idx = completed["idx"]
-    bp_idx = find_bp(table["headers"], completed)
     rows = []
     for raw in table["rows"]:
         name = str(raw[name_idx] if name_idx < len(raw) else "").strip()
         if not name or clean(name) == "TOTAL":
             continue
         label = demand_from_smh(name) if demand else name
-        row = summary_row(label, raw[oba_idx], raw[ae_idx] if ae_idx >= 0 else 0, completed["count"], raw[bp_idx] if bp_idx >= 0 else None)
+        row = summary_row(label, raw[oba_idx], raw[ae_idx] if ae_idx >= 0 else 0, completed["count"], None)
         if demand:
             with_department(row)
         rows.append(row)
@@ -237,8 +305,8 @@ def build_current(table, field, first_label, title, demand=False):
         {"key": "Name", "label": first_label, "format": "text"},
         *([{"key": "Department", "label": "Department", "format": "text"}] if demand else []),
         {"key": "OBA", "label": "A\nOBA\nBG_ISL 2026-27", "format": "money"},
-        {"key": "BP", "label": f"B\nBP\n{table['headers'][bp_idx] if bp_idx >= 0 else 'A / 12 * ' + str(completed['count'])}", "format": "money"},
-        {"key": "AE", "label": f"C\nAE\nActuals Upto {completed['label']}", "format": "money"},
+        {"key": "BP", "label": f"B\nBP\nA / 12 * {completed['count']}", "format": "money"},
+        {"key": "AE", "label": f"C\nAE\nActuals up to {completed['label']}", "format": "money"},
         {"key": "Variation", "label": "D\nVariation\nC - B", "format": "money"},
         {"key": "BPPercent", "label": "E\n% BP\nC / B", "format": "int"},
         {"key": "Remaining", "label": "F\nBudget Remaining\nA - C", "format": "money"},
@@ -258,12 +326,12 @@ def map_column(table, field, needles, labeler=lambda value: value):
     return result
 
 
-def build_previous(prev_budget, curr_budget, field, first_label, title, demand=False):
+def build_previous(prev_budget, curr_budget, field, first_label, title, demand=False, completed_month=None, running_month=None):
     labeler = demand_from_smh if demand else (lambda value: value)
     rg = map_column(prev_budget, field, ["RG", "2025-2026"], labeler)
     bg = map_column(curr_budget, field, ["BG_ISL", "2026-2027"], labeler)
     name_idx = col_index(curr_budget["headers"], [field])
-    completed, _running = actual_periods(curr_budget["headers"])
+    completed, _running = actual_periods(curr_budget["headers"], completed_month, running_month)
     ae_idx = completed["idx"]
     coppy_idx = find_coppy(curr_budget["headers"], completed)
     current = {}
@@ -286,10 +354,10 @@ def build_previous(prev_budget, curr_budget, field, first_label, title, demand=F
         *([{"key": "Department", "label": "Department", "format": "text"}] if demand else []),
         {"key": "PreviousOBA", "label": "A\nPrevious OBA\nRG 2025-26", "format": "money"},
         {"key": "PreviousBP", "label": f"B\nPrevious Budget Proportion\nA / 12 * {completed['count']}", "format": "money"},
-        {"key": "AEPrevious", "label": f"C\nPrevious Actual Expenditure\nUpto {previous_label}", "format": "money"},
+        {"key": "AEPrevious", "label": f"C\nPrevious Actual Expenditure\nup to {previous_label}", "format": "money"},
         {"key": "OBA", "label": "D\nCurrent OBA\nBG_ISL 2026-27", "format": "money"},
         {"key": "BP", "label": f"E\nCurrent Budget Proportion\nD / 12 * {completed['count']}", "format": "money"},
-        {"key": "AECurrent", "label": f"F\nCurrent Actual Expenditure\nUpto {completed['label']}", "format": "money"},
+        {"key": "AECurrent", "label": f"F\nCurrent Actual Expenditure\nup to {completed['label']}", "format": "money"},
         {"key": "VariationBP", "label": "G\nBudget Variation\nF - E", "format": "money"},
         {"key": "BPPercent", "label": "H\nCurrent Budget Proportion %\nF / E", "format": "int"},
         {"key": "VariationActual", "label": "I\nActual Expenditure Variation\nF - C", "format": "money"},
@@ -343,7 +411,7 @@ def update_reports_data(pu_budget, smh_budget, pu_month, smh_month, dept_month, 
     (REPO_ROOT / "data" / "reports-data.js").write_text("window.REPORTS_DATA = " + json.dumps(reports, indent=2) + ";\n", encoding="utf-8")
 
 
-def write_current_payload(payload, completed, running, source_root, backup_name):
+def write_current_payload(payload, completed, running, source_root, backup_name, basis_source):
     now = datetime.now().astimezone().isoformat(timespec="seconds")
     meta = {
         "statusAsOn": now,
@@ -351,6 +419,7 @@ def write_current_payload(payload, completed, running, source_root, backup_name)
         "financialYear": YEAR,
         "runningMonth": running["label"],
         "completedMonth": completed["label"],
+        "basisSource": basis_source,
         "updatedAt": now,
         "backup": backup_name,
     }
@@ -387,7 +456,7 @@ def copy_sources(source_root):
     return year_dir, backup_name, helpers
 
 
-def sync_current_year(source_root=DEFAULT_SOURCE, refresh=True):
+def sync_current_year(source_root=DEFAULT_SOURCE, refresh=True, completed_month=None, running_month=None):
     year_dir, backup_name, helpers = copy_sources(source_root)
     pu_budget = workbook_table(year_dir / "pu-budget.xls")
     smh_budget = workbook_table(year_dir / "demand-smh-budget.xls")
@@ -396,8 +465,8 @@ def sync_current_year(source_root=DEFAULT_SOURCE, refresh=True):
     dept_month = workbook_table(year_dir / "pu-dept-demand-smh-actual.xls")
     prev_pu_budget = workbook_table(REPO_ROOT / "data" / "source-files" / PREVIOUS_YEAR / "pu-budget.xls")
     prev_smh_budget = workbook_table(REPO_ROOT / "data" / "source-files" / PREVIOUS_YEAR / "demand-smh-budget.xls")
-    demand, completed, running = build_current(smh_budget, "SMH", "Demand No. / SMH-Grant", "Demand / SMH Wise Current Year", True)
-    pu_current, _completed, _running = build_current(pu_budget, "PUCODE", "PU", "PU Wise Current Year", False)
+    demand, completed, running = build_current(smh_budget, "SMH", "Demand No. / SMH-Grant", "Demand / SMH Wise Current Year", True, completed_month, running_month)
+    pu_current, _completed, _running = build_current(pu_budget, "PUCODE", "PU", "PU Wise Current Year", False, completed_month, running_month)
     detail_rows = [row for row in pu_current["rows"] if row["Name"] != "Total"]
     staff = {"title": "PU Staff Current Year", "columns": deepcopy(pu_current["columns"]), "rows": add_total([row for row in detail_rows if code_from_label(row["Name"], "PU") in STAFF_CODES])}
     nonstaff = {"title": "PU Non-Staff Current Year", "columns": deepcopy(pu_current["columns"]), "rows": add_total([row for row in detail_rows if code_from_label(row["Name"], "PU") not in STAFF_CODES])}
@@ -405,16 +474,18 @@ def sync_current_year(source_root=DEFAULT_SOURCE, refresh=True):
         "demand": demand,
         "staff": staff,
         "nonstaff": nonstaff,
-        "pu_prev": build_previous(prev_pu_budget, pu_budget, "PUCODE", "PU", "PU Wise Previous Year Comparison"),
-        "demand_prev": build_previous(prev_smh_budget, smh_budget, "SMH", "Demand No. / SMH-Grant", "Demand / SMH Wise Previous Year Comparison", True),
+        "pu_prev": build_previous(prev_pu_budget, pu_budget, "PUCODE", "PU", "PU Wise Previous Year Comparison", False, completed_month, running_month),
+        "demand_prev": build_previous(prev_smh_budget, smh_budget, "SMH", "Demand No. / SMH-Grant", "Demand / SMH Wise Previous Year Comparison", True, completed_month, running_month),
     }
-    meta = write_current_payload(payload, completed, running, Path(source_root).resolve(), backup_name)
+    basis_source = "manual override" if completed_month or running_month else "auto-sensed from uploaded file"
+    meta = write_current_payload(payload, completed, running, Path(source_root).resolve(), backup_name, basis_source)
     manifest = helpers.write_current_manifest(YEAR, str(Path(source_root).resolve()), backup_name)
     manifest.update({
         "uploadedAt": meta["updatedAt"],
         "statusAsOn": meta["statusAsOn"],
         "runningMonth": running["label"],
         "completedMonth": completed["label"],
+        "basisSource": basis_source,
         "sourceFolder": str(Path(source_root).resolve()),
         "backup": backup_name,
     })
@@ -435,10 +506,13 @@ def sync_current_year(source_root=DEFAULT_SOURCE, refresh=True):
 
 
 def main():
-    if len(sys.argv) <= 1:
-        raise SystemExit("Please provide the current-year source folder path, or use scripts\\local-sync-gui.py to choose it visually.")
-    source = Path(sys.argv[1]).resolve()
-    result = sync_current_year(source)
+    parser = argparse.ArgumentParser(description="Sync MB-BUDGET current-year data into the repository.")
+    parser.add_argument("source", nargs="?", default=str(DEFAULT_SOURCE), help="Folder containing the six current-year source files.")
+    parser.add_argument("--completed-month", default="", help="Override completed actual month, for example AUG 2026.")
+    parser.add_argument("--running-month", default="", help="Override running month, for example SEP 2026.")
+    args = parser.parse_args()
+    source = Path(args.source).resolve()
+    result = sync_current_year(source, completed_month=args.completed_month or None, running_month=args.running_month or None)
     print(json.dumps(result, indent=2))
 
 

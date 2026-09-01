@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 import json
+import re
 import subprocess
 import sys
 
@@ -22,6 +23,22 @@ EXPECTED_EXPORTS = [
 ]
 
 
+def refresh_portal_asset_versions(token=None):
+    token = token or datetime.now().strftime("%Y%m%d%H%M%S")
+    targets = [REPO_ROOT / "index.html", *sorted((REPO_ROOT / "pages").glob("*.html"))]
+    pattern = re.compile(r'((?:src|href)="(?!(?:https?:|mailto:|#))[^"]+\?v=)[^"]+(")')
+    changed_files = []
+    for path in targets:
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        updated, count = pattern.subn(rf"\g<1>{token}\2", text)
+        if count and updated != text:
+            path.write_text(updated, encoding="utf-8")
+            changed_files.append(path.relative_to(REPO_ROOT).as_posix())
+    return {"token": token, "files": changed_files}
+
+
 def export_file_info(relative_path):
     path = REPO_ROOT / relative_path
     return {
@@ -32,7 +49,7 @@ def export_file_info(relative_path):
     }
 
 
-def write_manifest(trigger, output):
+def write_manifest(trigger, output, cache_refresh=None):
     files = [export_file_info(path) for path in EXPECTED_EXPORTS]
     missing = [item["path"] for item in files if not item["exists"] or item["size"] <= 0]
     payload = {
@@ -43,6 +60,7 @@ def write_manifest(trigger, output):
         "files": files,
         "generator": GENERATOR.relative_to(REPO_ROOT).as_posix(),
         "output": output.strip(),
+        "cacheRefresh": cache_refresh or {},
     }
     MANIFEST.parent.mkdir(parents=True, exist_ok=True)
     MANIFEST.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -59,5 +77,6 @@ def refresh_exports(trigger="manual"):
     if result.returncode:
         write_manifest(f"{trigger}:failed", output)
         raise RuntimeError(output or "Export refresh failed")
-    manifest = write_manifest(trigger, output)
+    cache_refresh = refresh_portal_asset_versions()
+    manifest = write_manifest(trigger, output, cache_refresh)
     return output or f"Exports refreshed: {manifest['refreshedAt']}"

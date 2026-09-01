@@ -8,6 +8,7 @@
   let unlocked = false;
   let password = "";
   const ADMIN_PASSWORD = "Moradabad@2026";
+  const META = window.CURRENT_PAYLOAD_META || {};
   const app = document.getElementById("adminApp");
   const locked = document.getElementById("lockedPanel");
   const lockState = document.getElementById("lockState");
@@ -175,10 +176,19 @@
     return String(value || "").trim().replace(/[^A-Za-z0-9]+/g,"-").replace(/^-+|-+$/g,"").toUpperCase() || "DIVISION-BUDGET";
   }
   function setupValue(id){ return document.getElementById(id)?.value?.trim() || ""; }
+  function periodCount(label, fallback){
+    const months = ["APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC","JAN","FEB","MAR"];
+    const text = String(label || "").toUpperCase();
+    const month = (text.match(/([A-Z]{3})\s+20\d{2}/) || [null, ""])[1];
+    const count = months.indexOf(month) + 1;
+    return count > 0 ? count : fallback;
+  }
   function setupConfig(){
     const currentYear = setupValue("setupCurrentYear") || "2026-2027";
     const division = setupValue("setupDivision") || "New Division";
     const repoName = setupValue("setupRepo") || `${safeSlug(division)}-BUDGET`;
+    const completedLabel = setupValue("setupCompletedMonth") || META.completedMonth || "Latest completed actual month";
+    const runningLabel = setupValue("setupRunningMonth") || META.runningMonth || "Current running month";
     return {
       generatedAt: new Date().toISOString(),
       portalTemplate: "MB-BUDGET",
@@ -189,12 +199,12 @@
       currentYear,
       previousYear: setupValue("setupPreviousYear") || "",
       completedPeriod: {
-        label: setupValue("setupCompletedMonth") || "JUL 2026",
-        monthCount: Number(setupValue("setupCompletedCount") || 3)
+        label: completedLabel,
+        monthCount: Number(setupValue("setupCompletedCount") || periodCount(completedLabel, 4))
       },
       runningPeriod: {
-        label: setupValue("setupRunningMonth") || "AUG 2026",
-        monthCount: Number(setupValue("setupRunningCount") || 4)
+        label: runningLabel,
+        monthCount: Number(setupValue("setupRunningCount") || periodCount(runningLabel, 5))
       },
       sourceFiles: divisionFileRoles.map(([role, purpose, pattern, target]) => ({
         role,
@@ -222,6 +232,16 @@
     if(!setupFileRows) return;
     const year = setupValue("setupCurrentYear") || "2026-2027";
     setupFileRows.innerHTML = divisionFileRoles.map(([role, purpose, pattern, target]) => `<tr><td>${role}</td><td>${purpose}</td><td>${pattern.replaceAll("{YEAR}", year)}</td><td>${target.replaceAll("{YEAR}", year)}</td></tr>`).join("");
+  }
+  function hydrateSetupBasis(){
+    const completed = document.getElementById("setupCompletedMonth");
+    const completedCount = document.getElementById("setupCompletedCount");
+    const running = document.getElementById("setupRunningMonth");
+    const runningCount = document.getElementById("setupRunningCount");
+    if (completed && META.completedMonth) completed.value = META.completedMonth;
+    if (running && META.runningMonth) running.value = META.runningMonth;
+    if (completedCount && META.completedMonth) completedCount.value = periodCount(META.completedMonth, Number(completedCount.value || 4));
+    if (runningCount && META.runningMonth) runningCount.value = periodCount(META.runningMonth, Number(runningCount.value || 5));
   }
   function buildDivisionSetup(){
     const config = setupConfig();
@@ -366,10 +386,10 @@
   mbrlrYear?.addEventListener("input",()=>{lastMbrlrPreview=null; confirmMbrlrSync.disabled=true;});
   fillControls();
   renderSetupFileRows();
+  hydrateSetupBasis();
   if(!isLocalApiMode()){
     backupLog.textContent = localOnlyMessage();
     mbrlrLog.textContent = localOnlyMessage();
     if(uploadVersionLog) uploadVersionLog.textContent = localOnlyMessage();
   }
 })();
-

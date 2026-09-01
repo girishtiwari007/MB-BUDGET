@@ -44,21 +44,34 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     const analysisState = { scope:"current", metric:"ae", attention:"all", pu:"all", view:"overview", logicUnlocked:false };
     let uploadUnlocked = false;
     const PERIOD_MONTHS = ["APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", "JAN", "FEB", "MAR"];
+    function displayPeriodLabel(label, fallbackLabel) {
+      const text = String(label || fallbackLabel || "AUG 2026").trim().toUpperCase();
+      const match = text.match(/([A-Z]{3})\s+(20\d{2})/);
+      const month = match ? match[1] : text.slice(0, 3);
+      const year = match ? Number(match[2]) : 2026;
+      return new Date(`${month} 1, ${year}`).toLocaleString("en-IN", { month: "long", year: "numeric" });
+    }
     function periodFromLabel(label, fallbackLabel, titlePrefix) {
-      const text = String(label || fallbackLabel || "JUL 2026").trim().toUpperCase();
+      const text = String(label || fallbackLabel || "AUG 2026").trim().toUpperCase();
       const match = text.match(/([A-Z]{3})\s+(20\d{2})/);
       const month = match ? match[1] : text.slice(0, 3);
       const year = match ? Number(match[2]) : 2026;
       const count = Math.max(1, PERIOD_MONTHS.indexOf(month) + 1 || 4);
       const monthTitle = new Date(`${month} 1, ${year}`).toLocaleString("en-IN", { month: "long", year: "numeric" });
-      return { month, year, count, label: `${month} ${year}`, title: `${titlePrefix} - ${monthTitle} (${String(count).padStart(2, "0")} months)` };
+      const monthCount = String(count).padStart(2, "0");
+      const runningHint = displayPeriodLabel(PAYLOAD_META.runningMonth, "SEP 2026");
+      const title = titlePrefix === "Completed Actual Basis"
+        ? `${titlePrefix} - Actuals up to ${monthTitle} (${monthCount} months); ${runningHint} running month excluded`
+        : `${titlePrefix} - ${monthTitle} (${monthCount} months)`;
+      return { month, year, count, label: `${month} ${year}`, displayLabel: monthTitle, title };
     }
-    const COMPLETED_PERIOD = periodFromLabel(PAYLOAD_META.completedMonth, "JUL 2026", "Completed Month Projection");
-    const RUNNING_PERIOD = periodFromLabel(PAYLOAD_META.runningMonth, "AUG 2026", "Till Date / Running Month");
+    const COMPLETED_PERIOD = periodFromLabel(PAYLOAD_META.completedMonth, "AUG 2026", "Completed Actual Basis");
+    const RUNNING_PERIOD = periodFromLabel(PAYLOAD_META.runningMonth, "SEP 2026", "Till Date / Running Month");
     const DATA_LOAD_TIMESTAMP = PAYLOAD_META.statusAsOn ? new Date(PAYLOAD_META.statusAsOn).toLocaleString("en-IN") : new Date().toLocaleString("en-IN");
+    const BASIS_SOURCE = PAYLOAD_META.basisSource || "auto-sensed from uploaded file";
     function dataStampHtml() {
       const updated = PAYLOAD_META.updatedAt ? new Date(PAYLOAD_META.updatedAt).toLocaleString("en-IN") : DATA_LOAD_TIMESTAMP;
-      return `<strong>Data as on:</strong> ${htmlEscape(DATA_LOAD_TIMESTAMP)} | <strong>Last upload:</strong> ${htmlEscape(updated)} | <strong>Basis:</strong> Completed ${COMPLETED_PERIOD.label}; running ${RUNNING_PERIOD.label}`;
+      return `<strong>Data as on:</strong> ${htmlEscape(DATA_LOAD_TIMESTAMP)} | <strong>Last upload:</strong> ${htmlEscape(updated)} | <strong>GUI basis:</strong> Completed Actual Month ${COMPLETED_PERIOD.label} (${String(COMPLETED_PERIOD.count).padStart(2, "0")}); running ${RUNNING_PERIOD.label} | <strong>Source:</strong> ${htmlEscape(BASIS_SOURCE)}`;
     }
     function refreshDataStamp() {
       const stamp = document.getElementById("dataStamp");
@@ -73,8 +86,8 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
         tab.columns = [
           { key:"Name", label:"PU", format:"text" },
           { key:"OBA", label:"A\nOBA\nBG_ISL 2026-27", format:"money" },
-          { key:"BP", label:`B\nBP\nBP UPTO ${COMPLETED_PERIOD.label}`, format:"money" },
-          { key:"AE", label:`C\nAE\nActuals Upto ${COMPLETED_PERIOD.label}`, format:"money" },
+          { key:"BP", label:`B\nBP\nBP up to ${COMPLETED_PERIOD.label}`, format:"money" },
+          { key:"AE", label:`C\nAE\nActuals up to ${COMPLETED_PERIOD.label}`, format:"money" },
           { key:"Variation", label:"D\nVariation\nC - B", format:"money" },
           { key:"BPPercent", label:"E\n% BP\nC / B", format:"int" },
           { key:"Remaining", label:"F\nBudget Remaining\nA - C", format:"money" },
@@ -112,7 +125,10 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
         .replace(/[A-Z]{3}\s+2026/g, period.label)
         .replace(/[A-Z]{3}\s+2025/g, `${period.month} 2025`)
         .replace(/\/ 12 \* \d+/g, `/ 12 * ${period.count}`)
-        .replace(/BP UPTO [A-Z]{3} 2026/g, `BP UPTO ${period.label}`);
+        .replace(/BP UPTO [A-Z]{3} 2026/g, `BP up to ${period.label}`)
+        .replace(/BP up to [A-Z]{3} 2026/g, `BP up to ${period.label}`)
+        .replace(/Actuals Upto [A-Z]{3} 2026/g, `Actuals up to ${period.label}`)
+        .replace(/Actuals up to [A-Z]{3} 2026/g, `Actuals up to ${period.label}`);
     }
     function relabelColumns(columns, period) {
       return (columns || []).map(col => ({ ...col, label: relabelPeriod(col.label, period) }));
@@ -208,7 +224,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       document.getElementById("title").textContent = tab.title;
       const subMenu = tabKey === "pu_prev" ? renderPrevPuSubtabs() : null;
       const puTools = isPuTable(tabKey) ? renderPuFocusControls(tabKey) : null;
-      const note = document.createElement("div"); note.className = "note"; note.textContent = tabKey === "pu_prev" || tabKey === "demand_prev" ? `Remarks - Figures in '000' (thousands). Default projection uses completed actuals up to ${COMPLETED_PERIOD.label} (${String(COMPLETED_PERIOD.count).padStart(2, "0")} months). Previous year RG is treated as OBA; current year BG_ISL is treated as OBA until current-year RG is available.` : `Remarks - Figures in '000' (thousands). Default projection uses completed actuals up to ${COMPLETED_PERIOD.label} (${String(COMPLETED_PERIOD.count).padStart(2, "0")} months). ${RUNNING_PERIOD.label} is the running month and stays in Till Date / Running Month.`;
+      const note = document.createElement("div"); note.className = "note"; note.textContent = tabKey === "pu_prev" || tabKey === "demand_prev" ? `Remarks - Figures in '000' (thousands). GUI synced basis uses completed actuals up to ${COMPLETED_PERIOD.displayLabel} (${String(COMPLETED_PERIOD.count).padStart(2, "0")} months). Previous year RG is treated as OBA; current year BG_ISL is treated as OBA until current-year RG is available.` : `Remarks - Figures in '000' (thousands). GUI synced basis uses completed actuals up to ${COMPLETED_PERIOD.displayLabel} (${String(COMPLETED_PERIOD.count).padStart(2, "0")} months). ${RUNNING_PERIOD.displayLabel} is the running month and is excluded from default calculations.`;
       const specialNote = isDemandTable(tabKey) ? renderDemandSuspenseNote(tab.rows) : null;
       const table = document.createElement("table");
       if (tab.columns.length > 8) table.className = "wide";
@@ -225,7 +241,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "current_till"));
       document.getElementById("title").textContent = RUNNING_PERIOD.title;
       const sections = ["demand", "staff", "nonstaff", "pu_prev", "demand_prev"].filter(key => ORIGINAL_DATA[key]).map(key => tillDateSection(key)).join("");
-      document.getElementById("tableHost").innerHTML = `<div class="future-note"><strong>${RUNNING_PERIOD.title}</strong><br>Data load timestamp: ${htmlEscape(DATA_LOAD_TIMESTAMP)}. This tab keeps ${htmlEscape(RUNNING_PERIOD.label)} as running/till-date data. Default analysis tabs use completed ${htmlEscape(COMPLETED_PERIOD.label)} actuals and ${String(COMPLETED_PERIOD.count).padStart(2, "0")}-month BP projection.</div>${sections}`;
+      document.getElementById("tableHost").innerHTML = `<div class="future-note"><strong>${RUNNING_PERIOD.title}</strong><br>Data load timestamp: ${htmlEscape(DATA_LOAD_TIMESTAMP)}. This tab keeps ${htmlEscape(RUNNING_PERIOD.displayLabel)} as running/till-date data. Default analysis tabs use completed ${htmlEscape(COMPLETED_PERIOD.displayLabel)} actuals and ${String(COMPLETED_PERIOD.count).padStart(2, "0")}-month BP calculation.</div>${sections}`;
     }
     function tillDateSection(tabKey) {
       const tab = ORIGINAL_DATA[tabKey];
@@ -234,7 +250,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       const specialNote = isDemandTable(tabKey) ? demandSuspenseNoteHtml(rows) : "";
       const header = `<thead><tr>${tab.columns.map(col => `<th>${htmlEscape(String(col.label || "").replace(/\n/g, " "))}</th>`).join("")}</tr></thead>`;
       const body = rows.map(row => `<tr class="${rowClassName(row)}">${tab.columns.map(col => `<td>${formatCellHtml(row[col.key], col.format)}</td>`).join("")}</tr>`).join("");
-      return `<section class="till-section"><h3>${htmlEscape(tab.title)} - ${RUNNING_PERIOD.title}</h3><div class="note">Remarks - Figures in '000' (thousands). ${htmlEscape(RUNNING_PERIOD.label)} is running and shown only in this tab.</div>${specialNote}<table class="${tab.columns.length > 8 ? "wide" : ""}">${header}<tbody>${body}</tbody></table></section>`;
+      return `<section class="till-section"><h3>${htmlEscape(tab.title)} - ${RUNNING_PERIOD.title}</h3><div class="note">Remarks - Figures in '000' (thousands). ${htmlEscape(RUNNING_PERIOD.displayLabel)} is running and shown only in this tab.</div>${specialNote}<table class="${tab.columns.length > 8 ? "wide" : ""}">${header}<tbody>${body}</tbody></table></section>`;
     }
     function puCode(row) { return codeFromLabel(rowName(row), "PU"); }
     function isImportantPuRow(row) { return IMPORTANT_PU_CODES.has(puCode(row)); }
@@ -1098,18 +1114,17 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       const obaIdx = colIndex(table.headers, ["BG_ISL", "2026-2027"]);
       const period = detectActualPeriod(table.headers);
       const aeIdx = period.idx;
-      const bpIdx = findBpForPeriod(table.headers, period);
-      const bpLabel = bpIdx >= 0 ? `B\nBP\n${table.headers[bpIdx]}` : `B\nBP\nA / 12 * ${period.count}`;
+      const bpLabel = `B\nBP\nA / 12 * ${period.count}`;
       const columns = [
         { key:"Name", label:firstLabel, format:"text" }, ...(demand ? [{ key:"Department", label:"Department", format:"text" }] : []), { key:"OBA", label:"A\nOBA\nBG_ISL 2026-27", format:"money" },
-        { key:"BP", label:bpLabel, format:"money" }, { key:"AE", label:`C\nAE\nActuals Upto ${period.label}`, format:"money" },
+        { key:"BP", label:bpLabel, format:"money" }, { key:"AE", label:`C\nAE\nActuals up to ${period.label}`, format:"money" },
         { key:"Variation", label:"D\nVariation\nC - B", format:"money" }, { key:"BPPercent", label:"E\n% BP\nC / B", format:"int" },
         { key:"Remaining", label:"F\nBudget Remaining\nA - C", format:"money" }, { key:"OBAPercent", label:"G\n% OBA Utilized\nC / A", format:"int" }
       ];
       const rows = table.rows.map(row => {
         const name = String(row[nameIdx] || "").trim();
         if (!name || name.toUpperCase() === "TOTAL") return null;
-        const built = summaryRow(demand ? demandFromSmh(name) : name, numberValue(row[obaIdx]), numberValue(row[aeIdx]), period.count, bpIdx >= 0 ? row[bpIdx] : null);
+        const built = summaryRow(demand ? demandFromSmh(name) : name, numberValue(row[obaIdx]), numberValue(row[aeIdx]), period.count, null);
         built.Months = period.count;
         return demand ? withDemandDepartment(built) : built;
       }).filter(Boolean);
@@ -1123,9 +1138,9 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       const previousLabel = `${period.month} ${period.year - 1}`;
       const columns = [
         { key:"Name", label:firstLabel, format:"text" }, ...(demand ? [{ key:"Department", label:"Department", format:"text" }] : []), { key:"PreviousOBA", label:"A\nPrevious OBA\nRG 2025-26", format:"money" },
-        { key:"PreviousBP", label:`B\nPrevious Budget Proportion\nA / 12 * ${period.count}`, format:"money" }, { key:"AEPrevious", label:`C\nPrevious Actual Expenditure\nUpto ${previousLabel}`, format:"money" },
+        { key:"PreviousBP", label:`B\nPrevious Budget Proportion\nA / 12 * ${period.count}`, format:"money" }, { key:"AEPrevious", label:`C\nPrevious Actual Expenditure\nup to ${previousLabel}`, format:"money" },
         { key:"OBA", label:"D\nCurrent OBA\nBG_ISL 2026-27", format:"money" }, { key:"BP", label:`E\nCurrent Budget Proportion\nD / 12 * ${period.count}`, format:"money" },
-        { key:"AECurrent", label:`F\nCurrent Actual Expenditure\nUpto ${period.label}`, format:"money" }, { key:"VariationBP", label:"G\nBudget Variation\nF - E", format:"money" },
+        { key:"AECurrent", label:`F\nCurrent Actual Expenditure\nup to ${period.label}`, format:"money" }, { key:"VariationBP", label:"G\nBudget Variation\nF - E", format:"money" },
         { key:"BPPercent", label:"H\nCurrent Budget Proportion %\nF / E", format:"int" }, { key:"VariationActual", label:"I\nActual Expenditure Variation\nF - C", format:"money" },
         { key:"OBAPercent", label:"J\nCurrent OBA Utilization %\nF / D", format:"int" }
       ];
@@ -1156,7 +1171,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
         if (UPLOAD_STATE.prevSmhBudget && UPLOAD_STATE.currSmhBudget) DATA.demand_prev = buildPreviousFromUpload(UPLOAD_STATE.prevSmhBudget, UPLOAD_STATE.currSmhBudget, "SMH", "Demand No. / SMH-Grant", "Demand / SMH Wise Previous Year Comparison", true);
         ORIGINAL_DATA = JSON.parse(JSON.stringify(DATA || {}));
         applyCompletedPeriodView();
-        logUpload(`Tables updated in this browser session. Default view now uses completed ${COMPLETED_PERIOD.label} actuals with ${String(COMPLETED_PERIOD.count).padStart(2, "0")}-month BP projection. ${RUNNING_PERIOD.label} running data is available in Till Date / Running Month.`);
+        logUpload(`Tables updated in this browser session. GUI synced view now uses completed ${COMPLETED_PERIOD.label} actuals with ${String(COMPLETED_PERIOD.count).padStart(2, "0")}-month BP projection. ${RUNNING_PERIOD.label} running data is available in Till Date / Running Month.`);
         if (options.stayOnUpload) {
           document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "upload"));
           return;
@@ -1207,7 +1222,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       return row[col.key] ?? "";
     }
     function exportNote() {
-      return `Remarks - Figures in '000' (thousands). Data as on: ${DATA_LOAD_TIMESTAMP}. Default basis: completed actuals up to ${COMPLETED_PERIOD.label}; Till Date / Running Month keeps ${RUNNING_PERIOD.label} data separately. Demand 12N / 10N is shown separately and excluded from main totals.`;
+      return `Remarks - Figures in '000' (thousands). Data as on: ${DATA_LOAD_TIMESTAMP}. GUI synced basis: completed actuals up to ${COMPLETED_PERIOD.label} (${String(COMPLETED_PERIOD.count).padStart(2, "0")} months); Till Date / Running Month keeps ${RUNNING_PERIOD.label} data separately. Basis source: ${BASIS_SOURCE}. Demand 12N / 10N is shown separately and excluded from main totals.`;
     }
     function exportTableAoa(tabKey) {
       const tab = tableForView(tabKey, { skipFocus: true });
@@ -1550,6 +1565,3 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     const initialTab = new URLSearchParams(window.location.search).get("tab");
     if (initialTab && (DATA[initialTab] || ["analysis", "upload", "current_till"].includes(initialTab))) openTab(initialTab);
     else render(activeTab);
-
-
-

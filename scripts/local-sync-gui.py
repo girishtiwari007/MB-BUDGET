@@ -11,6 +11,21 @@ from tkinter import filedialog, messagebox, ttk
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BROWSE_ROOT = Path.home()
+PERIOD_OPTIONS = [
+    "Auto sense from file",
+    "APR 2026",
+    "MAY 2026",
+    "JUN 2026",
+    "JUL 2026",
+    "AUG 2026",
+    "SEP 2026",
+    "OCT 2026",
+    "NOV 2026",
+    "DEC 2026",
+    "JAN 2027",
+    "FEB 2027",
+    "MAR 2027",
+]
 
 
 def load_current_sync():
@@ -29,6 +44,8 @@ class LocalSyncApp(tk.Tk):
         self.minsize(760, 520)
         self.current_folder = tk.StringVar(value="")
         self.fr_file = tk.StringVar(value="")
+        self.completed_month = tk.StringVar(value=PERIOD_OPTIONS[0])
+        self.running_month = tk.StringVar(value=PERIOD_OPTIONS[0])
         self.status = tk.StringVar(value="Ready. Choose a current-year folder or FR file; sync starts automatically.")
         self._build()
 
@@ -47,6 +64,12 @@ class LocalSyncApp(tk.Tk):
         ttk.Entry(current, textvariable=self.current_folder).grid(row=0, column=1, sticky="ew", padx=8)
         ttk.Button(current, text="Choose Folder", command=self.choose_current_folder).grid(row=0, column=2, padx=(0, 8))
         ttk.Button(current, text="Re-sync Current Year", command=self.sync_current).grid(row=0, column=3)
+        ttk.Label(current, text="Completed Actual Month").grid(row=1, column=0, sticky="w", pady=(10, 0))
+        self.completed_combo = ttk.Combobox(current, textvariable=self.completed_month, values=PERIOD_OPTIONS, state="readonly", width=24)
+        self.completed_combo.grid(row=1, column=1, sticky="w", padx=8, pady=(10, 0))
+        ttk.Label(current, text="Running Month").grid(row=1, column=2, sticky="e", pady=(10, 0))
+        self.running_combo = ttk.Combobox(current, textvariable=self.running_month, values=PERIOD_OPTIONS, state="readonly", width=24)
+        self.running_combo.grid(row=1, column=3, sticky="ew", pady=(10, 0))
 
         fr = ttk.LabelFrame(self, text="FR Budget Status", padding=12)
         fr.grid(row=2, column=0, sticky="ew", padx=14, pady=8)
@@ -74,6 +97,7 @@ class LocalSyncApp(tk.Tk):
         self.log.configure(yscrollcommand=scroll.set)
         self.write("Ready. This local GUI is the supported write/update path; GitHub Pages remains read-only.")
         self.write("No folder is fixed in the app. Use Choose Folder or Choose FR File to locate the latest source data.")
+        self.write("Month controls default to Auto sense from file. Override only when you want the portal to calculate on a chosen completed/running month.")
         self.write("After selection, sync starts automatically and refreshes portal data, calculations, views and all exports.")
 
     def write(self, text):
@@ -86,6 +110,7 @@ class LocalSyncApp(tk.Tk):
         if folder:
             self.current_folder.set(folder)
             self.write(f"Selected current-year folder: {folder}")
+            self.refresh_period_options(Path(folder))
             self.sync_current()
 
     def choose_fr_file(self):
@@ -113,6 +138,34 @@ class LocalSyncApp(tk.Tk):
                 messagebox.showerror("MB-BUDGET Local Sync", str(exc))
         threading.Thread(target=wrapped, daemon=True).start()
 
+    def refresh_period_options(self, folder):
+        try:
+            labels = load_current_sync().available_period_labels(folder)
+            options = [PERIOD_OPTIONS[0], *labels]
+            self.completed_combo.configure(values=options)
+            self.running_combo.configure(values=options)
+            if self.completed_month.get() not in options:
+                self.completed_month.set(PERIOD_OPTIONS[0])
+            if self.running_month.get() not in options:
+                self.running_month.set(PERIOD_OPTIONS[0])
+            if labels:
+                self.write("Actual month columns available in selected data: " + ", ".join(labels))
+        except Exception as exc:
+            self.write("Could not read month columns yet: " + str(exc))
+
+    def selected_months(self):
+        completed = self.completed_month.get().strip()
+        running = self.running_month.get().strip()
+        completed = "" if completed == PERIOD_OPTIONS[0] else completed
+        running = "" if running == PERIOD_OPTIONS[0] else running
+        return completed or None, running or None
+
+    def current_sync_options_text(self):
+        completed, running = self.selected_months()
+        if completed or running:
+            return f"Manual month basis: completed={completed or 'auto'} | running={running or 'auto'}"
+        return "Month basis: auto-sense from uploaded actual columns"
+
     def sync_current(self):
         if not self.current_folder.get().strip():
             messagebox.showwarning("Choose folder", "Please choose the current-year data folder first.")
@@ -121,7 +174,9 @@ class LocalSyncApp(tk.Tk):
         if not folder.exists():
             messagebox.showwarning("Folder not found", "Please choose a valid current-year data folder.")
             return
-        self.run_background("Syncing current-year files, rebuilding payload, and refreshing exports...", lambda: load_current_sync().sync_current_year(folder))
+        completed, running = self.selected_months()
+        self.write(self.current_sync_options_text())
+        self.run_background("Syncing current-year files, rebuilding payload, and refreshing exports...", lambda: load_current_sync().sync_current_year(folder, completed_month=completed, running_month=running))
 
     def sync_fr(self):
         file_path = Path(self.fr_file.get()).resolve()
@@ -149,7 +204,9 @@ class LocalSyncApp(tk.Tk):
                 if not folder.exists():
                     raise RuntimeError(f"Current-year folder not found: {folder}")
                 messages.append("Current-year sync:")
-                messages.append(str(load_current_sync().sync_current_year(folder)))
+                completed, running = self.selected_months()
+                messages.append(self.current_sync_options_text())
+                messages.append(str(load_current_sync().sync_current_year(folder, completed_month=completed, running_month=running)))
             if fr_text:
                 file_path = Path(fr_text).resolve()
                 if not file_path.exists():
@@ -190,9 +247,14 @@ class LocalSyncApp(tk.Tk):
             payload = json.loads(export_manifest.read_text(encoding="utf-8"))
             missing = payload.get("missing") or []
             lines.append(f"- Export refresh: {payload.get('status')} | Trigger: {payload.get('trigger')} | Missing: {len(missing)}")
+            refreshed_at = payload.get("refreshedAt") or ""
+            stale = []
             checked = 0
             for item in payload.get("files", []):
                 path = REPO_ROOT / item.get("path", "")
+                modified_at = item.get("modifiedAt") or ""
+                if refreshed_at and modified_at and modified_at[:16] < refreshed_at[:16]:
+                    stale.append(item.get("path", ""))
                 if path.suffix.lower() in {".xlsx", ".pptx"} and path.exists():
                     with zipfile.ZipFile(path) as archive:
                         bad = archive.testzip()
@@ -200,6 +262,8 @@ class LocalSyncApp(tk.Tk):
                         raise RuntimeError(f"Export integrity failed: {path.name} -> {bad}")
                     checked += 1
             lines.append(f"- Office export integrity checked: {checked} files OK")
+            if stale:
+                lines.append("- Warning: export timestamp older than manifest refresh: " + ", ".join(stale))
         else:
             lines.append("- Export refresh manifest missing.")
         return "\n".join(lines)

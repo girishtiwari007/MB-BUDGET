@@ -1,6 +1,6 @@
 {
-  "uploadedAt": "2026-08-31T12:33:38+05:30",
-  "statusAsOn": "2026-08-31T12:33:38+05:30",
+  "uploadedAt": "2026-09-01T12:16:24+05:30",
+  "statusAsOn": "2026-09-01T12:16:24+05:30",
   "financialYear": "2026-2027",
   "sourceFolder": "D:\\PORTAL DATA\\current year",
   "activeFiles": [
@@ -8,50 +8,51 @@
       "role": "currPuBudget",
       "source": "pu-budget.xls",
       "target": "data/source-files/2026-2027/pu-budget.xls",
-      "sourceModifiedAt": "2026-08-31T11:08:53+05:30",
+      "sourceModifiedAt": "2026-09-01T10:46:23+05:30",
       "size": 22016
     },
     {
       "role": "currPuMonth",
       "source": "pu-month-actual.xls",
       "target": "data/source-files/2026-2027/pu-month-actual.xls",
-      "sourceModifiedAt": "2026-08-31T11:09:16+05:30",
+      "sourceModifiedAt": "2026-09-01T10:46:08+05:30",
       "size": 16896
     },
     {
       "role": "currPuDeptDemandSmhBudget",
       "source": "pu-dept-demand-smh-budget.xls",
       "target": "data/source-files/2026-2027/pu-dept-demand-smh-budget.xls",
-      "sourceModifiedAt": "2026-08-31T11:10:28+05:30",
-      "size": 1498624
+      "sourceModifiedAt": "2026-09-01T10:47:07+05:30",
+      "size": 1357312
     },
     {
       "role": "currPuDeptDemandSmhActual",
       "source": "pu-dept-demand-smh-actual.xls",
       "target": "data/source-files/2026-2027/pu-dept-demand-smh-actual.xls",
-      "sourceModifiedAt": "2026-08-31T11:10:40+05:30",
+      "sourceModifiedAt": "2026-09-01T10:47:19+05:30",
       "size": 526336
     },
     {
       "role": "currSmhBudget",
       "source": "demand-smh-budget.xls",
       "target": "data/source-files/2026-2027/demand-smh-budget.xls",
-      "sourceModifiedAt": "2026-08-31T11:09:55+05:30",
+      "sourceModifiedAt": "2026-09-01T10:46:37+05:30",
       "size": 9216
     },
     {
       "role": "currSmhMonth",
       "source": "demand-smh-actual.xls",
       "target": "data/source-files/2026-2027/demand-smh-actual.xls",
-      "sourceModifiedAt": "2026-08-31T11:10:12+05:30",
+      "sourceModifiedAt": "2026-09-01T10:46:48+05:30",
       "size": 8192
     }
   ],
   "backups": [
-    "data/source-files/2026-2027/backups/20260831-123338",
-    "data/source-files/2026-2027/backups/20260831-120853"
+    "data/source-files/2026-2027/backups/20260901-121624",
+    "data/source-files/2026-2027/backups/20260901-121356"
   ],
-  "runningMonth": "AUG 2026",
-  "completedMonth": "JUL 2026",
-  "backup": "20260831-123338"
+  "runningMonth": "SEP 2026",
+  "completedMonth": "AUG 2026",
+  "basisSource": "manual override",
+  "backup": "20260901-121624"
 }

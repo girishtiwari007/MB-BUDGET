@@ -2,13 +2,14 @@
   const META = window.CURRENT_PAYLOAD_META || {};
   const PERIOD_MONTHS = ["APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", "JAN", "FEB", "MAR"];
   function period(label, fallback) {
-    const text = String(label || fallback || "JUL 2026").trim().toUpperCase();
+    const text = String(label || fallback || "AUG 2026").trim().toUpperCase();
     const month = (text.match(/([A-Z]{3})\s+20\d{2}/) || [null, text.slice(0, 3)])[1];
     const count = Math.max(1, PERIOD_MONTHS.indexOf(month) + 1 || 4);
     return { label: text, count };
   }
-  const COMPLETED = period(META.completedMonth, "JUL 2026");
-  const RUNNING = period(META.runningMonth, "AUG 2026");
+  const COMPLETED = period(META.completedMonth, "AUG 2026");
+  const RUNNING = period(META.runningMonth, "SEP 2026");
+  const BASIS_SOURCE = META.basisSource || "auto-sensed from uploaded file";
   const EXPECTED = { month: COMPLETED.label, months: COMPLETED.count };
   const committedFiles = [
     ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf", "PDF", `Completed ${COMPLETED.label}`],
@@ -35,7 +36,7 @@
       title: "DRM Presentation Package",
       items: [
         ["Existing Current-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx", "Editable PowerPoint table deck for DRM review, refreshed from latest portal data."],
-        ["Till Actual Month PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_JUL_2025_Actual.pptx", "H column shows corresponding previous-year actuals up to JUL 2025."],
+        ["Till Actual Month PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_JUL_2025_Actual.pptx", `H column shows corresponding previous-year actuals up to ${COMPLETED.label.replace("2026", "2025")}.`],
         ["Full Previous-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx", "H column shows final actual expenditure for FY 2025-26."],
         ["Export-DRM(Excel)", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx", "Workbook matching the DRM package sections."],
         ["Data Health", "status.html", "Verify completed/running month, suspense rows and export readiness."]
@@ -96,7 +97,7 @@
     const basis = payloadBasis();
     const mismatch = basis.hasRunning || basis.maxMonths > EXPECTED.months;
     const tone = mismatch ? "warn" : "ok";
-    const title = mismatch ? "Source Payload Contains Running-Month Data" : "Default Basis Looks Aligned";
+    const title = mismatch ? "Source Payload Contains Running-Month Data" : "GUI Basis Looks Aligned";
     const detail = mismatch
       ? `Loaded source mentions ${RUNNING.label} / ${basis.maxMonths || "?"} months. Portal default reports should continue to present completed ${COMPLETED.label} / ${String(COMPLETED.count).padStart(2, "0")}-month basis, with ${RUNNING.label} only in running-month views.`
       : `Loaded source appears aligned with completed ${COMPLETED.label} / ${String(COMPLETED.count).padStart(2, "0")}-month basis.`;
@@ -128,7 +129,8 @@
     return [
       "MB Budget Authority Review Pack",
       "",
-      `Default basis: Completed actuals up to ${COMPLETED.label} with ${String(COMPLETED.count).padStart(2, "0")}-month BP projection.`,
+      `GUI synced basis: Completed actuals up to ${COMPLETED.label} with ${String(COMPLETED.count).padStart(2, "0")}-month BP projection.`,
+      `Basis source: ${BASIS_SOURCE}.`,
       `Running month: ${RUNNING.label} data should be reviewed only in Till Date / Running Month views.`,
       "Attention: Important PU 27, 28, 30, 32 and 60 should be checked separately.",
       "Suspense: Demand 12N / 10N remains separate and excluded from normal demand totals.",

@@ -3,6 +3,7 @@ from pathlib import Path
 import cgi
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -121,6 +122,20 @@ def current_backup_listing(year_dir):
     return [rel_repo(path) for path in sorted([p for p in backup_root.iterdir() if p.is_dir()], key=lambda p: p.name, reverse=True)[:2]]
 
 
+def current_payload_meta():
+    meta_path = REPO_ROOT / "data" / "current_payload.js"
+    if not meta_path.exists():
+        return {}
+    text = meta_path.read_text(encoding="utf-8", errors="ignore")
+    match = re.search(r"window\.CURRENT_PAYLOAD_META\s*=\s*(\{.*?\});", text, re.S)
+    if not match:
+        return {}
+    try:
+        return json.loads(match.group(1))
+    except json.JSONDecodeError:
+        return {}
+
+
 def current_upload_manifest(year=CURRENT_SYNC_YEAR, source_folder="", backup_name=""):
     year = safe_year(year)
     year_dir = REPO_ROOT / "data" / "source-files" / year
@@ -140,22 +155,10 @@ def current_upload_manifest(year=CURRENT_SYNC_YEAR, source_folder="", backup_nam
             "size": stat_result.st_size,
         })
     timestamp = iso_from_timestamp(max_mtime or datetime.now().timestamp())
-    meta_path = REPO_ROOT / "data" / "current_payload.js"
-    running_month = "AUG 2026"
-    completed_month = "JUL 2026"
-    if meta_path.exists():
-        text = meta_path.read_text(encoding="utf-8", errors="ignore")
-        for key, variable in [("runningMonth", "running_month"), ("completedMonth", "completed_month")]:
-            marker = f'"{key}": "'
-            start = text.find(marker)
-            if start >= 0:
-                start += len(marker)
-                end = text.find('"', start)
-                if end > start:
-                    if variable == "running_month":
-                        running_month = text[start:end]
-                    else:
-                        completed_month = text[start:end]
+    meta = current_payload_meta()
+    running_month = meta.get("runningMonth", "")
+    completed_month = meta.get("completedMonth", "")
+    basis_source = meta.get("basisSource", "auto-sensed from uploaded file" if completed_month or running_month else "")
     return {
         "uploadedAt": timestamp,
         "statusAsOn": timestamp,
@@ -165,6 +168,7 @@ def current_upload_manifest(year=CURRENT_SYNC_YEAR, source_folder="", backup_nam
         "backups": current_backup_listing(year_dir),
         "runningMonth": running_month,
         "completedMonth": completed_month,
+        "basisSource": basis_source,
         "backup": backup_name,
     }
 

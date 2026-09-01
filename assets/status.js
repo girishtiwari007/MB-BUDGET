@@ -1,5 +1,6 @@
 (function(){
   const DATA = window.CURRENT_PAYLOAD || {};
+  const META = window.CURRENT_PAYLOAD_META || {};
   const REPORTS = window.REPORTS_DATA || {};
   const SOURCES = window.YEAR_DATA_SOURCES || {};
   const $ = id => document.getElementById(id);
@@ -12,6 +13,8 @@
   const importantPuRows = list => detailRows(list).filter(row => /PU\s*-\s*(27|28|30|32|60)\b/i.test(row.Name || ""));
   const latestYear = (REPORTS.years || []).at(-1)?.fy || "2026-27";
   const previousYear = (REPORTS.years || []).at(-2)?.fy || "2025-26";
+  const completedLabel = META.completedMonth || "AUG 2026";
+  const runningLabel = META.runningMonth || "SEP 2026";
   const mode = ["localhost","127.0.0.1"].includes(location.hostname) ? "Local admin mode" : "GitHub / static view";
   $("modePill").textContent = mode;
 
@@ -28,7 +31,7 @@
     const currentTotal = totalRow("demand");
     $("summaryCards").innerHTML = [
       card("Portal Mode", mode, mode.includes("Local") ? "Upload and backup APIs should be available." : "Upload/backup actions need local server."),
-      card("Data Basis", "JUL 2026", "Completed month projection. AUG remains running/till-date."),
+      card("Data Basis", completedLabel, `Completed actual basis. ${runningLabel} remains running/till-date.`),
       card("Current Demand AE", moneyPair(currentTotal.AE), `${latestYear}; main total excludes 12N / 10N.`),
       card("FR Data As On", dateText(manifest?.dataAsOn || manifest?.uploadedAt), manifest?.originalName ? `${manifest.originalName}; stored ${dateText(manifest.uploadedAt)}` : "FR manifest not available"),
       card("Exports Refreshed", dateText(exportManifest?.refreshedAt), exportManifest?.status === "success" ? `OK; trigger ${exportManifest.trigger || "unknown"}` : "Run local sync/upload to refresh export package.")
@@ -57,7 +60,7 @@
     const nonstaffTotal = totalRow("nonstaff");
     const pu98 = detailRows(rows("nonstaff")).find(row => /^PU\s*-\s*98\b/i.test(row.Name || ""));
     const issues = [
-      {tone:"warn", title:"Completed month rule", text:"Default report basis is JUL 2026; running AUG 2026 data must remain in Till Date / Running Month views."},
+      {tone:"warn", title:"Completed month rule", text:`Default report basis is ${completedLabel}; running ${runningLabel} data must remain in Till Date / Running Month views.`},
       {tone:"bad", title:"Demand 12N / 10N separate", text:`${demandSuspense.length} suspense row(s) detected and should stay outside main demand total.`},
       pu98 ? {tone:"bad", title:"PU - 98 Credit / Recoveries", text:`Remaining balance ${moneyPair(pu98.Remaining)}. Review separately due negative/recovery behavior.`} : null,
       {tone:"warn", title:"Important PU focus", text:`${importantPuRows(rows("nonstaff")).length} important non-staff PU rows detected: 27, 28, 30, 32, 60.`},

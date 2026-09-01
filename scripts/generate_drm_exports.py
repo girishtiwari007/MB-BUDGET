@@ -83,7 +83,7 @@ def load_current_meta():
 
 def period_from_meta():
     meta = load_current_meta()
-    label = str(meta.get("completedMonth") or "JUL 2026").strip().upper()
+    label = str(meta.get("completedMonth") or "AUG 2026").strip().upper()
     match = re.search(r"([A-Z]{3})\s+(20\d{2})", label)
     month = match.group(1) if match else label[:3]
     year = int(match.group(2)) if match else 2026
@@ -206,8 +206,10 @@ def relabel_period(text, month="JUN", year=2026, count=3):
         .replace("AUG 2025", f"{month} 2025")
         .replace("/ 12 * 4", f"/ 12 * {count}")
         .replace("/ 12 * 5", f"/ 12 * {count}")
-        .replace("BP UPTO JUL 2026", f"BP UPTO {label}")
-        .replace("BP UPTO AUG 2026", f"BP UPTO {label}"))
+        .replace("BP UPTO JUL 2026", f"BP up to {label}")
+        .replace("BP UPTO AUG 2026", f"BP up to {label}")
+        .replace("Actuals Upto JUL 2026", f"Actuals up to {label}")
+        .replace("Actuals Upto AUG 2026", f"Actuals up to {label}"))
 
 
 def summary_row(label, oba, ae, months=3, bp_override=None):
@@ -296,7 +298,7 @@ def apply_completed_period(payload):
             next_row["OBAPercent"] = number_value(next_row.get("AE")) / number_value(next_row.get("OBA")) * 100 if number_value(next_row.get("OBA")) else 0
             rows.append(next_row)
         tab["columns"] = [{**col, "label": relabel_period(col.get("label"), period["month"], period["year"], period["count"])} for col in tab.get("columns", [])]
-        tab["title"] = f'{tab.get("title", "")} - Completed Month Projection - {period["label"]} ({period["count"]:02d} months)'
+        tab["title"] = f'{tab.get("title", "")} - Completed Actual Basis - {period["label"]} ({period["count"]:02d} months)'
         tab["rows"] = add_total(rows)
     return view
 
@@ -817,7 +819,7 @@ def build_pptx_from_template(output_path, sections, subtitle):
 def refresh_yearly_comparison_pptx():
     if not YEARLY_COMPARISON_TEMPLATE.exists():
         raise RuntimeError(f"Yearly comparison PPTX template not found: {YEARLY_COMPARISON_TEMPLATE}")
-    shutil.copy2(YEARLY_COMPARISON_TEMPLATE, DRM_YEARLY_COMPARISON_PPTX)
+    shutil.copyfile(YEARLY_COMPARISON_TEMPLATE, DRM_YEARLY_COMPARISON_PPTX)
     with zipfile.ZipFile(DRM_YEARLY_COMPARISON_PPTX) as z:
         assert z.testzip() is None
         assert "ppt/presentation.xml" in z.namelist()
@@ -830,8 +832,9 @@ def drm_sections(payload, reports, fr, previous_fr, current_basis, fr_as_on, h_m
     if h_mode == "till_actual":
         demand_actuals = previous_actual_map(payload["demand_prev"]["rows"])
         pu_actuals = previous_actual_map(payload["pu_prev"]["rows"])
-        h_label = "H\nActual Expenditure\nUpto JUL 2025"
-        subtitle_suffix = "H column: actual expenditure up to JUL 2025"
+        h_period = period["label"].replace("2026", "2025")
+        h_label = f"H\nActual Expenditure\nup to {h_period}"
+        subtitle_suffix = f"H column: actual expenditure up to {h_period}"
     else:
         demand_actuals = previous_final_actual_map(reports, "demand", payload["demand"]["rows"])
         pu_actuals = previous_final_actual_map(reports, "pu", payload["pu_prev"]["rows"])

@@ -142,8 +142,8 @@
     const isLocal = ["localhost", "127.0.0.1"].includes(location.hostname);
     const mode = isLocal ? "Local Upload" : "Static View";
     const demandTotal = totalRow("demand");
-    const completed = META.completedMonth || "JUL 2026";
-    const running = META.runningMonth || "AUG 2026";
+    const completed = META.completedMonth || "AUG 2026";
+    const running = META.runningMonth || "SEP 2026";
 
     setMetric("homeBasisMetric", "Reporting Basis", completed, "Completed actual month", "good");
     setMetric("homeRunningMetric", "Running Month", running, "Shown separately from completed basis", "watch");

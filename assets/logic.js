@@ -1,13 +1,13 @@
 const REPORT_LOGIC = {
   current_demand: {
     title: "Demand / SMH Wise Current Year",
-    basis: "Default basis is completed actual expenditure up to JUL 2026. August is treated as running/till-date and shown separately.",
+    basis: "GUI synced basis is completed actual expenditure up to AUG 2026. September is treated as running/till-date and shown separately.",
     columns: [
       ["Demand No. / SMH-Grant", "Demand and Sub Major Head grouping from source file."],
       ["Department", "Department mapped from Demand / SMH."],
       ["OBA", "Original Budget Allotment from BG_ISL 2026-27."],
-      ["BP", "OBA / 12 * completed month count. Default month count is 04 for APR-JUL."],
-      ["AE", "Actual Expenditure up to completed month. Default is actual up to JUL 2026."],
+      ["BP", "OBA / 12 * completed month count. Default month count is 05 for APR-AUG."],
+      ["AE", "Actual Expenditure up to completed month. Default is actual up to AUG 2026."],
       ["Variation", "AE - BP."],
       ["% BP", "AE / BP * 100."],
       ["Budget Remaining", "OBA - AE."],
@@ -17,12 +17,12 @@ const REPORT_LOGIC = {
   },
   current_pu_staff: {
     title: "PU Staff Current Year",
-    basis: "Default basis is completed actual expenditure up to JUL 2026. Staff PUs are filtered by staff PU code list.",
+    basis: "GUI synced basis is completed actual expenditure up to AUG 2026. Staff PUs are filtered by staff PU code list.",
     columns: [
       ["PU", "Primary Unit name/code."],
       ["OBA", "Original Budget Allotment from BG_ISL 2026-27."],
-      ["BP", "OBA / 12 * 04 for completed APR-JUN projection."],
-      ["AE", "Actual expenditure up to JUL 2026."],
+      ["BP", "OBA / 12 * completed month count from GUI sync basis."],
+      ["AE", "Actual expenditure up to AUG 2026."],
       ["Variation", "AE - BP."],
       ["% BP", "AE / BP * 100."],
       ["Budget Remaining", "OBA - AE."],
@@ -32,12 +32,12 @@ const REPORT_LOGIC = {
   },
   current_pu_nonstaff: {
     title: "PU Non-Staff Current Year",
-    basis: "Default basis is completed actual expenditure up to JUL 2026. Non-staff PUs are all PUs outside staff PU code list.",
+    basis: "GUI synced basis is completed actual expenditure up to AUG 2026. Non-staff PUs are all PUs outside staff PU code list.",
     columns: [
       ["PU", "Primary Unit name/code."],
       ["OBA", "Original Budget Allotment from BG_ISL 2026-27."],
-      ["BP", "OBA / 12 * 04 for completed APR-JUN projection."],
-      ["AE", "Actual expenditure up to JUL 2026."],
+      ["BP", "OBA / 12 * completed month count from GUI sync basis."],
+      ["AE", "Actual expenditure up to AUG 2026."],
       ["Variation", "AE - BP."],
       ["% BP", "AE / BP * 100."],
       ["Budget Remaining", "OBA - AE."],
@@ -64,11 +64,11 @@ const REPORT_LOGIC = {
   },
   till_date: {
     title: "Till Date / Running Month",
-    basis: "This page keeps August as running/till-date data. It is separate from default completed-month projection.",
+    basis: "This page keeps September as running/till-date data. It is separate from default completed-actual calculation.",
     columns: [
       ["OBA", "Original Budget Allotment as available in source."],
-      ["BP", "OBA / 12 * 05 when August running month is included."],
-      ["AE", "Actual expenditure up to JUL 2026 as loaded/uploaded."],
+      ["BP", "OBA / 12 * 06 when September running month is included."],
+      ["AE", "Actual expenditure up to AUG 2026 as loaded/uploaded."],
       ["Variation", "AE - BP."],
       ["Budget Remaining", "OBA - AE."],
       ["Utilization", "AE divided by BP or OBA depending on column."]
@@ -77,7 +77,7 @@ const REPORT_LOGIC = {
   },
   advanced_monthly: {
     title: "Advanced Report - Month-Wise Expenditure",
-    basis: "Actual Basis selector controls latest-year active months: completed JUL 2026 (04) or till-date AUG 2026 (05).",
+    basis: "Actual Basis selector controls latest-year active months: completed AUG 2026 (05) or till-date SEP 2026 (06).",
     columns: [
       ["Month columns", "Actual expenditure booked in each month."],
       ["N/A months", "Months beyond selected basis are shown as N/A for latest year."],
@@ -87,7 +87,7 @@ const REPORT_LOGIC = {
   },
   advanced_utilization: {
     title: "Advanced Report - Budget Proportion vs Actual Expenditure",
-    basis: "Default basis is completed JUL 2026 (04). Till-date option projects AUG 2026 running month (05).",
+    basis: "GUI synced basis is completed AUG 2026 (05). Till-date option uses SEP 2026 running month (06).",
     columns: [
       ["OBA", "Original Budget Allotment."],
       ["BP", "OBA / 12 * active month count for latest year; source BP is used for older years where available."],
@@ -111,6 +111,17 @@ const REPORT_LOGIC = {
   }
 };
 
+const META = window.CURRENT_PAYLOAD_META || {};
+const MONTH_ORDER = ["APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", "JAN", "FEB", "MAR"];
+const completedLabel = String(META.completedMonth || "AUG 2026").toUpperCase();
+const runningLabel = String(META.runningMonth || "SEP 2026").toUpperCase();
+const completedMonth = completedLabel.split(/\s+/)[0] || "JUL";
+const runningMonth = runningLabel.split(/\s+/)[0] || "AUG";
+const completedCount = Math.max(1, MONTH_ORDER.indexOf(completedMonth) + 1) || 4;
+const runningCount = Math.max(completedCount, MONTH_ORDER.indexOf(runningMonth) + 1) || completedCount + 1;
+const completedCountText = String(completedCount).padStart(2, "0");
+const runningCountText = String(runningCount).padStart(2, "0");
+
 const select = document.getElementById("logicReport");
 const host = document.getElementById("logicHost");
 
@@ -122,13 +133,30 @@ function renderOptions() {
   select.innerHTML = Object.entries(REPORT_LOGIC).map(([key, item]) => `<option value="${key}">${esc(item.title)}</option>`).join("");
 }
 
+function periodText(value) {
+  return String(value ?? "")
+    .replace(/JUL 2026/g, completedLabel)
+    .replace(/AUG 2026/g, runningLabel)
+    .replace(/July/g, completedMonth)
+    .replace(/August/g, runningMonth)
+    .replace(/APR-JUN/g, `APR-${completedMonth}`)
+    .replace(/GUI synced basis is completed JUL 2026/g, `GUI synced basis is completed ${completedLabel}`)
+    .replace(/completed month count is 04/g, `completed month count is ${completedCountText}`)
+    .replace(/\* 04/g, `* ${completedCountText}`)
+    .replace(/\* 05/g, `* ${runningCountText}`)
+    .replace(/Default completed month: JUL 2026/g, `Default completed month: ${completedLabel}`)
+    .replace(/Running month: AUG 2026/g, `Running month: ${runningLabel}`)
+    .replace(/completed JUL 2026 \(04\)/g, `completed ${completedLabel} (${completedCountText})`)
+    .replace(/till-date AUG 2026 \(05\)/g, `till-date ${runningLabel} (${runningCountText})`);
+}
+
 function renderLogic() {
   const item = REPORT_LOGIC[select.value] || REPORT_LOGIC.current_demand;
   host.innerHTML = `<article class="logic-page">
-    <div class="note">Remarks - Figures in '000' (thousands). ${esc(item.basis)}</div>
-    <section class="section"><h2>Calculation Basis</h2><div class="section-body"><div class="chips"><span class="chip">Selected report: ${esc(item.title)}</span><span class="chip">Default completed month: JUL 2026</span><span class="chip">Running month: AUG 2026</span></div></div></section>
-    <section class="section"><h2>Column Formulas</h2><div class="section-body"><table class="formula-table"><thead><tr><th>Column / Control</th><th>Logic Being Used</th></tr></thead><tbody>${item.columns.map(row => `<tr><td>${esc(row[0])}</td><td>${esc(row[1])}</td></tr>`).join("")}</tbody></table></div></section>
-    <section class="section"><h2>Calculation Flow</h2><div class="section-body"><ol class="steps">${item.steps.map(step => `<li>${esc(step)}</li>`).join("")}</ol></div></section>
+    <div class="note">Remarks - Figures in '000' (thousands). ${esc(periodText(item.basis))}</div>
+    <section class="section"><h2>Calculation Basis</h2><div class="section-body"><div class="chips"><span class="chip">Selected report: ${esc(item.title)}</span><span class="chip">Default completed month: ${esc(completedLabel)}</span><span class="chip">Running month: ${esc(runningLabel)}</span></div></div></section>
+    <section class="section"><h2>Column Formulas</h2><div class="section-body"><table class="formula-table"><thead><tr><th>Column / Control</th><th>Logic Being Used</th></tr></thead><tbody>${item.columns.map(row => `<tr><td>${esc(row[0])}</td><td>${esc(periodText(row[1]))}</td></tr>`).join("")}</tbody></table></div></section>
+    <section class="section"><h2>Calculation Flow</h2><div class="section-body"><ol class="steps">${item.steps.map(step => `<li>${esc(periodText(step))}</li>`).join("")}</ol></div></section>
   </article>`;
 }
 
