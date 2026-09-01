@@ -20,7 +20,7 @@ FR_XLSX = OUT / "FR_Budget_Status.xlsx"
 FR_PDF = OUT / "FR_Budget_Status.pdf"
 CURRENT_PPTX = OUT / "Moradabad_Division_Current_Year_Budget_Analysis.pptx"
 PPTX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis.pptx"
-DRM_TILL_ACTUAL_PPTX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_JUL_2025_Actual.pptx"
+DRM_TILL_ACTUAL_PPTX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_Actual_Month.pptx"
 DRM_FULL_PREVIOUS_PPTX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx"
 DRM_YEARLY_COMPARISON_PPTX = OUT / "Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx"
 XLSX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis.xlsx"
@@ -560,8 +560,11 @@ def pdf_table_pages(title, headers, rows):
     page_w, page_h, margin = 842, 595, 18
     table_w = page_w - margin * 2
     col_widths = pdf_column_widths(headers, table_w)
-    row_h = 24
-    header_h = 30
+    compact = len(headers) > 10
+    row_h = 24 if compact else 28
+    header_h = 30 if compact else 36
+    header_font = 7 if compact else 9
+    body_font = 7.2 if compact else 10
     max_rows = int((page_h - 95 - header_h) // row_h)
     pages = []
     for start in range(0, max(len(rows), 1), max_rows):
@@ -579,7 +582,7 @@ def pdf_table_pages(title, headers, rows):
             w = col_widths[idx]
             content += pdf_rect(x, y - header_h + 4, w, header_h, BLUE)
             content += pdf_color(WHITE)
-            content += pdf_text_at(x + 2, y - 9, shorten_for_pdf(header, max(6, int(w / 4.2))), 7, True)
+            content += pdf_text_at(x + 2, y - 11, shorten_for_pdf(header, max(6, int(w / 4.2))), header_font, True)
             x += w
         y -= header_h
         for ridx, row in enumerate(part):
@@ -598,7 +601,7 @@ def pdf_table_pages(title, headers, rows):
                 content += pdf_rect(x, y - row_h + 4, w, row_h, cell_fill)
                 content += pdf_color(text_color)
                 limit = max(5, int(w / 4.7))
-                content += pdf_text_at(x + 2, y - 8, shorten_for_pdf(value, limit), 7.2, first == "total")
+                content += pdf_text_at(x + 2, y - 9, shorten_for_pdf(value, limit), body_font, first == "total")
                 x += w
             y -= row_h
         pages.append((page_w, page_h, content))

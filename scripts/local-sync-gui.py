@@ -228,6 +228,7 @@ class LocalSyncApp(tk.Tk):
 
     def validation_summary(self):
         lines = ["", "Portal refresh validation:"]
+        errors = []
         current_manifest = REPO_ROOT / "data" / "source-files" / "2026-2027" / "upload-manifest.json"
         fr_manifest = REPO_ROOT / "data" / "fr" / "fr-upload-manifest.json"
         export_manifest = REPO_ROOT / "data" / "export-refresh-manifest.json"
@@ -238,15 +239,24 @@ class LocalSyncApp(tk.Tk):
             lines.append(f"- Current source folder: {payload.get('sourceFolder')}")
         else:
             lines.append("- Current year manifest missing.")
+            errors.append("Current year manifest missing.")
         if fr_manifest.exists():
             payload = json.loads(fr_manifest.read_text(encoding="utf-8"))
             lines.append(f"- FR source: {payload.get('originalName')} | Data as on: {payload.get('dataAsOn') or payload.get('uploadedAt')}")
         else:
             lines.append("- FR manifest missing.")
+            errors.append("FR manifest missing.")
         if export_manifest.exists():
             payload = json.loads(export_manifest.read_text(encoding="utf-8"))
             missing = payload.get("missing") or []
             lines.append(f"- Export refresh: {payload.get('status')} | Trigger: {payload.get('trigger')} | Missing: {len(missing)}")
+            if payload.get("status") != "success":
+                errors.append(f"Export refresh status is {payload.get('status')}.")
+            if missing:
+                errors.append("Missing exports: " + ", ".join(missing))
+            smoke = payload.get("smokeTest") or {}
+            if smoke.get("status") != "success":
+                errors.extend(smoke.get("errors") or ["Export smoke test did not report success."])
             refreshed_at = payload.get("refreshedAt") or ""
             stale = []
             checked = 0
@@ -263,9 +273,15 @@ class LocalSyncApp(tk.Tk):
                     checked += 1
             lines.append(f"- Office export integrity checked: {checked} files OK")
             if stale:
-                lines.append("- Warning: export timestamp older than manifest refresh: " + ", ".join(stale))
+                errors.append("Export timestamp older than manifest refresh: " + ", ".join(stale))
+            if smoke:
+                lines.append(f"- Smoke test: {smoke.get('status')} | Pages: {smoke.get('checkedPages')} | Exports: {smoke.get('checkedExports')}")
         else:
             lines.append("- Export refresh manifest missing.")
+            errors.append("Export refresh manifest missing.")
+        if errors:
+            raise RuntimeError("Portal refresh validation failed:\n- " + "\n- ".join(errors))
+        lines.append("- Result: all pages and exports refreshed successfully.")
         return "\n".join(lines)
 
     def open_portal(self):

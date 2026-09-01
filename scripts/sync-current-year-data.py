@@ -428,6 +428,52 @@ def write_current_payload(payload, completed, running, source_root, backup_name,
     return meta
 
 
+def validate_current_payload(payload, completed, running):
+    errors = []
+    months = completed["count"]
+    completed_label = completed["label"]
+    running_label = running["label"]
+    for key in ("demand", "staff", "nonstaff"):
+        section = payload.get(key) or {}
+        labels = " ".join(str(col.get("label", "")) for col in section.get("columns", []))
+        if f"A / 12 * {months}" not in labels:
+            errors.append(f"{key} BP column does not show A / 12 * {months}.")
+        if completed_label not in labels:
+            errors.append(f"{key} columns do not show completed month {completed_label}.")
+        if running_label in labels:
+            errors.append(f"{key} default calculation columns still include running month {running_label}.")
+        for row in section.get("rows", []):
+            if row.get("Name") == "Total" or is_suspense(row):
+                continue
+            oba = number(row.get("OBA"))
+            expected_bp = round(oba / 12 * months)
+            actual_bp = round(number(row.get("BP")))
+            if abs(actual_bp - expected_bp) > 1:
+                errors.append(f"{key} BP mismatch for {row.get('Name')}: {actual_bp} != {expected_bp}")
+                break
+            if row.get("Months") != months:
+                errors.append(f"{key} month count mismatch for {row.get('Name')}: {row.get('Months')} != {months}")
+                break
+    for key in ("pu_prev", "demand_prev"):
+        section = payload.get(key) or {}
+        labels = " ".join(str(col.get("label", "")) for col in section.get("columns", []))
+        if f"A / 12 * {months}" not in labels or f"D / 12 * {months}" not in labels:
+            errors.append(f"{key} comparison BP columns do not use completed month count {months}.")
+        for row in section.get("rows", []):
+            if row.get("Name") == "Total" or is_suspense(row):
+                continue
+            previous_bp = round(number(row.get("PreviousOBA")) / 12 * months)
+            current_bp = round(number(row.get("OBA")) / 12 * months)
+            if abs(round(number(row.get("PreviousBP"))) - previous_bp) > 1:
+                errors.append(f"{key} previous BP mismatch for {row.get('Name')}.")
+                break
+            if abs(round(number(row.get("BP"))) - current_bp) > 1:
+                errors.append(f"{key} current BP mismatch for {row.get('Name')}.")
+                break
+    if errors:
+        raise RuntimeError("Current-year calculation validation failed:\n- " + "\n- ".join(errors))
+
+
 def copy_sources(source_root):
     source_root = Path(source_root).resolve()
     if not source_root.exists():
@@ -477,6 +523,7 @@ def sync_current_year(source_root=DEFAULT_SOURCE, refresh=True, completed_month=
         "pu_prev": build_previous(prev_pu_budget, pu_budget, "PUCODE", "PU", "PU Wise Previous Year Comparison", False, completed_month, running_month),
         "demand_prev": build_previous(prev_smh_budget, smh_budget, "SMH", "Demand No. / SMH-Grant", "Demand / SMH Wise Previous Year Comparison", True, completed_month, running_month),
     }
+    validate_current_payload(payload, completed, running)
     basis_source = "manual override" if completed_month or running_month else "auto-sensed from uploaded file"
     meta = write_current_payload(payload, completed, running, Path(source_root).resolve(), backup_name, basis_source)
     manifest = helpers.write_current_manifest(YEAR, str(Path(source_root).resolve()), backup_name)
