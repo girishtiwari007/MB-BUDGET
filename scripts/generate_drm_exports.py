@@ -3,7 +3,7 @@ import re
 import shutil
 import zipfile
 from copy import deepcopy
-from html import escape
+from html import escape, unescape
 from pathlib import Path
 from xml.sax.saxutils import escape as xesc
 
@@ -819,68 +819,201 @@ def build_pptx_from_template(output_path, sections, subtitle):
                 dst.writestr(f"ppt/slides/_rels/slide{i}.xml.rels", slide_rel)
 
 
+class YearlyComparisonTemplatePatch:
+    YEARS = ["2024-25", "2025-26", "2026-27"]
+    MONTHS = ["APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", "JAN", "FEB", "MAR"]
+    PU_SLIDE_CODES = ["10", "11", "12", "15", "20", "25", "26", "27", "28", "32"]
+
+    def __init__(self, payload, reports, period):
+        self.payload = payload
+        self.reports = reports
+        self.period = period
+        self.demand_rows = self._rows_by_code(payload.get("demand", {}).get("rows", []), r"Demand\s+([0-9A-Z]+)")
+        pu_rows = [*payload.get("staff", {}).get("rows", []), *payload.get("nonstaff", {}).get("rows", [])]
+        self.pu_rows = self._rows_by_code(pu_rows, r"PU\s*-\s*([0-9A-Z]+)")
+        self.demand_budget = self._budget_by_code("demand", r"Demand\s+([0-9A-Z]+)")
+        self.pu_budget = self._budget_by_code("pu", r"PU\s*-\s*([0-9A-Z]+)")
+        self.monthly_pu = self._monthly_by_code("pu", r"PU\s*-\s*([0-9A-Z]+)")
+
+    def _rows_by_code(self, rows, pattern):
+        out = {}
+        for row in rows:
+            if row.get("Name") == "Total":
+                continue
+            match = re.search(pattern, row.get("Name", ""), re.I)
+            if match:
+                out[match.group(1).upper()] = row
+        return out
+
+    def _budget_by_code(self, group, pattern):
+        out = {}
+        for label, values in (self.reports.get("budget", {}).get(group, {}) or {}).items():
+            match = re.search(pattern, label, re.I)
+            if match:
+                out.setdefault(match.group(1).upper(), {}).update(values)
+        return out
+
+    def _monthly_by_code(self, group, pattern):
+        out = {}
+        for label, values in (self.reports.get("monthly", {}).get(group, {}) or {}).items():
+            match = re.search(pattern, label, re.I)
+            if match:
+                out.setdefault(match.group(1).upper(), {}).update(values)
+        return out
+
+    def _cr(self, value, digits=2):
+        return f"{float(value or 0) / 100000:.{digits}f}"
+
+    def _pct(self, numerator, denominator, digits=1, suffix=True):
+        value = (float(numerator or 0) / float(denominator or 0) * 100) if float(denominator or 0) else 0
+        return f"{value:.{digits}f}%" if suffix else f"{value:.{digits}f}"
+
+    def _annual_source(self, code, kind):
+        source = deepcopy((self.demand_budget if kind == "demand" else self.pu_budget).get(code, {}))
+        current = (self.demand_rows if kind == "demand" else self.pu_rows).get(code)
+        if current:
+            source["2026-27"] = {"oba": current.get("OBA", 0), "bp": current.get("BP", 0), "ae": current.get("AE", 0)}
+        return source
+
+    def _annual_rows(self, code, kind):
+        source = self._annual_source(code, kind)
+        rows = []
+        for year in self.YEARS:
+            values = source.get(year) or {}
+            oba = float(values.get("oba") or 0)
+            bp = float(values.get("bp") or 0)
+            ae = float(values.get("ae") or 0)
+            digits = 2 if kind == "demand" else 1
+            rows.append([
+                year,
+                self._cr(oba, digits),
+                self._cr(bp, digits),
+                self._cr(ae, digits),
+                self._cr(oba - ae, digits),
+                self._pct(ae, oba, 1 if kind == "demand" else 0),
+                self._pct(ae, bp, 1 if kind == "demand" else 0),
+            ])
+        return rows
+
+    def _monthly_values(self, code):
+        values = (self.monthly_pu.get(code, {}) or {}).get("2026-27") or []
+        values = [float(value or 0) for value in values]
+        visible = []
+        for idx in range(len(self.MONTHS)):
+            if idx < self.period["count"]:
+                visible.append(self._cr(values[idx] if idx < len(values) else 0, 2))
+            else:
+                visible.append("-")
+        return visible
+
+    def _tokens(self, xml):
+        return [unescape(match.group(1)) for match in re.finditer(r"<a:t>(.*?)</a:t>", xml, flags=re.S)]
+
+    def _replace_tokens(self, xml, tokens):
+        iterator = iter(tokens)
+
+        def repl(_match):
+            return f"<a:t>{xesc(next(iterator))}</a:t>"
+
+        return re.sub(r"<a:t>.*?</a:t>", repl, xml, flags=re.S)
+
+    def _patch_current_row(self, tokens, values):
+        indices = [idx for idx, token in enumerate(tokens) if token == "2026-27"]
+        if indices:
+            start = indices[0] + 1
+            tokens[start:start + 6] = values[1:7]
+        return tokens
+
+    def _patch_current_months(self, tokens, values):
+        indices = [idx for idx, token in enumerate(tokens) if token == "2026-27"]
+        if len(indices) > 1:
+            start = indices[1] + 1
+            tokens[start:start + 12] = values
+        return tokens
+
+    def patch_slide(self, slide_no, xml):
+        tokens = self._tokens(xml)
+        if not tokens:
+            return xml
+        if slide_no == 1 and len(tokens) >= 3:
+            tokens[2] = f"FY 2024-25 | FY 2025-26 | FY 2026-27 through {self.period['label']}"
+        elif slide_no == 2 and len(tokens) >= 6:
+            tokens[5] = f"3. PU charts compare monthly AE for three financial years; FY 2026-27 uses actuals through {self.period['label'].title()}."
+        elif 3 <= slide_no <= 13:
+            code = f"{slide_no:02d}"
+            rows = self._annual_rows(code, "demand")
+            if rows:
+                tokens = self._patch_current_row(tokens, rows[-1])
+        elif 15 <= slide_no <= 24:
+            code = self.PU_SLIDE_CODES[slide_no - 15]
+            rows = self._annual_rows(code, "pu")
+            if rows:
+                tokens = self._patch_current_row(tokens, rows[-1])
+            tokens = self._patch_current_months(tokens, self._monthly_values(code))
+        return self._replace_tokens(xml, tokens)
+
+    def _replace_num_cache(self, block, values):
+        match = re.search(r"<c:numCache>(.*?)</c:numCache>", block, flags=re.S)
+        if not match:
+            return block
+        body = match.group(1)
+        fmt = re.search(r"<c:formatCode>.*?</c:formatCode>", body, flags=re.S)
+        fmt_text = fmt.group(0) if fmt else "<c:formatCode>General</c:formatCode>"
+        pts = "".join(f'<c:pt idx="{idx}"><c:v>{value}</c:v></c:pt>' for idx, value in enumerate(values))
+        cache = f"<c:numCache>{fmt_text}<c:ptCount val=\"{len(values)}\"/>{pts}</c:numCache>"
+        return block[:match.start()] + cache + block[match.end():]
+
+    def _patch_series(self, xml, values_by_series):
+        idx = -1
+
+        def repl(match):
+            nonlocal idx
+            idx += 1
+            values = values_by_series.get(idx)
+            return self._replace_num_cache(match.group(0), values) if values is not None else match.group(0)
+
+        return re.sub(r"<c:ser>.*?</c:ser>", repl, xml, flags=re.S)
+
+    def patch_chart(self, chart_name, xml):
+        match = re.search(r"chart(\d+)\.xml$", chart_name)
+        if not match:
+            return xml
+        chart_no = int(match.group(1))
+        if 1 <= chart_no <= 22:
+            slide_no = 3 + ((chart_no - 1) // 2)
+            code = f"{slide_no:02d}"
+            rows = self._annual_rows(code, "demand")
+            if chart_no % 2:
+                values = {0: [row[1] for row in rows], 1: [row[2] for row in rows], 2: [row[3] for row in rows]}
+            else:
+                values = {0: [row[5].rstrip("%") for row in rows], 1: [row[6].rstrip("%") for row in rows]}
+            return self._patch_series(xml, values)
+        if 23 <= chart_no <= 32:
+            code = self.PU_SLIDE_CODES[chart_no - 23]
+            monthly = self._monthly_values(code)
+            visible = [value for value in monthly if value != "-"]
+            return self._patch_series(xml, {2: visible})
+        return xml
+
+
 def refresh_yearly_comparison_pptx():
+    if not YEARLY_COMPARISON_TEMPLATE.exists():
+        raise RuntimeError(f"Yearly comparison PPTX template not found: {YEARLY_COMPARISON_TEMPLATE}")
     payload = apply_completed_period(load_json_assignment(ROOT / "data" / "current_payload.js", "window.CURRENT_PAYLOAD"))
     reports = json.loads((ROOT / "data" / "reports-data.json").read_text(encoding="utf-8-sig"))
     period = period_from_meta()
-    years = [year.get("fy") for year in reports.get("years", []) if year.get("fy")]
-    years = [year for year in years if year in {"2024-25", "2025-26", "2026-27"}]
-    if "2026-27" not in years:
-        years.append("2026-27")
-    sections = []
-    summary_headers = ["Head", "OBA", "BP", "AE", "Budget Remaining", "% OBA", "% BP"]
-    for title, key in [("Demand / SMH Total", "demand"), ("PU Staff Total", "staff"), ("PU Non-Staff Total", "nonstaff")]:
-        total = next((row for row in payload[key]["rows"] if row.get("Name") == "Total"), {})
-        sections.append((
-            f"{title} - Completed {period['label']}",
-            summary_headers,
-            [[
-                title,
-                money(total.get("OBA")),
-                money(total.get("BP")),
-                money(total.get("AE")),
-                money(total.get("Remaining")),
-                f"{float(total.get('OBAPercent') or 0):.1f}",
-                f"{float(total.get('BPPercent') or 0):.1f}",
-            ]]
-        ))
-    budget = reports.get("budget", {})
-    demand_budget = budget.get("demand", {})
-    pu_budget = budget.get("pu", {})
-    headers = ["FY", "OBA", "BP", "AE", "Available", "OBA Util.", "BP Util."]
-
-    def row_for_year(source, year):
-        values = source.get(year) or {}
-        oba = float(values.get("oba") or 0)
-        bp = float(values.get("bp") or 0)
-        ae = float(values.get("ae") or 0)
-        return [
-            year,
-            money(oba),
-            money(bp),
-            money(ae),
-            money(oba - ae),
-            f"{(ae / oba * 100) if oba else 0:.1f}",
-            f"{(ae / bp * 100) if bp else 0:.1f}",
-        ]
-
-    for row in payload["demand"]["rows"]:
-        if row.get("Name") == "Total" or re.search(r"\b(12N|10N)\b|suspense", row.get("Name", ""), re.I):
-            continue
-        source = demand_budget.get(row["Name"], {})
-        sections.append((f"{row['Name']} - Yearly Comparison through {period['label']}", headers, [row_for_year(source, year) for year in years]))
-
-    selected_pu_codes = {"10", "11", "12", "15", "20", "25", "26", "27", "28", "32", "60"}
-    pu_rows = [row for row in [*payload["staff"]["rows"], *payload["nonstaff"]["rows"]] if row.get("Name") != "Total"]
-    for row in pu_rows:
-        match = re.search(r"PU\s*-\s*([0-9A-Z]+)", row.get("Name", ""), re.I)
-        if not match or match.group(1).upper() not in selected_pu_codes:
-            continue
-        source = pu_budget.get(row["Name"], {})
-        sections.append((f"{row['Name']} - Yearly Comparison through {period['label']}", headers, [row_for_year(source, year) for year in years]))
-
-    subtitle = f"Accounts Dept | FY 2026-2027 | Yearly Comparison | Completed {period['label']} ({period['count']:02d} months)"
-    build_pptx_from_template(DRM_YEARLY_COMPARISON_PPTX, sections, subtitle)
+    patcher = YearlyComparisonTemplatePatch(payload, reports, period)
+    tmp = DRM_YEARLY_COMPARISON_PPTX.with_suffix(".tmp.pptx")
+    with zipfile.ZipFile(YEARLY_COMPARISON_TEMPLATE, "r") as src, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as dst:
+        for item in src.infolist():
+            data = src.read(item.filename)
+            if item.filename.startswith("ppt/slides/slide") and item.filename.endswith(".xml") and "_rels" not in item.filename:
+                slide_no = int(re.search(r"slide(\d+)\.xml", item.filename).group(1))
+                data = patcher.patch_slide(slide_no, data.decode("utf-8", errors="ignore")).encode("utf-8")
+            elif item.filename.startswith("ppt/charts/chart") and item.filename.endswith(".xml"):
+                data = patcher.patch_chart(item.filename, data.decode("utf-8", errors="ignore")).encode("utf-8")
+            dst.writestr(item, data)
+    shutil.move(tmp, DRM_YEARLY_COMPARISON_PPTX)
     with zipfile.ZipFile(DRM_YEARLY_COMPARISON_PPTX) as z:
         assert z.testzip() is None
         assert "ppt/presentation.xml" in z.namelist()

@@ -276,6 +276,16 @@ class LocalSyncApp(tk.Tk):
                 errors.append("Export timestamp older than manifest refresh: " + ", ".join(stale))
             if smoke:
                 lines.append(f"- Smoke test: {smoke.get('status')} | Pages: {smoke.get('checkedPages')} | Exports: {smoke.get('checkedExports')}")
+                yearly = smoke.get("yearlyComparisonTemplate") or {}
+                if yearly:
+                    export_counts = yearly.get("export") or {}
+                    template_counts = yearly.get("template") or {}
+                    lines.append(
+                        "- Yearly Comparison PPTX: template preserved "
+                        f"(slides {export_counts.get('slides')}/{template_counts.get('slides')}, "
+                        f"charts {export_counts.get('charts')}/{template_counts.get('charts')}, "
+                        f"rels {export_counts.get('relationships')}/{template_counts.get('relationships')})"
+                    )
         else:
             lines.append("- Export refresh manifest missing.")
             errors.append("Export refresh manifest missing.")

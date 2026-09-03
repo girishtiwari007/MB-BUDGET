@@ -44,6 +44,8 @@ BASIS_EXPORTS = [
     "exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx",
     "exports/Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx",
 ]
+YEARLY_COMPARISON_EXPORT = "exports/Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx"
+YEARLY_COMPARISON_TEMPLATE = "data/templates/Moradabad_Division_DRM_Yearly_Comparison_Template.pptx"
 
 
 def refresh_portal_asset_versions(token=None):
@@ -134,6 +136,40 @@ def validate_basis_export_content():
     return errors
 
 
+def pptx_part_counts(path):
+    with zipfile.ZipFile(path) as archive:
+        names = archive.namelist()
+        return {
+            "slides": len([name for name in names if re.match(r"ppt/slides/slide\d+\.xml$", name)]),
+            "charts": len([name for name in names if re.match(r"ppt/charts/chart\d+\.xml$", name)]),
+            "relationships": len([name for name in names if name.endswith(".rels")]),
+        }
+
+
+def validate_yearly_comparison_template():
+    errors = []
+    export_path = REPO_ROOT / YEARLY_COMPARISON_EXPORT
+    template_path = REPO_ROOT / YEARLY_COMPARISON_TEMPLATE
+    if not export_path.exists():
+        return [f"Yearly Comparison export missing: {YEARLY_COMPARISON_EXPORT}"], {}
+    if not template_path.exists():
+        return [f"Yearly Comparison template missing: {YEARLY_COMPARISON_TEMPLATE}"], {}
+    template_counts = pptx_part_counts(template_path)
+    export_counts = pptx_part_counts(export_path)
+    for key in ("slides", "charts", "relationships"):
+        if export_counts[key] != template_counts[key]:
+            errors.append(
+                f"Yearly Comparison PPTX template structure changed: {key} {export_counts[key]} != template {template_counts[key]}"
+            )
+    text = export_text(export_path).upper()
+    completed = str(current_payload_meta().get("completedMonth") or "").strip().upper()
+    if completed and f"THROUGH {completed}" not in text:
+        errors.append(f"Yearly Comparison PPTX title does not show through {completed}.")
+    if "NATIVE POWERPOINT CHARTS WITH EMBEDDED EDITABLE DATA" not in text:
+        errors.append("Yearly Comparison PPTX lost the template editable-chart label.")
+    return errors, {"template": template_counts, "export": export_counts}
+
+
 def validate_html_cache_token(token):
     errors = []
     if not token:
@@ -170,6 +206,8 @@ def validate_export_file(path, run_started):
 
 def smoke_test_manifest(payload, run_started):
     errors = []
+    yearly_errors, yearly_structure = validate_yearly_comparison_template()
+    errors.extend(yearly_errors)
     errors.extend(payload.get("missing") or [])
     for rel in EXPECTED_EXPORTS:
         errors.extend(validate_export_file(REPO_ROOT / rel, run_started))
@@ -181,6 +219,7 @@ def smoke_test_manifest(payload, run_started):
         "checkedAt": datetime.now().isoformat(timespec="seconds"),
         "checkedExports": len(EXPECTED_EXPORTS),
         "checkedPages": len(HTML_TARGETS),
+        "yearlyComparisonTemplate": yearly_structure,
         "errors": errors,
     }
     MANIFEST.write_text(json.dumps(payload, indent=2), encoding="utf-8")

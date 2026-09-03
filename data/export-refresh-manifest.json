@@ -1,75 +1,75 @@
 {
-  "refreshedAt": "2026-09-03T13:34:29",
-  "runStartedAt": "2026-09-03T13:34:28",
-  "trigger": "yearly-comparison-smoke-test",
+  "refreshedAt": "2026-09-03T15:27:46",
+  "runStartedAt": "2026-09-03T15:27:45",
+  "trigger": "gui-yearly-template-hardcheck",
   "status": "success",
   "missing": [],
   "files": [
     {
       "path": "exports/Current_Previous_Year_PU_Demand_Analysis.xlsx",
       "exists": true,
-      "size": 21923,
-      "modifiedAt": "2026-09-03T13:34:29"
+      "size": 21924,
+      "modifiedAt": "2026-09-03T15:27:46"
     },
     {
       "path": "exports/Current_Previous_Year_PU_Demand_Analysis.pdf",
       "exists": true,
       "size": 163631,
-      "modifiedAt": "2026-09-03T13:34:29"
+      "modifiedAt": "2026-09-03T15:27:46"
     },
     {
       "path": "exports/FR_Budget_Status.xlsx",
       "exists": true,
-      "size": 10618,
-      "modifiedAt": "2026-09-03T13:34:29"
+      "size": 10619,
+      "modifiedAt": "2026-09-03T15:27:46"
     },
     {
       "path": "exports/FR_Budget_Status.pdf",
       "exists": true,
       "size": 44871,
-      "modifiedAt": "2026-09-03T13:34:29"
+      "modifiedAt": "2026-09-03T15:27:46"
     },
     {
       "path": "exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx",
       "exists": true,
       "size": 89912,
-      "modifiedAt": "2026-09-03T13:34:29"
+      "modifiedAt": "2026-09-03T15:27:46"
     },
     {
       "path": "exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx",
       "exists": true,
-      "size": 14926,
-      "modifiedAt": "2026-09-03T13:34:29"
+      "size": 14927,
+      "modifiedAt": "2026-09-03T15:27:46"
     },
     {
       "path": "exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx",
       "exists": true,
       "size": 68497,
-      "modifiedAt": "2026-09-03T13:34:29"
+      "modifiedAt": "2026-09-03T15:27:46"
     },
     {
       "path": "exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_Actual_Month.pptx",
       "exists": true,
       "size": 68022,
-      "modifiedAt": "2026-09-03T13:34:29"
+      "modifiedAt": "2026-09-03T15:27:46"
     },
     {
       "path": "exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx",
       "exists": true,
       "size": 68497,
-      "modifiedAt": "2026-09-03T13:34:29"
+      "modifiedAt": "2026-09-03T15:27:46"
     },
     {
       "path": "exports/Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx",
       "exists": true,
-      "size": 95509,
-      "modifiedAt": "2026-09-03T13:34:29"
+      "size": 256827,
+      "modifiedAt": "2026-09-03T15:27:46"
     }
   ],
   "generator": "scripts/generate_drm_exports.py",
   "output": "Generated D:\\github\\MB-BUDGET\\exports\\Current_Previous_Year_PU_Demand_Analysis.xlsx\nGenerated D:\\github\\MB-BUDGET\\exports\\Current_Previous_Year_PU_Demand_Analysis.pdf\nGenerated D:\\github\\MB-BUDGET\\exports\\FR_Budget_Status.xlsx\nGenerated D:\\github\\MB-BUDGET\\exports\\FR_Budget_Status.pdf\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_Budget_FR_Analysis.xlsx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_Current_Year_Budget_Analysis.pptx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_Budget_FR_Analysis.pptx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_Actual_Month.pptx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx",
   "cacheRefresh": {
-    "token": "20260903133429",
+    "token": "20260903152746",
     "files": [
       "index.html",
       "pages/admin.html",
@@ -83,9 +83,21 @@
   },
   "smokeTest": {
     "status": "success",
-    "checkedAt": "2026-09-03T13:34:29",
+    "checkedAt": "2026-09-03T15:27:46",
     "checkedExports": 10,
     "checkedPages": 8,
+    "yearlyComparisonTemplate": {
+      "template": {
+        "slides": 24,
+        "charts": 32,
+        "relationships": 70
+      },
+      "export": {
+        "slides": 24,
+        "charts": 32,
+        "relationships": 70
+      }
+    },
     "errors": []
   }
 }
