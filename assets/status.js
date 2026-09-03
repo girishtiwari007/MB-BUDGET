@@ -15,6 +15,12 @@
   const previousYear = (REPORTS.years || []).at(-2)?.fy || "2025-26";
   const completedLabel = META.completedMonth || "AUG 2026";
   const runningLabel = META.runningMonth || "SEP 2026";
+  const SCRIPT_TOKEN = (() => {
+    const scripts = Array.from(document.scripts || []);
+    const self = scripts.find(script => /assets\/status\.js/i.test(script.src || ""));
+    const match = self?.src?.match(/[?&]v=([^&]+)/);
+    return match ? match[1] : String(META.updatedAt || META.statusAsOn || Date.now()).replace(/\W+/g, "");
+  })();
   const mode = ["localhost","127.0.0.1"].includes(location.hostname) ? "Local admin mode" : "GitHub / static view";
   $("modePill").textContent = mode;
 
@@ -22,6 +28,9 @@
     return `<article class="card"><span>${label}</span><strong>${value}</strong><em>${note || ""}</em></article>`;
   }
   function moneyPair(value){ return `${fmt(value)} | Cr ${crore(value)}`; }
+  function freshHref(href){
+    return /\.(pptx|xlsx|pdf)$/i.test(href) ? `${href}?v=${encodeURIComponent(SCRIPT_TOKEN)}` : href;
+  }
   function dateText(value){
     if (!value) return "Not recorded";
     return new Date(String(value).includes("T") ? value : `${value}T00:00:00`).toLocaleString("en-IN");
@@ -81,7 +90,7 @@
       ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf"],
       ["FR Budget PDF", "../exports/FR_Budget_Status.pdf"]
     ];
-    $("exportHealth").innerHTML = `<div class="export-grid">${exports.map(([label,href])=>`<div class="export-row"><a href="${href}" download>${label}</a><span>${href.split("/").pop()}</span></div>`).join("")}</div>`;
+    $("exportHealth").innerHTML = `<div class="export-grid">${exports.map(([label,href])=>`<div class="export-row"><a href="${freshHref(href)}" download>${label}</a><span>${href.split("/").pop()}</span></div>`).join("")}</div>`;
   }
   async function loadManifest(){
     try{

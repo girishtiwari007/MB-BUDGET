@@ -820,9 +820,67 @@ def build_pptx_from_template(output_path, sections, subtitle):
 
 
 def refresh_yearly_comparison_pptx():
-    if not YEARLY_COMPARISON_TEMPLATE.exists():
-        raise RuntimeError(f"Yearly comparison PPTX template not found: {YEARLY_COMPARISON_TEMPLATE}")
-    shutil.copyfile(YEARLY_COMPARISON_TEMPLATE, DRM_YEARLY_COMPARISON_PPTX)
+    payload = apply_completed_period(load_json_assignment(ROOT / "data" / "current_payload.js", "window.CURRENT_PAYLOAD"))
+    reports = json.loads((ROOT / "data" / "reports-data.json").read_text(encoding="utf-8-sig"))
+    period = period_from_meta()
+    years = [year.get("fy") for year in reports.get("years", []) if year.get("fy")]
+    years = [year for year in years if year in {"2024-25", "2025-26", "2026-27"}]
+    if "2026-27" not in years:
+        years.append("2026-27")
+    sections = []
+    summary_headers = ["Head", "OBA", "BP", "AE", "Budget Remaining", "% OBA", "% BP"]
+    for title, key in [("Demand / SMH Total", "demand"), ("PU Staff Total", "staff"), ("PU Non-Staff Total", "nonstaff")]:
+        total = next((row for row in payload[key]["rows"] if row.get("Name") == "Total"), {})
+        sections.append((
+            f"{title} - Completed {period['label']}",
+            summary_headers,
+            [[
+                title,
+                money(total.get("OBA")),
+                money(total.get("BP")),
+                money(total.get("AE")),
+                money(total.get("Remaining")),
+                f"{float(total.get('OBAPercent') or 0):.1f}",
+                f"{float(total.get('BPPercent') or 0):.1f}",
+            ]]
+        ))
+    budget = reports.get("budget", {})
+    demand_budget = budget.get("demand", {})
+    pu_budget = budget.get("pu", {})
+    headers = ["FY", "OBA", "BP", "AE", "Available", "OBA Util.", "BP Util."]
+
+    def row_for_year(source, year):
+        values = source.get(year) or {}
+        oba = float(values.get("oba") or 0)
+        bp = float(values.get("bp") or 0)
+        ae = float(values.get("ae") or 0)
+        return [
+            year,
+            money(oba),
+            money(bp),
+            money(ae),
+            money(oba - ae),
+            f"{(ae / oba * 100) if oba else 0:.1f}",
+            f"{(ae / bp * 100) if bp else 0:.1f}",
+        ]
+
+    for row in payload["demand"]["rows"]:
+        if row.get("Name") == "Total" or re.search(r"\b(12N|10N)\b|suspense", row.get("Name", ""), re.I):
+            continue
+        source = demand_budget.get(row["Name"], {})
+        sections.append((f"{row['Name']} - Yearly Comparison through {period['label']}", headers, [row_for_year(source, year) for year in years]))
+
+    selected_pu_codes = {"10", "11", "12", "15", "20", "25", "26", "27", "28", "32", "60"}
+    pu_rows = [row for row in [*payload["staff"]["rows"], *payload["nonstaff"]["rows"]] if row.get("Name") != "Total"]
+    for row in pu_rows:
+        match = re.search(r"PU\s*-\s*([0-9A-Z]+)", row.get("Name", ""), re.I)
+        if not match or match.group(1).upper() not in selected_pu_codes:
+            continue
+        source = pu_budget.get(row["Name"], {})
+        sections.append((f"{row['Name']} - Yearly Comparison through {period['label']}", headers, [row_for_year(source, year) for year in years]))
+
+    subtitle = f"Accounts Dept | FY 2026-2027 | Yearly Comparison | Completed {period['label']} ({period['count']:02d} months)"
+    build_pptx_from_template(DRM_YEARLY_COMPARISON_PPTX, sections, subtitle)
     with zipfile.ZipFile(DRM_YEARLY_COMPARISON_PPTX) as z:
         assert z.testzip() is None
         assert "ppt/presentation.xml" in z.namelist()

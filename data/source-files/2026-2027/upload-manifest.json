@@ -1,6 +1,6 @@
 {
-  "uploadedAt": "2026-09-01T16:12:23+05:30",
-  "statusAsOn": "2026-09-01T16:12:23+05:30",
+  "uploadedAt": "2026-09-03T13:15:58+05:30",
+  "statusAsOn": "2026-09-03T13:15:58+05:30",
   "financialYear": "2026-2027",
   "sourceFolder": "D:\\PORTAL DATA\\current year",
   "activeFiles": [
@@ -48,11 +48,11 @@
     }
   ],
   "backups": [
-    "data/source-files/2026-2027/backups/20260901-161223",
-    "data/source-files/2026-2027/backups/20260901-160643"
+    "data/source-files/2026-2027/backups/20260903-131558",
+    "data/source-files/2026-2027/backups/20260901-161223"
   ],
   "runningMonth": "SEP 2026",
   "completedMonth": "AUG 2026",
   "basisSource": "manual override",
-  "backup": "20260901-161223"
+  "backup": "20260903-131558"
 }

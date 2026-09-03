@@ -34,6 +34,16 @@ HTML_TARGETS = [
 ]
 OFFICE_SUFFIXES = {".xlsx", ".pptx"}
 PDF_SUFFIXES = {".pdf"}
+BASIS_EXPORTS = [
+    "exports/Current_Previous_Year_PU_Demand_Analysis.xlsx",
+    "exports/Current_Previous_Year_PU_Demand_Analysis.pdf",
+    "exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx",
+    "exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx",
+    "exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx",
+    "exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_Actual_Month.pptx",
+    "exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx",
+    "exports/Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx",
+]
 
 
 def refresh_portal_asset_versions(token=None):
@@ -85,6 +95,45 @@ def validate_current_basis():
     return errors
 
 
+def office_text(path):
+    chunks = []
+    with zipfile.ZipFile(path) as archive:
+        for name in archive.namelist():
+            if name.endswith(".xml"):
+                chunks.append(archive.read(name).decode("utf-8", errors="ignore"))
+    return "\n".join(chunks)
+
+
+def export_text(path):
+    suffix = path.suffix.lower()
+    if suffix in OFFICE_SUFFIXES:
+        return office_text(path)
+    if suffix in PDF_SUFFIXES:
+        return path.read_bytes().decode("latin-1", errors="ignore")
+    return path.read_text(encoding="utf-8", errors="ignore")
+
+
+def validate_basis_export_content():
+    errors = []
+    meta = current_payload_meta()
+    completed = str(meta.get("completedMonth") or "").strip().upper()
+    if not completed:
+        errors.append("Completed month is missing from current payload meta.")
+        return errors
+    for rel in BASIS_EXPORTS:
+        path = REPO_ROOT / rel
+        if not path.exists():
+            continue
+        text = export_text(path).upper()
+        if completed not in text:
+            errors.append(f"{rel} does not contain completed-month basis {completed}.")
+        if "COMPLETED MONTH PROJECTION" in text:
+            errors.append(f"{rel} still contains old projection wording.")
+        if completed != "JUL 2026" and "JUL 2026" in text:
+            errors.append(f"{rel} still contains stale JUL 2026 basis text.")
+    return errors
+
+
 def validate_html_cache_token(token):
     errors = []
     if not token:
@@ -126,6 +175,7 @@ def smoke_test_manifest(payload, run_started):
         errors.extend(validate_export_file(REPO_ROOT / rel, run_started))
     errors.extend(validate_html_cache_token((payload.get("cacheRefresh") or {}).get("token")))
     errors.extend(validate_current_basis())
+    errors.extend(validate_basis_export_content())
     payload["smokeTest"] = {
         "status": "failed" if errors else "success",
         "checkedAt": datetime.now().isoformat(timespec="seconds"),

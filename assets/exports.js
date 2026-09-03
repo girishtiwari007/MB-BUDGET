@@ -11,6 +11,12 @@
   const RUNNING = period(META.runningMonth, "SEP 2026");
   const BASIS_SOURCE = META.basisSource || "auto-sensed from uploaded file";
   const EXPECTED = { month: COMPLETED.label, months: COMPLETED.count };
+  const SCRIPT_TOKEN = (() => {
+    const scripts = Array.from(document.scripts || []);
+    const self = scripts.find(script => /assets\/exports\.js/i.test(script.src || ""));
+    const match = self?.src?.match(/[?&]v=([^&]+)/);
+    return match ? match[1] : String(META.updatedAt || META.statusAsOn || Date.now()).replace(/\W+/g, "");
+  })();
   const committedFiles = [
     ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf", "PDF", `Completed ${COMPLETED.label}`],
     ["Current / Previous Excel", "../exports/Current_Previous_Year_PU_Demand_Analysis.xlsx", "XLSX", `Completed ${COMPLETED.label}`],
@@ -71,11 +77,16 @@
   }
 
   function fileAction(href){
-    return /\.(pptx|xlsx|pdf)$/i.test(href) ? "Download" : "Open";
+    return /\.(pptx|xlsx|pdf)(?:\?|$)/i.test(href) ? "Download" : "Open";
   }
 
   function fileDownloadAttr(href){
-    return /\.(pptx|xlsx|pdf)$/i.test(href) ? "download" : "";
+    return /\.(pptx|xlsx|pdf)(?:\?|$)/i.test(href) ? "download" : "";
+  }
+
+  function freshHref(href){
+    if (!/\.(pptx|xlsx|pdf)$/i.test(href)) return href;
+    return `${href}?v=${encodeURIComponent(SCRIPT_TOKEN)}`;
   }
 
   function firstCurrentTable(){
@@ -117,7 +128,7 @@
           ${group.items.map(([label, href, note]) => `
             <article class="export-card">
               <div><strong>${esc(label)}</strong><span>${esc(note)}</span></div>
-              <a href="${esc(href)}" ${fileDownloadAttr(href)}>${fileAction(href)}</a>
+              <a href="${esc(freshHref(href))}" ${fileDownloadAttr(href)}>${fileAction(href)}</a>
             </article>
           `).join("")}
         </div>
@@ -171,7 +182,7 @@
 
   async function headInfo(href){
     try {
-      const response = await fetch(href, { method: "HEAD", cache: "no-store" });
+      const response = await fetch(freshHref(href), { method: "HEAD", cache: "no-store" });
       if (!response.ok) return { exists: false, modified: null };
       const raw = response.headers.get("Last-Modified");
       return { exists: true, modified: raw ? new Date(raw) : null };
@@ -208,7 +219,7 @@
         <thead><tr><th>Export</th><th>Type</th><th>Basis</th><th>Last Modified</th><th>Status</th></tr></thead>
         <tbody>${rows.map(({file, status, modified}) => `
           <tr class="${status.toLowerCase()}">
-            <td><a href="${esc(file[1])}" ${fileDownloadAttr(file[1])}>${esc(file[0])}</a></td>
+            <td><a href="${esc(freshHref(file[1]))}" ${fileDownloadAttr(file[1])}>${esc(file[0])}</a></td>
             <td>${esc(file[2])}</td>
             <td>${esc(file[3])}</td>
             <td>${esc(modified)}</td>
