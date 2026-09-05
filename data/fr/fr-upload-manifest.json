@@ -1,20 +1,20 @@
 {
-  "uploadedAt": "2026-08-31T12:34:04",
-  "dataAsOn": "2026-08-27",
+  "uploadedAt": "2026-09-05T18:28:45",
+  "dataAsOn": "2026-09-05",
   "activeFile": "data/fr/FR_Budget_Status.xlsx",
-  "originalName": "FR 27.08.2026.xlsx",
-  "backup": "20260831-123404",
+  "originalName": "FR 05.09.2026.xlsx",
+  "backup": "20260905-182845",
   "backups": [
+    {
+      "name": "20260905-182845",
+      "files": [
+        "data/fr/backups/20260905-182845/FR_Budget_Status.xlsx"
+      ]
+    },
     {
       "name": "20260831-123404",
       "files": [
         "data/fr/backups/20260831-123404/FR_Budget_Status.xlsx"
-      ]
-    },
-    {
-      "name": "20260831-111620",
-      "files": [
-        "data/fr/backups/20260831-111620/FR_Budget_Status.xlsx"
       ]
     }
   ]

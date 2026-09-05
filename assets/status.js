@@ -1,5 +1,6 @@
 (function(){
-  const DATA = window.CURRENT_PAYLOAD || {};
+  const DATA = window.BudgetPeriods.build(window.CURRENT_PAYLOAD || {}, window.REPORTS_DATA || {},
+    window.BudgetPeriods.period(window.CURRENT_PAYLOAD_META?.completedMonth || "AUG 2026"));
   const META = window.CURRENT_PAYLOAD_META || {};
   const REPORTS = window.REPORTS_DATA || {};
   const SOURCES = window.YEAR_DATA_SOURCES || {};

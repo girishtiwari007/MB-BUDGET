@@ -382,6 +382,16 @@ def monthly_map(table, field, labeler=lambda value: value):
 def update_reports_data(pu_budget, smh_budget, pu_month, smh_month, dept_month, current_payload, status_as_on):
     json_path = REPO_ROOT / "data" / "reports-data.json"
     reports = json.loads(json_path.read_text(encoding="utf-8-sig"))
+    # Merge legacy Demand / SMH names into one item, retaining all historical years.
+    # Clear the replaced year first so old aliases and deleted rows cannot remain live.
+    for section in ("budget", "monthly"):
+        for scope, bucket in reports.get(section, {}).items():
+            merged = {}
+            for label, values in bucket.items():
+                canonical = re.sub(r"/\s*SMH\s+", "/ ", label, flags=re.I) if scope == "demand" else label
+                historical = {year: value for year, value in values.items() if year != FY}
+                merged.setdefault(canonical, {}).update(historical)
+            reports[section][scope] = merged
     for row in current_payload["demand"]["rows"]:
         if row["Name"] == "Total":
             continue
@@ -407,6 +417,11 @@ def update_reports_data(pu_budget, smh_budget, pu_month, smh_month, dept_month, 
         reports.setdefault("monthly", {}).setdefault("dept", {}).setdefault(dept, {})[FY] = values
     reports["generatedAt"] = status_as_on
     reports["statusAsOn"] = status_as_on
+    for scope in ("pu", "demand", "dept"):
+        reports[f"{scope}Items"] = sorted(reports.get("monthly", {}).get(scope, {}))
+    reports["sourceRoot"] = str(REPO_ROOT / "data" / "source-files")
+    for year in reports.get("years", []):
+        year["folder"] = str(REPO_ROOT / "data" / "source-files" / year["full"])
     json_path.write_text(json.dumps(reports, indent=2), encoding="utf-8")
     (REPO_ROOT / "data" / "reports-data.js").write_text("window.REPORTS_DATA = " + json.dumps(reports, indent=2) + ";\n", encoding="utf-8")
 

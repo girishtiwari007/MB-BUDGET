@@ -28,7 +28,7 @@ const REPORT_LOGIC = {
       ["Budget Remaining", "OBA - AE."],
       ["% OBA Utilized", "AE / OBA * 100."]
     ],
-    steps: ["Read all PU budget rows.", "Keep staff PU codes only.", "Use completed month actuals up to July.", "Add total row from filtered rows."]
+    steps: ["Read all PU budget rows.", "Keep staff PU codes only.", "Use actuals up to the selected completed month.", "Add total row from filtered rows."]
   },
   current_pu_nonstaff: {
     title: "PU Non-Staff Current Year",
@@ -68,12 +68,12 @@ const REPORT_LOGIC = {
     columns: [
       ["OBA", "Original Budget Allotment as available in source."],
       ["BP", "OBA / 12 * 06 when September running month is included."],
-      ["AE", "Actual expenditure up to AUG 2026 as loaded/uploaded."],
+      ["AE", "Actual expenditure through the running month from loaded monthly data."],
       ["Variation", "AE - BP."],
       ["Budget Remaining", "OBA - AE."],
       ["Utilization", "AE divided by BP or OBA depending on column."]
     ],
-    steps: ["Preserve original uploaded August-running values.", "Show timestamp of data load.", "Do not mix these values into default June-completed projection."]
+    steps: ["Calculate running-month actuals and BP separately from the completed-month view.", "Show timestamp of data load.", "Do not mix running-month values into the completed-month view."]
   },
   advanced_monthly: {
     title: "Advanced Report - Month-Wise Expenditure",

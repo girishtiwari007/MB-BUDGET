@@ -50,7 +50,15 @@ http://127.0.0.1:8000/
 
 The upload page stores current-year files into `data/source-files/2026-2027/`, refreshes generated data payloads, and keeps only the latest two backup folders.
 
-## GitHub Pages Use
+## Calculation periods
+
+Completed-month analysis and Till Date / Running Month are intentionally separate views. The completed view uses the metadata's completed month; the running view includes months through the metadata's running month. Each calculates BP as OBA / 12 multiplied by its own month count and sums actuals from the loaded monthly data for that period. Zero running-month entries do not imply additional expenditure.
+
+Home, Data Health and Current / Previous Analysis share `assets/period-data.js` for completed-period figures. Demand aliases are matched within the requested financial year, and Demand 12N / 10N remains outside main Demand totals. Budget labels such as BG_ISL and RG are preserved.
+
+Run `node scripts/test-period-data.cjs` to check period separation, prior-year matching, totals and labels. Existing saved PDF, Excel and PowerPoint snapshots require the normal export refresh workflow after calculation changes.
+
+## GitHub Pages hosting
 
 GitHub Pages can host the portal as a static site. The analysis pages read the committed files under `data/`.
 

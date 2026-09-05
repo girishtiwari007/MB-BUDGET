@@ -100,92 +100,8 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       const list = REPORTS_DATA.years || [];
       return list[Math.max(0, list.length - 1 - offset)]?.fy || "";
     }
-    function matchMonthlyKey(scope, label, bucket) {
-      const keys = Object.keys(bucket || {});
-      if (bucket[label]) return label;
-      if (scope === "pu") {
-        const code = codeFromLabel(label, "PU");
-        return keys.find(key => codeFromLabel(key, "PU") === code) || "";
-      }
-      if (scope === "demand") {
-        const demand = demandKey(label);
-        const smh = String(label || "").match(/\/\s*([0-9A-Z]+)/i)?.[1]?.toUpperCase() || "";
-        return keys.find(key => demandKey(key) === demand && (!smh || key.toUpperCase().includes(`SMH ${smh}`))) || "";
-      }
-      return keys.find(key => key === label) || "";
-    }
-    function monthActual(scope, label, fy, count) {
-      const bucket = REPORTS_DATA.monthly?.[scope] || {};
-      const key = matchMonthlyKey(scope, label, bucket);
-      const arr = key ? bucket[key]?.[fy] : null;
-      return Array.isArray(arr) ? arr.slice(0, count).reduce((sum, value) => sum + Number(value || 0), 0) : null;
-    }
-    function relabelPeriod(text, period) {
-      return String(text || "")
-        .replace(/[A-Z]{3}\s+2026/g, period.label)
-        .replace(/[A-Z]{3}\s+2025/g, `${period.month} 2025`)
-        .replace(/\/ 12 \* \d+/g, `/ 12 * ${period.count}`)
-        .replace(/BP UPTO [A-Z]{3} 2026/g, `BP up to ${period.label}`)
-        .replace(/BP up to [A-Z]{3} 2026/g, `BP up to ${period.label}`)
-        .replace(/Actuals Upto [A-Z]{3} 2026/g, `Actuals up to ${period.label}`)
-        .replace(/Actuals up to [A-Z]{3} 2026/g, `Actuals up to ${period.label}`);
-    }
-    function relabelColumns(columns, period) {
-      return (columns || []).map(col => ({ ...col, label: relabelPeriod(col.label, period) }));
-    }
     function buildPeriodView(source, period) {
-      const view = JSON.parse(JSON.stringify(source || {}));
-      ["demand", "staff", "nonstaff"].forEach(key => adjustCurrentTab(view, key, period));
-      ["pu_prev", "demand_prev"].forEach(key => adjustPreviousTab(view, key, period));
-      return view;
-    }
-    function adjustCurrentTab(view, key, period) {
-      const tab = view[key];
-      if (!tab?.rows?.length) return;
-      const scope = key === "demand" ? "demand" : "pu";
-      const fy = latestReportYear();
-      const detail = tab.rows.filter(row => String(rowName(row)).toLowerCase() !== "total").map(row => {
-        const next = { ...row };
-        const actual = monthActual(scope, rowName(row), fy, period.count);
-        if (actual !== null) next.AE = actual;
-        next.Months = period.count;
-        next.BP = numberValue(next.OBA) / 12 * period.count;
-        next.Variation = numberValue(next.AE) - numberValue(next.BP);
-        next.BPPercent = numberValue(next.BP) ? numberValue(next.AE) / numberValue(next.BP) * 100 : 0;
-        next.Remaining = numberValue(next.OBA) - numberValue(next.AE);
-        next.BudgetRemaining = next.Remaining;
-        next.OBAPercent = numberValue(next.OBA) ? numberValue(next.AE) / numberValue(next.OBA) * 100 : 0;
-        return next;
-      });
-      tab.columns = relabelColumns(tab.columns, period);
-      tab.title = `${tab.title} - ${period.title}`;
-      tab.rows = addTotal(detail);
-    }
-    function adjustPreviousTab(view, key, period) {
-      const tab = view[key];
-      if (!tab?.rows?.length) return;
-      const scope = key === "demand_prev" ? "demand" : "pu";
-      const currentFy = latestReportYear();
-      const previousFy = latestReportYear(1);
-      const detail = tab.rows.filter(row => String(rowName(row)).toLowerCase() !== "total").map(row => {
-        const next = { ...row };
-        const currentActual = monthActual(scope, rowName(row), currentFy, period.count);
-        const previousActual = monthActual(scope, rowName(row), previousFy, period.count);
-        if (currentActual !== null) next.AECurrent = currentActual;
-        if (previousActual !== null) next.AEPrevious = previousActual;
-        next.Months = period.count;
-        next.PreviousBP = numberValue(next.PreviousOBA) / 12 * period.count;
-        next.BP = numberValue(next.OBA) / 12 * period.count;
-        next.VariationBP = numberValue(next.AECurrent) - numberValue(next.BP);
-        next.BPPercent = numberValue(next.BP) ? numberValue(next.AECurrent) / numberValue(next.BP) * 100 : 0;
-        next.VariationActual = numberValue(next.AECurrent) - numberValue(next.AEPrevious);
-        next.ActualVariation = next.VariationActual;
-        next.OBAPercent = numberValue(next.OBA) ? numberValue(next.AECurrent) / numberValue(next.OBA) * 100 : 0;
-        return next;
-      });
-      tab.columns = relabelColumns(tab.columns, period);
-      tab.title = `${tab.title} - ${period.title}`;
-      tab.rows = addTotal(detail, true);
+      return window.BudgetPeriods.build(source, REPORTS_DATA, period);
     }
     function applyCompletedPeriodView() {
       DATA = buildPeriodView(ORIGINAL_DATA, COMPLETED_PERIOD);
@@ -240,17 +156,18 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     function renderTillDate() {
       document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "current_till"));
       document.getElementById("title").textContent = RUNNING_PERIOD.title;
-      const sections = ["demand", "staff", "nonstaff", "pu_prev", "demand_prev"].filter(key => ORIGINAL_DATA[key]).map(key => tillDateSection(key)).join("");
+      const runningData = buildPeriodView(ORIGINAL_DATA, RUNNING_PERIOD);
+      const sections = ["demand", "staff", "nonstaff", "pu_prev", "demand_prev"].filter(key => runningData[key]).map(key => tillDateSection(key, runningData)).join("");
       document.getElementById("tableHost").innerHTML = `<div class="future-note"><strong>${RUNNING_PERIOD.title}</strong><br>Data load timestamp: ${htmlEscape(DATA_LOAD_TIMESTAMP)}. This tab keeps ${htmlEscape(RUNNING_PERIOD.displayLabel)} as running/till-date data. Default analysis tabs use completed ${htmlEscape(COMPLETED_PERIOD.displayLabel)} actuals and ${String(COMPLETED_PERIOD.count).padStart(2, "0")}-month BP calculation.</div>${sections}`;
     }
-    function tillDateSection(tabKey) {
-      const tab = ORIGINAL_DATA[tabKey];
+    function tillDateSection(tabKey, runningData) {
+      const tab = runningData[tabKey];
       if (!tab?.rows?.length) return "";
       const rows = isDemandTable(tabKey) ? addTotal(tab.rows.filter(row => !isTotalRow(row)), tabKey === "demand_prev") : tab.rows;
       const specialNote = isDemandTable(tabKey) ? demandSuspenseNoteHtml(rows) : "";
       const header = `<thead><tr>${tab.columns.map(col => `<th>${htmlEscape(String(col.label || "").replace(/\n/g, " "))}</th>`).join("")}</tr></thead>`;
       const body = rows.map(row => `<tr class="${rowClassName(row)}">${tab.columns.map(col => `<td>${formatCellHtml(row[col.key], col.format)}</td>`).join("")}</tr>`).join("");
-      return `<section class="till-section"><h3>${htmlEscape(tab.title)} - ${RUNNING_PERIOD.title}</h3><div class="note">Remarks - Figures in '000' (thousands). ${htmlEscape(RUNNING_PERIOD.displayLabel)} is running and shown only in this tab.</div>${specialNote}<table class="${tab.columns.length > 8 ? "wide" : ""}">${header}<tbody>${body}</tbody></table></section>`;
+      return `<section class="till-section"><h3>${htmlEscape(tab.title)}</h3><div class="note">Remarks - Figures in '000' (thousands). ${htmlEscape(RUNNING_PERIOD.displayLabel)} is running and shown only in this tab.</div>${specialNote}<table class="${tab.columns.length > 8 ? "wide" : ""}">${header}<tbody>${body}</tbody></table></section>`;
     }
     function puCode(row) { return codeFromLabel(rowName(row), "PU"); }
     function isImportantPuRow(row) { return IMPORTANT_PU_CODES.has(puCode(row)); }

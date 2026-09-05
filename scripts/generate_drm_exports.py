@@ -27,6 +27,7 @@ XLSX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis.xlsx"
 PREVIOUS_FR_XLSX = ROOT / "data" / "source-files" / "2025-2026" / "fr-budget-status.xlsx"
 YEARLY_COMPARISON_TEMPLATE = ROOT / "data" / "templates" / "Moradabad_Division_DRM_Yearly_Comparison_Template.pptx"
 TEMPLATE_CANDIDATES = [
+    ROOT / "data" / "templates" / "Moradabad_Division_DRM_Table_Template.pptx",
     Path(r"C:\Users\HP\Dropbox\Revenue PU Laibilities\PPT PORTAL\Moradabad Division Quarty FR and Revenue Budget Analysis DRM.pptx"),
     Path(r"C:\Users\HP\Dropbox\Revenue PU Laibilities\PPT PORTAL\Moradabad Division Quarty FR and Revenue Budget Analysis DRM JULY.pptx"),
     Path(r"C:\Users\HP\Dropbox\Revenue PU Laibilities\PPT PORTAL\Moradabad Division Quarty FR and Revenue Budget Analysis DRM JUN.pptx"),
@@ -273,34 +274,14 @@ def add_previous_actual_column(tab, rows, previous_actuals, header_prefix="H", l
 
 
 def apply_completed_period(payload):
-    reports = json.loads((ROOT / "data" / "reports-data.json").read_text(encoding="utf-8-sig"))
-    fy = latest_report_year(reports)
-    view = deepcopy(payload)
-    period = period_from_meta()
-    for key in ("demand", "staff", "nonstaff"):
-        tab = view.get(key)
-        if not tab or not tab.get("rows"):
-            continue
-        scope = "demand" if key == "demand" else "pu"
-        rows = []
-        for row in detail_rows(tab["rows"]):
-            next_row = dict(row)
-            actual = month_actual(reports, scope, row_name(row), fy, period["count"])
-            if actual is not None:
-                next_row["AE"] = actual
-            next_row["Months"] = period["count"]
-            # Keep the portal/source BP proportion instead of recomputing a flat monthly ratio.
-            # Source BP can include budget-distribution logic that is not always OBA / 12 * months.
-            next_row["BP"] = number_value(next_row.get("BP"))
-            next_row["Variation"] = number_value(next_row.get("AE")) - number_value(next_row.get("BP"))
-            next_row["BPPercent"] = number_value(next_row.get("AE")) / number_value(next_row.get("BP")) * 100 if number_value(next_row.get("BP")) else 0
-            next_row["Remaining"] = number_value(next_row.get("OBA")) - number_value(next_row.get("AE"))
-            next_row["OBAPercent"] = number_value(next_row.get("AE")) / number_value(next_row.get("OBA")) * 100 if number_value(next_row.get("OBA")) else 0
-            rows.append(next_row)
-        tab["columns"] = [{**col, "label": relabel_period(col.get("label"), period["month"], period["year"], period["count"])} for col in tab.get("columns", [])]
-        tab["title"] = f'{tab.get("title", "")} - Completed Actual Basis - {period["label"]} ({period["count"]:02d} months)'
-        tab["rows"] = add_total(rows)
-    return view
+    # Share browser calculations so PDF/Excel/PPTX cannot drift from the portal.
+    import subprocess
+    node = shutil.which("node")
+    if not node:
+        raise RuntimeError("Node.js is required for the shared portal/export calculations.")
+    result = subprocess.run([node, str(ROOT / "scripts" / "export-period-data.cjs")],
+                            cwd=ROOT, capture_output=True, text=True, encoding="utf-8", check=True)
+    return json.loads(result.stdout)
 
 
 def utilization_class(value):
@@ -798,10 +779,10 @@ def build_pptx_from_template(output_path, sections, subtitle):
         content = re.sub(r'<Override PartName="/ppt/slides/slide\d+\.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide\+xml"/>', "", content)
         slide_overrides = "".join(f'<Override PartName="/ppt/slides/slide{i}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>' for i in range(1, len(slides) + 1))
         content = content.replace("</Types>", f"{slide_overrides}</Types>")
-        sld_ids = "".join(f'<p:sldId id="{255 + i}" r:id="rId{i + 1}"/>' for i in range(1, len(slides) + 1))
+        sld_ids = "".join(f'<p:sldId id="{255 + i}" r:id="rIdSlide{i}"/>' for i in range(1, len(slides) + 1))
         pres = re.sub(r"<p:sldIdLst>.*?</p:sldIdLst>", f"<p:sldIdLst>{sld_ids}</p:sldIdLst>", pres, flags=re.S)
         pres_rels = re.sub(r'<Relationship Id="rId\d+" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide\d+\.xml"/>', "", pres_rels)
-        slide_rels = "".join(f'<Relationship Id="rId{i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide{i}.xml"/>' for i in range(1, len(slides) + 1))
+        slide_rels = "".join(f'<Relationship Id="rIdSlide{i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide{i}.xml"/>' for i in range(1, len(slides) + 1))
         pres_rels = pres_rels.replace("</Relationships>", f"{slide_rels}</Relationships>")
         with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as dst:
             for item in src.infolist():
@@ -862,7 +843,7 @@ class YearlyComparisonTemplatePatch:
         return out
 
     def _cr(self, value, digits=2):
-        return f"{float(value or 0) / 100000:.{digits}f}"
+        return f"{float(value or 0) / 10000:.{digits}f}"
 
     def _pct(self, numerator, denominator, digits=1, suffix=True):
         value = (float(numerator or 0) / float(denominator or 0) * 100) if float(denominator or 0) else 0
@@ -895,12 +876,12 @@ class YearlyComparisonTemplatePatch:
             ])
         return rows
 
-    def _monthly_values(self, code):
-        values = (self.monthly_pu.get(code, {}) or {}).get("2026-27") or []
+    def _monthly_values(self, code, year="2026-27"):
+        values = (self.monthly_pu.get(code, {}) or {}).get(year) or []
         values = [float(value or 0) for value in values]
         visible = []
         for idx in range(len(self.MONTHS)):
-            if idx < self.period["count"]:
+            if year != "2026-27" or idx < self.period["count"]:
                 visible.append(self._cr(values[idx] if idx < len(values) else 0, 2))
             else:
                 visible.append("-")
@@ -918,14 +899,14 @@ class YearlyComparisonTemplatePatch:
         return re.sub(r"<a:t>.*?</a:t>", repl, xml, flags=re.S)
 
     def _patch_current_row(self, tokens, values):
-        indices = [idx for idx, token in enumerate(tokens) if token == "2026-27"]
+        indices = [idx for idx, token in enumerate(tokens) if token == values[0]]
         if indices:
             start = indices[0] + 1
             tokens[start:start + 6] = values[1:7]
         return tokens
 
-    def _patch_current_months(self, tokens, values):
-        indices = [idx for idx, token in enumerate(tokens) if token == "2026-27"]
+    def _patch_current_months(self, tokens, values, year="2026-27"):
+        indices = [idx for idx, token in enumerate(tokens) if token == year]
         if len(indices) > 1:
             start = indices[1] + 1
             tokens[start:start + 12] = values
@@ -942,14 +923,15 @@ class YearlyComparisonTemplatePatch:
         elif 3 <= slide_no <= 13:
             code = f"{slide_no:02d}"
             rows = self._annual_rows(code, "demand")
-            if rows:
-                tokens = self._patch_current_row(tokens, rows[-1])
+            for row in rows:
+                tokens = self._patch_current_row(tokens, row)
         elif 15 <= slide_no <= 24:
             code = self.PU_SLIDE_CODES[slide_no - 15]
             rows = self._annual_rows(code, "pu")
-            if rows:
-                tokens = self._patch_current_row(tokens, rows[-1])
-            tokens = self._patch_current_months(tokens, self._monthly_values(code))
+            for row in rows:
+                tokens = self._patch_current_row(tokens, row)
+            for year in self.YEARS:
+                tokens = self._patch_current_months(tokens, self._monthly_values(code, year), year)
         return self._replace_tokens(xml, tokens)
 
     def _replace_num_cache(self, block, values):
@@ -990,10 +972,42 @@ class YearlyComparisonTemplatePatch:
             return self._patch_series(xml, values)
         if 23 <= chart_no <= 32:
             code = self.PU_SLIDE_CODES[chart_no - 23]
-            monthly = self._monthly_values(code)
-            visible = [value for value in monthly if value != "-"]
-            return self._patch_series(xml, {2: visible})
+            values = {idx: [value for value in self._monthly_values(code, year) if value != "-"]
+                      for idx, year in enumerate(self.YEARS)}
+            return self._patch_series(xml, values)
         return xml
+
+
+def chart_workbook(chart_xml):
+    """Embed chart values so PowerPoint Edit Data uses the refreshed numbers."""
+    from io import BytesIO
+    from xml.etree import ElementTree as ET
+    from openpyxl.utils.cell import range_boundaries
+    ns = {"c": "http://schemas.openxmlformats.org/drawingml/2006/chart"}
+    workbook = Workbook()
+    workbook.remove(workbook.active)
+    chart = ET.fromstring(chart_xml)
+    for ref in chart.findall(".//c:numRef", ns) + chart.findall(".//c:strRef", ns):
+        formula = ref.findtext("c:f", namespaces=ns)
+        if not formula or "!" not in formula:
+            continue
+        sheet_name, address = formula.rsplit("!", 1)
+        sheet_name = sheet_name.strip("'")
+        sheet = workbook[sheet_name] if sheet_name in workbook.sheetnames else workbook.create_sheet(sheet_name)
+        col1, row1, col2, row2 = range_boundaries(address.replace("$", ""))
+        numeric = ref.tag.endswith("numRef")
+        cache = ref.find("c:numCache" if numeric else "c:strCache", ns)
+        if cache is None:
+            continue
+        for point in cache.findall("c:pt", ns):
+            index = int(point.attrib["idx"])
+            value = point.findtext("c:v", namespaces=ns)
+            row = row1 + index if row2 > row1 else row1
+            col = col1 if row2 > row1 else col1 + index
+            sheet.cell(row, col, float(value) if numeric and value else value)
+    output = BytesIO()
+    workbook.save(output)
+    return output.getvalue()
 
 
 def refresh_yearly_comparison_pptx():
@@ -1005,14 +1019,30 @@ def refresh_yearly_comparison_pptx():
     patcher = YearlyComparisonTemplatePatch(payload, reports, period)
     tmp = DRM_YEARLY_COMPARISON_PPTX.with_suffix(".tmp.pptx")
     with zipfile.ZipFile(YEARLY_COMPARISON_TEMPLATE, "r") as src, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as dst:
+        embedded = {}
         for item in src.infolist():
             data = src.read(item.filename)
+            if item.filename == "[Content_Types].xml":
+                text = data.decode("utf-8")
+                if 'Extension="xlsx"' not in text:
+                    text = text.replace("</Types>", '<Default Extension="xlsx" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"/></Types>')
+                data = text.encode("utf-8")
             if item.filename.startswith("ppt/slides/slide") and item.filename.endswith(".xml") and "_rels" not in item.filename:
                 slide_no = int(re.search(r"slide(\d+)\.xml", item.filename).group(1))
                 data = patcher.patch_slide(slide_no, data.decode("utf-8", errors="ignore")).encode("utf-8")
             elif item.filename.startswith("ppt/charts/chart") and item.filename.endswith(".xml"):
                 data = patcher.patch_chart(item.filename, data.decode("utf-8", errors="ignore")).encode("utf-8")
+                number = int(re.search(r"chart(\d+)\.xml", item.filename).group(1))
+                embedded[f"ppt/embeddings/chart{number}.xlsx"] = chart_workbook(data)
+            elif re.fullmatch(r"ppt/charts/_rels/chart\d+\.xml.rels", item.filename):
+                number = int(re.search(r"chart(\d+)\.xml", item.filename).group(1))
+                text = data.decode("utf-8")
+                text = re.sub(r'<Relationship\b[^>]*TargetMode="External"[^>]*/>',
+                              f'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/package" Target="../embeddings/chart{number}.xlsx"/>', text)
+                data = text.encode("utf-8")
             dst.writestr(item, data)
+        for name, data in embedded.items():
+            dst.writestr(name, data)
     shutil.move(tmp, DRM_YEARLY_COMPARISON_PPTX)
     with zipfile.ZipFile(DRM_YEARLY_COMPARISON_PPTX) as z:
         assert z.testzip() is None
