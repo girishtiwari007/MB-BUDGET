@@ -262,3 +262,16 @@ def refresh_exports(trigger="manual"):
     manifest = write_manifest(trigger, output, cache_refresh, run_started)
     smoke_test_manifest(manifest, run_started)
     return output or f"Exports refreshed: {manifest['refreshedAt']}"
+
+def main():
+    trigger = sys.argv[1] if len(sys.argv) > 1 else "manual-cli"
+    try:
+        print(refresh_exports(trigger))
+    except Exception as exc:
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()
+
