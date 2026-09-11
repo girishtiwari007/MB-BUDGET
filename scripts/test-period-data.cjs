@@ -7,8 +7,10 @@ const context = vm.createContext({ window: {} });
 for (const file of ['data/current_payload.js', 'data/reports-data.js', 'assets/period-data.js']) {
   vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context);
 }
-const { BudgetPeriods: api, CURRENT_PAYLOAD: source, REPORTS_DATA: reports } = context.window;
+const { BudgetPeriods: api, CURRENT_PAYLOAD: source, CURRENT_PAYLOAD_META: meta, REPORTS_DATA: reports } = context.window;
 const before = JSON.stringify(source);
+assert.match(meta.budgetRule || '', /RG 2026-2027 overrides BG_ISL\/OBA/);
+assert.equal(source.staff.rows.find(row => row.Name === 'PU - 01 - Sal/Wag').BudgetSource, 'BG_ISL');
 const completed = api.build(source, reports, api.period('AUG 2026'));
 const running = api.build(source, reports, api.period('SEP 2026'));
 const total = (view, key) => view[key].rows.find(row => row.Name === 'Total');
@@ -43,4 +45,5 @@ for (const view of [completed, running]) {
   }
 }
 assert.equal(JSON.stringify(source), before, 'Period views must not mutate source data');
-console.log('PASS: separate periods, prior-year aliases, totals, rounding consistency, labels, zero handling and source immutability');
+console.log('PASS: RG/BG_ISL budget rule, separate periods, prior-year aliases, totals, rounding consistency, labels, zero handling and source immutability');
+

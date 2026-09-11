@@ -184,6 +184,35 @@ def available_period_labels(source_root):
     return [item["label"] for item in available_actual_periods(table["headers"])]
 
 
+def budget_amount(raw, bg_idx, rg_idx=-1):
+    bg = number(raw[bg_idx] if bg_idx >= 0 and bg_idx < len(raw) else 0)
+    rg = number(raw[rg_idx] if rg_idx >= 0 and rg_idx < len(raw) else 0)
+    return rg if rg else bg
+
+
+def budget_source_label(raw, rg_idx=-1):
+    rg = number(raw[rg_idx] if rg_idx >= 0 and rg_idx < len(raw) else 0)
+    return "RG" if rg else "BG_ISL"
+
+
+def map_effective_budget(table, field, labeler=lambda value: value):
+    name_idx = col_index(table["headers"], [field])
+    bg_idx = col_index(table["headers"], ["BG_ISL", "2026-2027"])
+    try:
+        rg_idx = col_index(table["headers"], ["RG", "2026-2027"])
+    except RuntimeError:
+        rg_idx = -1
+    result = {}
+    sources = {}
+    for raw in table["rows"]:
+        name = str(raw[name_idx] if name_idx < len(raw) else "").strip()
+        if name and clean(name) != "TOTAL":
+            label = labeler(name)
+            result[label] = budget_amount(raw, bg_idx, rg_idx)
+            sources[label] = budget_source_label(raw, rg_idx)
+    return result, sources
+
+
 def find_bp(headers, period):
     exact = [idx for idx, header in enumerate(headers) if "BP" in header and "UPTO" in header and period["month"] in header and str(period["year"]) in header]
     return exact[-1] if exact else -1
@@ -288,7 +317,11 @@ def add_total(rows, previous=False):
 
 def build_current(table, field, first_label, title, demand=False, completed_month=None, running_month=None):
     name_idx = col_index(table["headers"], [field])
-    oba_idx = col_index(table["headers"], ["BG_ISL", "2026-2027"])
+    bg_idx = col_index(table["headers"], ["BG_ISL", "2026-2027"])
+    try:
+        rg_idx = col_index(table["headers"], ["RG", "2026-2027"])
+    except RuntimeError:
+        rg_idx = -1
     completed, running = actual_periods(table["headers"], completed_month, running_month)
     ae_idx = completed["idx"]
     rows = []
@@ -297,14 +330,15 @@ def build_current(table, field, first_label, title, demand=False, completed_mont
         if not name or clean(name) == "TOTAL":
             continue
         label = demand_from_smh(name) if demand else name
-        row = summary_row(label, raw[oba_idx], raw[ae_idx] if ae_idx >= 0 else 0, completed["count"], None)
+        row = summary_row(label, budget_amount(raw, bg_idx, rg_idx), raw[ae_idx] if ae_idx >= 0 else 0, completed["count"], None)
+        row["BudgetSource"] = budget_source_label(raw, rg_idx)
         if demand:
             with_department(row)
         rows.append(row)
     columns = [
         {"key": "Name", "label": first_label, "format": "text"},
         *([{"key": "Department", "label": "Department", "format": "text"}] if demand else []),
-        {"key": "OBA", "label": "A\nOBA\nBG_ISL 2026-27", "format": "money"},
+        {"key": "OBA", "label": "A\\nOBA/RG\\nRG if available, else BG_ISL 2026-27", "format": "money"},
         {"key": "BP", "label": f"B\nBP\nA / 12 * {completed['count']}", "format": "money"},
         {"key": "AE", "label": f"C\nAE\nActuals up to {completed['label']}", "format": "money"},
         {"key": "Variation", "label": "D\nVariation\nC - B", "format": "money"},
@@ -329,7 +363,7 @@ def map_column(table, field, needles, labeler=lambda value: value):
 def build_previous(prev_budget, curr_budget, field, first_label, title, demand=False, completed_month=None, running_month=None):
     labeler = demand_from_smh if demand else (lambda value: value)
     rg = map_column(prev_budget, field, ["RG", "2025-2026"], labeler)
-    bg = map_column(curr_budget, field, ["BG_ISL", "2026-2027"], labeler)
+    bg, current_budget_sources = map_effective_budget(curr_budget, field, labeler)
     name_idx = col_index(curr_budget["headers"], [field])
     completed, _running = actual_periods(curr_budget["headers"], completed_month, running_month)
     ae_idx = completed["idx"]
@@ -346,6 +380,7 @@ def build_previous(prev_budget, curr_budget, field, first_label, title, demand=F
     rows = []
     for label in rg:
         row = previous_row(label, rg.get(label, 0), bg.get(label, 0), current.get(label, 0), previous.get(label, 0), completed["count"])
+        row["BudgetSource"] = current_budget_sources.get(label, "BG_ISL")
         if demand:
             with_department(row)
         rows.append(row)
@@ -355,7 +390,7 @@ def build_previous(prev_budget, curr_budget, field, first_label, title, demand=F
         {"key": "PreviousOBA", "label": "A\nPrevious OBA\nRG 2025-26", "format": "money"},
         {"key": "PreviousBP", "label": f"B\nPrevious Budget Proportion\nA / 12 * {completed['count']}", "format": "money"},
         {"key": "AEPrevious", "label": f"C\nPrevious Actual Expenditure\nup to {previous_label}", "format": "money"},
-        {"key": "OBA", "label": "D\nCurrent OBA\nBG_ISL 2026-27", "format": "money"},
+        {"key": "OBA", "label": "D\\nCurrent OBA/RG\\nRG if available, else BG_ISL 2026-27", "format": "money"},
         {"key": "BP", "label": f"E\nCurrent Budget Proportion\nD / 12 * {completed['count']}", "format": "money"},
         {"key": "AECurrent", "label": f"F\nCurrent Actual Expenditure\nup to {completed['label']}", "format": "money"},
         {"key": "VariationBP", "label": "G\nBudget Variation\nF - E", "format": "money"},
@@ -435,6 +470,7 @@ def write_current_payload(payload, completed, running, source_root, backup_name,
         "runningMonth": running["label"],
         "completedMonth": completed["label"],
         "basisSource": basis_source,
+        "budgetRule": "RG 2026-2027 overrides BG_ISL/OBA when RG has a non-zero amount; otherwise BG_ISL/OBA is used. RG is expected from JAN onward.",
         "updatedAt": now,
         "backup": backup_name,
     }
@@ -548,6 +584,7 @@ def sync_current_year(source_root=DEFAULT_SOURCE, refresh=True, completed_month=
         "runningMonth": running["label"],
         "completedMonth": completed["label"],
         "basisSource": basis_source,
+        "budgetRule": "RG 2026-2027 overrides BG_ISL/OBA when RG has a non-zero amount; otherwise BG_ISL/OBA is used. RG is expected from JAN onward.",
         "sourceFolder": str(Path(source_root).resolve()),
         "backup": backup_name,
     })
@@ -580,3 +617,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

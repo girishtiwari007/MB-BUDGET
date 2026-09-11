@@ -85,7 +85,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
         if (!shifted) return;
         tab.columns = [
           { key:"Name", label:"PU", format:"text" },
-          { key:"OBA", label:"A\nOBA\nBG_ISL 2026-27", format:"money" },
+          { key:"OBA", label:"A\nOBA/RG\nRG if available, else BG_ISL 2026-27", format:"money" },
           { key:"BP", label:`B\nBP\nBP up to ${COMPLETED_PERIOD.label}`, format:"money" },
           { key:"AE", label:`C\nAE\nActuals up to ${COMPLETED_PERIOD.label}`, format:"money" },
           { key:"Variation", label:"D\nVariation\nC - B", format:"money" },
@@ -376,13 +376,13 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     function protectedAnalysisLogic() {
       if (!analysisState.logicUnlocked) return `<section class="protected-panel"><h3>Calculation Logic & Data Source Locked</h3><p>Enter the upload password to view source mapping and calculation logic from this Analysis page.</p><button class="export" type="button" data-unlock-analysis-logic>Unlock Logic & Sources</button></section>`;
       const logicRows = [
-        ["OBA / RG", "Current year uses BG_ISL 2026-27 as OBA until current RG is available. Previous year comparison uses RG 2025-26."],
-        ["BP", `Budget Proportion = OBA / 12 * completed month count. Current completed month count is ${String(COMPLETED_PERIOD.count).padStart(2, "0")} for ${COMPLETED_PERIOD.label}.`],
+        ["OBA / RG", "Current year uses RG 2026-27 as effective OBA when RG has a non-zero amount; otherwise BG_ISL 2026-27 is used. RG normally starts from JAN. Previous year comparison uses RG 2025-26."],
+        ["BP", `Budget Proportion = effective OBA/RG / 12 * completed month count. Current completed month count is ${String(COMPLETED_PERIOD.count).padStart(2, "0")} for ${COMPLETED_PERIOD.label}.`],
         ["AE", `Actual Expenditure uses completed actuals up to ${COMPLETED_PERIOD.label} in default tabs. ${RUNNING_PERIOD.label} running figures stay in Till Date / Running Month.`],
         ["AE - BP", "Actual Expenditure minus Budget Proportion. Positive values need attention for excess booking pace."],
-        ["Budget Remaining", "OBA minus Actual Expenditure. Negative values are highlighted as excess/low-balance risk."],
+        ["Budget Remaining", "Effective OBA/RG minus Actual Expenditure. Negative values are highlighted as excess/low-balance risk."],
         ["% BP", "Actual Expenditure / Budget Proportion * 100."],
-        ["% OBA", "Actual Expenditure / OBA * 100."],
+        ["% OBA", "Actual Expenditure / effective OBA/RG * 100."],
         ["YoY Variation", "Current-year AE minus previous-year AE for the same completed month basis."]
       ];
       return `<section class="protected-panel unlocked"><h3>Protected Calculation Logic</h3><table class="source-table"><thead><tr><th>Column / Measure</th><th>Logic Being Used</th></tr></thead><tbody>${logicRows.map(row => `<tr><td>${htmlEscape(row[0])}</td><td>${htmlEscape(row[1])}</td></tr>`).join("")}</tbody></table><h3>Repository Data Source Plan</h3><div class="source-plan compact">${sourcePlanTableHtml("all")}</div></section>`;
@@ -1033,7 +1033,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       const aeIdx = period.idx;
       const bpLabel = `B\nBP\nA / 12 * ${period.count}`;
       const columns = [
-        { key:"Name", label:firstLabel, format:"text" }, ...(demand ? [{ key:"Department", label:"Department", format:"text" }] : []), { key:"OBA", label:"A\nOBA\nBG_ISL 2026-27", format:"money" },
+        { key:"Name", label:firstLabel, format:"text" }, ...(demand ? [{ key:"Department", label:"Department", format:"text" }] : []), { key:"OBA", label:"A\nOBA/RG\nRG if available, else BG_ISL 2026-27", format:"money" },
         { key:"BP", label:bpLabel, format:"money" }, { key:"AE", label:`C\nAE\nActuals up to ${period.label}`, format:"money" },
         { key:"Variation", label:"D\nVariation\nC - B", format:"money" }, { key:"BPPercent", label:"E\n% BP\nC / B", format:"int" },
         { key:"Remaining", label:"F\nBudget Remaining\nA - C", format:"money" }, { key:"OBAPercent", label:"G\n% OBA Utilized\nC / A", format:"int" }
@@ -1056,7 +1056,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       const columns = [
         { key:"Name", label:firstLabel, format:"text" }, ...(demand ? [{ key:"Department", label:"Department", format:"text" }] : []), { key:"PreviousOBA", label:"A\nPrevious OBA\nRG 2025-26", format:"money" },
         { key:"PreviousBP", label:`B\nPrevious Budget Proportion\nA / 12 * ${period.count}`, format:"money" }, { key:"AEPrevious", label:`C\nPrevious Actual Expenditure\nup to ${previousLabel}`, format:"money" },
-        { key:"OBA", label:"D\nCurrent OBA\nBG_ISL 2026-27", format:"money" }, { key:"BP", label:`E\nCurrent Budget Proportion\nD / 12 * ${period.count}`, format:"money" },
+        { key:"OBA", label:"D\nCurrent OBA/RG\nRG if available, else BG_ISL 2026-27", format:"money" }, { key:"BP", label:`E\nCurrent Budget Proportion\nD / 12 * ${period.count}`, format:"money" },
         { key:"AECurrent", label:`F\nCurrent Actual Expenditure\nup to ${period.label}`, format:"money" }, { key:"VariationBP", label:"G\nBudget Variation\nF - E", format:"money" },
         { key:"BPPercent", label:"H\nCurrent Budget Proportion %\nF / E", format:"int" }, { key:"VariationActual", label:"I\nActual Expenditure Variation\nF - C", format:"money" },
         { key:"OBAPercent", label:"J\nCurrent OBA Utilization %\nF / D", format:"int" }
@@ -1482,3 +1482,4 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     const initialTab = new URLSearchParams(window.location.search).get("tab");
     if (initialTab && (DATA[initialTab] || ["analysis", "upload", "current_till"].includes(initialTab))) openTab(initialTab);
     else render(activeTab);
+

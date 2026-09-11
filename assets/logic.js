@@ -5,28 +5,28 @@ const REPORT_LOGIC = {
     columns: [
       ["Demand No. / SMH-Grant", "Demand and Sub Major Head grouping from source file."],
       ["Department", "Department mapped from Demand / SMH."],
-      ["OBA", "Original Budget Allotment from BG_ISL 2026-27."],
-      ["BP", "OBA / 12 * completed month count. Default month count is 05 for APR-AUG."],
+      ["OBA / RG", "Effective OBA uses RG 2026-27 when RG has a non-zero amount; otherwise BG_ISL 2026-27 is used. RG normally starts from JAN."],
+      ["BP", "Effective OBA / 12 * completed month count. Default month count is 05 for APR-AUG."],
       ["AE", "Actual Expenditure up to completed month. Default is actual up to AUG 2026."],
       ["Variation", "AE - BP."],
       ["% BP", "AE / BP * 100."],
-      ["Budget Remaining", "OBA - AE."],
-      ["% OBA Utilized", "AE / OBA * 100."]
+      ["Budget Remaining", "Effective OBA - AE."],
+      ["% OBA Utilized", "AE / Effective OBA * 100."]
     ],
-    steps: ["Load current-year budget and actual source files.", "Use completed month basis by default.", "Calculate BP from OBA and month count.", "Compare actual expenditure against BP and OBA."]
+    steps: ["Load current-year budget and actual source files.", "Use completed month basis by default.", "Calculate BP from effective OBA/RG and month count.", "Compare actual expenditure against BP and OBA."]
   },
   current_pu_staff: {
     title: "PU Staff Current Year",
     basis: "GUI synced basis is completed actual expenditure up to AUG 2026. Staff PUs are filtered by staff PU code list.",
     columns: [
       ["PU", "Primary Unit name/code."],
-      ["OBA", "Original Budget Allotment from BG_ISL 2026-27."],
-      ["BP", "OBA / 12 * completed month count from GUI sync basis."],
+      ["OBA / RG", "Effective OBA uses RG 2026-27 when RG has a non-zero amount; otherwise BG_ISL 2026-27 is used. RG normally starts from JAN."],
+      ["BP", "Effective OBA / 12 * completed month count from GUI sync basis."],
       ["AE", "Actual expenditure up to AUG 2026."],
       ["Variation", "AE - BP."],
       ["% BP", "AE / BP * 100."],
-      ["Budget Remaining", "OBA - AE."],
-      ["% OBA Utilized", "AE / OBA * 100."]
+      ["Budget Remaining", "Effective OBA - AE."],
+      ["% OBA Utilized", "AE / Effective OBA * 100."]
     ],
     steps: ["Read all PU budget rows.", "Keep staff PU codes only.", "Use actuals up to the selected completed month.", "Add total row from filtered rows."]
   },
@@ -35,13 +35,13 @@ const REPORT_LOGIC = {
     basis: "GUI synced basis is completed actual expenditure up to AUG 2026. Non-staff PUs are all PUs outside staff PU code list.",
     columns: [
       ["PU", "Primary Unit name/code."],
-      ["OBA", "Original Budget Allotment from BG_ISL 2026-27."],
-      ["BP", "OBA / 12 * completed month count from GUI sync basis."],
+      ["OBA / RG", "Effective OBA uses RG 2026-27 when RG has a non-zero amount; otherwise BG_ISL 2026-27 is used. RG normally starts from JAN."],
+      ["BP", "Effective OBA / 12 * completed month count from GUI sync basis."],
       ["AE", "Actual expenditure up to AUG 2026."],
       ["Variation", "AE - BP."],
       ["% BP", "AE / BP * 100."],
-      ["Budget Remaining", "OBA - AE."],
-      ["% OBA Utilized", "AE / OBA * 100."]
+      ["Budget Remaining", "Effective OBA - AE."],
+      ["% OBA Utilized", "AE / Effective OBA * 100."]
     ],
     steps: ["Read all PU budget rows.", "Exclude staff PU codes.", "Apply Important PU filter when selected.", "Add total row from visible rows."]
   },
@@ -52,13 +52,13 @@ const REPORT_LOGIC = {
       ["Previous OBA", "Previous-year RG 2025-26."],
       ["Previous BP", "Previous OBA / 12 * completed month count."],
       ["Previous Actual", "Previous-year actual expenditure up to same completed month."],
-      ["Current OBA", "Current-year BG_ISL 2026-27."],
-      ["Current BP", "Current OBA / 12 * completed month count."],
+      ["Current OBA / RG", "Current-year effective OBA uses RG 2026-27 when RG has a non-zero amount; otherwise BG_ISL 2026-27 is used. RG normally starts from JAN."],
+      ["Current BP", "Current effective OBA / 12 * completed month count."],
       ["Current Actual", "Current-year actual expenditure up to completed month."],
       ["Budget Variation", "Current Actual - Current BP."],
       ["% Current BP", "Current Actual / Current BP * 100."],
       ["Actual Variation", "Current Actual - Previous Actual."],
-      ["% Current OBA", "Current Actual / Current OBA * 100."]
+      ["% Current OBA", "Current Actual / Current effective OBA * 100."]
     ],
     steps: ["Match PU codes across previous and current files.", "Use same completed month count for both years.", "Compare current actual to current BP and previous actual."]
   },
@@ -66,11 +66,11 @@ const REPORT_LOGIC = {
     title: "Till Date / Running Month",
     basis: "This page keeps September as running/till-date data. It is separate from default completed-actual calculation.",
     columns: [
-      ["OBA", "Original Budget Allotment as available in source."],
-      ["BP", "OBA / 12 * 06 when September running month is included."],
+      ["OBA / RG", "Effective OBA uses RG where available; otherwise BG_ISL/OBA from source."],
+      ["BP", "Effective OBA / 12 * 06 when September running month is included."],
       ["AE", "Actual expenditure through the running month from loaded monthly data."],
       ["Variation", "AE - BP."],
-      ["Budget Remaining", "OBA - AE."],
+      ["Budget Remaining", "Effective OBA - AE."],
       ["Utilization", "AE divided by BP or OBA depending on column."]
     ],
     steps: ["Calculate running-month actuals and BP separately from the completed-month view.", "Show timestamp of data load.", "Do not mix running-month values into the completed-month view."]
@@ -89,12 +89,12 @@ const REPORT_LOGIC = {
     title: "Advanced Report - Budget Proportion vs Actual Expenditure",
     basis: "GUI synced basis is completed AUG 2026 (05). Till-date option uses SEP 2026 running month (06).",
     columns: [
-      ["OBA", "Original Budget Allotment."],
-      ["BP", "OBA / 12 * active month count for latest year; source BP is used for older years where available."],
+      ["OBA / RG", "Effective OBA uses RG 2026-27 when available; otherwise BG_ISL/OBA."],
+      ["BP", "Effective OBA / 12 * active month count for latest year; source BP is used for older years where available."],
       ["AE", "Actual Expenditure up to selected Actual Basis month."],
       ["AE - BP", "Actual Expenditure minus Budget Proportion."],
       ["% BP Utilized", "AE / BP * 100."],
-      ["% OBA Utilized", "AE / OBA * 100."]
+      ["% OBA Utilized", "AE / Effective OBA * 100."]
     ],
     steps: ["Choose report scope: PU or Demand.", "Choose selected item.", "Apply Important PU filter if needed.", "Compare OBA, BP and AE using selected basis."]
   },
@@ -154,7 +154,7 @@ function renderLogic() {
   const item = REPORT_LOGIC[select.value] || REPORT_LOGIC.current_demand;
   host.innerHTML = `<article class="logic-page">
     <div class="note">Remarks - Figures in '000' (thousands). ${esc(periodText(item.basis))}</div>
-    <section class="section"><h2>Calculation Basis</h2><div class="section-body"><div class="chips"><span class="chip">Selected report: ${esc(item.title)}</span><span class="chip">Default completed month: ${esc(completedLabel)}</span><span class="chip">Running month: ${esc(runningLabel)}</span></div></div></section>
+    <section class="section"><h2>Calculation Basis</h2><div class="section-body"><div class="chips"><span class="chip">Selected report: ${esc(item.title)}</span><span class="chip">Default completed month: ${esc(completedLabel)}</span><span class="chip">Running month: ${esc(runningLabel)}</span></div><p class="logic-rule">${esc(META.budgetRule || "RG overrides BG_ISL/OBA when RG has a non-zero amount; otherwise BG_ISL/OBA is used. RG normally starts from JAN.")}</p></div></section>
     <section class="section"><h2>Column Formulas</h2><div class="section-body"><table class="formula-table"><thead><tr><th>Column / Control</th><th>Logic Being Used</th></tr></thead><tbody>${item.columns.map(row => `<tr><td>${esc(row[0])}</td><td>${esc(periodText(row[1]))}</td></tr>`).join("")}</tbody></table></div></section>
     <section class="section"><h2>Calculation Flow</h2><div class="section-body"><ol class="steps">${item.steps.map(step => `<li>${esc(periodText(step))}</li>`).join("")}</ol></div></section>
   </article>`;
@@ -168,3 +168,4 @@ renderOptions();
 select.addEventListener("change", renderLogic);
 document.getElementById("exportLogicPdf").addEventListener("click", exportPdf);
 renderLogic();
+
