@@ -1,9 +1,11 @@
 from datetime import datetime
 from pathlib import Path
 import json
+import posixpath
 import re
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 import zipfile
 
 
@@ -13,6 +15,7 @@ GENERATOR = REPO_ROOT / "scripts" / "generate_drm_exports.py"
 EXPECTED_EXPORTS = [
     "exports/Current_Previous_Year_PU_Demand_Analysis.xlsx",
     "exports/Current_Previous_Year_PU_Demand_Analysis.pdf",
+    "exports/SMH_PU_Department_Wise_Matrix_Report.pdf",
     "exports/FR_Budget_Status.xlsx",
     "exports/FR_Budget_Status.pdf",
     "exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx",
@@ -37,6 +40,7 @@ PDF_SUFFIXES = {".pdf"}
 BASIS_EXPORTS = [
     "exports/Current_Previous_Year_PU_Demand_Analysis.xlsx",
     "exports/Current_Previous_Year_PU_Demand_Analysis.pdf",
+    "exports/SMH_PU_Department_Wise_Matrix_Report.pdf",
     "exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx",
     "exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx",
     "exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx",
@@ -199,8 +203,50 @@ def validate_export_file(path, run_started):
             bad = archive.testzip()
         if bad:
             errors.append(f"Office export is corrupt: {path.name} -> {bad}")
+        errors.extend(validate_office_package(path))
     elif path.suffix.lower() in PDF_SUFFIXES and not path.read_bytes().startswith(b"%PDF"):
         errors.append(f"PDF export has invalid header: {path.name}")
+    return errors
+
+
+def relationship_base(rel_name):
+    if rel_name == "_rels/.rels":
+        return ""
+    if "/_rels/" not in rel_name:
+        return ""
+    return rel_name.split("/_rels/", 1)[0] + "/"
+
+
+def validate_office_package(path):
+    errors = []
+    rel_ns = "{http://schemas.openxmlformats.org/package/2006/relationships}"
+    with zipfile.ZipFile(path) as archive:
+        names = set(archive.namelist())
+        for name in names:
+            if not (name.endswith(".xml") or name.endswith(".rels")):
+                continue
+            try:
+                root = ET.fromstring(archive.read(name))
+            except Exception as exc:
+                errors.append(f"Office XML part is invalid: {path.name}:{name}: {exc}")
+                continue
+            if not name.endswith(".rels"):
+                continue
+            ids = []
+            base = relationship_base(name)
+            for rel in root.findall(f"{rel_ns}Relationship"):
+                rel_id = rel.attrib.get("Id", "")
+                target = rel.attrib.get("Target", "")
+                mode = rel.attrib.get("TargetMode", "")
+                ids.append(rel_id)
+                if mode == "External" or not target or re.match(r"^[a-z]+:", target, re.I):
+                    continue
+                resolved = posixpath.normpath(posixpath.join(base, target)).lstrip("/")
+                if resolved not in names:
+                    errors.append(f"Office relationship target missing: {path.name}:{name}:{rel_id}->{target}")
+            duplicates = sorted({rel_id for rel_id in ids if ids.count(rel_id) > 1})
+            if duplicates:
+                errors.append(f"Office relationship has duplicate ids: {path.name}:{name}:{', '.join(duplicates)}")
     return errors
 
 

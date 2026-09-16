@@ -1,75 +1,81 @@
 {
-  "refreshedAt": "2026-09-15T16:04:06",
-  "runStartedAt": "2026-09-15T16:04:03",
-  "trigger": "post-gui-sync-smoke",
+  "refreshedAt": "2026-09-16T15:52:05",
+  "runStartedAt": "2026-09-16T15:51:59",
+  "trigger": "office-integrity-smoke",
   "status": "success",
   "missing": [],
   "files": [
     {
       "path": "exports/Current_Previous_Year_PU_Demand_Analysis.xlsx",
       "exists": true,
-      "size": 22720,
-      "modifiedAt": "2026-09-15T16:04:05"
+      "size": 22716,
+      "modifiedAt": "2026-09-16T15:52:03"
     },
     {
       "path": "exports/Current_Previous_Year_PU_Demand_Analysis.pdf",
       "exists": true,
       "size": 163762,
-      "modifiedAt": "2026-09-15T16:04:05"
+      "modifiedAt": "2026-09-16T15:52:03"
+    },
+    {
+      "path": "exports/SMH_PU_Department_Wise_Matrix_Report.pdf",
+      "exists": true,
+      "size": 363938,
+      "modifiedAt": "2026-09-16T15:52:04"
     },
     {
       "path": "exports/FR_Budget_Status.xlsx",
       "exists": true,
-      "size": 10634,
-      "modifiedAt": "2026-09-15T16:04:05"
+      "size": 10633,
+      "modifiedAt": "2026-09-16T15:52:03"
     },
     {
       "path": "exports/FR_Budget_Status.pdf",
       "exists": true,
       "size": 44874,
-      "modifiedAt": "2026-09-15T16:04:05"
+      "modifiedAt": "2026-09-16T15:52:03"
     },
     {
       "path": "exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx",
       "exists": true,
       "size": 90848,
-      "modifiedAt": "2026-09-15T16:04:05"
+      "modifiedAt": "2026-09-16T15:52:04"
     },
     {
       "path": "exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx",
       "exists": true,
-      "size": 15006,
-      "modifiedAt": "2026-09-15T16:04:05"
+      "size": 15005,
+      "modifiedAt": "2026-09-16T15:52:03"
     },
     {
       "path": "exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx",
       "exists": true,
       "size": 68571,
-      "modifiedAt": "2026-09-15T16:04:05"
+      "modifiedAt": "2026-09-16T15:52:04"
     },
     {
       "path": "exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_Actual_Month.pptx",
       "exists": true,
       "size": 68520,
-      "modifiedAt": "2026-09-15T16:04:05"
+      "modifiedAt": "2026-09-16T15:52:04"
     },
     {
       "path": "exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx",
       "exists": true,
       "size": 68571,
-      "modifiedAt": "2026-09-15T16:04:05"
+      "modifiedAt": "2026-09-16T15:52:04"
     },
     {
       "path": "exports/Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx",
       "exists": true,
-      "size": 403821,
-      "modifiedAt": "2026-09-15T16:04:05"
+      "size": 403781,
+      "modifiedAt": "2026-09-16T15:52:04"
     }
   ],
   "generator": "scripts/generate_drm_exports.py",
-  "output": "Generated D:\\github\\MB-BUDGET\\exports\\Current_Previous_Year_PU_Demand_Analysis.xlsx\nGenerated D:\\github\\MB-BUDGET\\exports\\Current_Previous_Year_PU_Demand_Analysis.pdf\nGenerated D:\\github\\MB-BUDGET\\exports\\FR_Budget_Status.xlsx\nGenerated D:\\github\\MB-BUDGET\\exports\\FR_Budget_Status.pdf\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_Budget_FR_Analysis.xlsx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_Current_Year_Budget_Analysis.pptx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_Budget_FR_Analysis.pptx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_Actual_Month.pptx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx",
+  "output": "Generated D:\\github\\MB-BUDGET\\exports\\Current_Previous_Year_PU_Demand_Analysis.xlsx\nGenerated D:\\github\\MB-BUDGET\\exports\\Current_Previous_Year_PU_Demand_Analysis.pdf\nGenerated D:\\github\\MB-BUDGET\\exports\\FR_Budget_Status.xlsx\nGenerated D:\\github\\MB-BUDGET\\exports\\FR_Budget_Status.pdf\nGenerated D:\\github\\MB-BUDGET\\exports\\SMH_PU_Department_Wise_Matrix_Report.pdf\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_Budget_FR_Analysis.xlsx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_Current_Year_Budget_Analysis.pptx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_Budget_FR_Analysis.pptx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_Actual_Month.pptx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx",
   "cacheRefresh": {
-    "token": "20260915160406",
+    "token": "20260916155205",
     "files": [
       "index.html",
       "pages/admin.html",
@@ -83,8 +89,8 @@
   },
   "smokeTest": {
     "status": "success",
-    "checkedAt": "2026-09-15T16:04:06",
-    "checkedExports": 10,
+    "checkedAt": "2026-09-16T15:52:06",
+    "checkedExports": 11,
     "checkedPages": 8,
     "yearlyComparisonTemplate": {
       "template": {

@@ -19,6 +19,7 @@
   })();
   const committedFiles = [
     ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf", "PDF", `Completed ${COMPLETED.label}`],
+    ["SMH Matrix PDF", "../exports/SMH_PU_Department_Wise_Matrix_Report.pdf", "PDF", `PU and Department ACT / BUD PROP / VAR up to ${COMPLETED.label}`],
     ["Current / Previous Excel", "../exports/Current_Previous_Year_PU_Demand_Analysis.xlsx", "XLSX", `Completed ${COMPLETED.label}`],
     ["Current / Previous PPTX", "../exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx", "PPTX", `Completed ${COMPLETED.label}`],
     ["DRM Existing Current-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx", "PPTX", `Completed ${COMPLETED.label} + H full FY 2025-26`],
@@ -34,6 +35,7 @@
       title: "Current / Previous Analysis",
       items: [
         ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf", "Generated PDF snapshot refreshed by local sync/upload."],
+        ["SMH PU / Department Matrix PDF", "../exports/SMH_PU_Department_Wise_Matrix_Report.pdf", "A3 PDF report: PU-wise and Department-wise ACT, BUD PROP and VAR across SMHs, in thousands and Crore."],
         ["Current / Previous Excel (.xlsx)", "../exports/Current_Previous_Year_PU_Demand_Analysis.xlsx", "Generated .xlsx snapshot refreshed by local sync/upload."],
         ["Current / Previous PPTX", "../exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx", `Presentation deck. Completed month basis: ${COMPLETED.label}.`]
       ]
@@ -148,6 +150,7 @@
       "",
       "Files / pages:",
       "- Current / Previous Analysis PDF: exports/Current_Previous_Year_PU_Demand_Analysis.pdf",
+      "- SMH PU / Department Matrix PDF: exports/SMH_PU_Department_Wise_Matrix_Report.pdf",
       "- Current / Previous Analysis Excel: exports/Current_Previous_Year_PU_Demand_Analysis.xlsx",
       "- DRM Existing Current-Year PPTX: exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx",
       "- DRM Till Actual Month PPTX: exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_Actual_Month.pptx",

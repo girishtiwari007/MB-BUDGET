@@ -89,6 +89,7 @@
       ["Current / Previous Excel", "../exports/Current_Previous_Year_PU_Demand_Analysis.xlsx"],
       ["FR Budget Excel", "../exports/FR_Budget_Status.xlsx"],
       ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf"],
+      ["SMH PU / Department Matrix PDF", "../exports/SMH_PU_Department_Wise_Matrix_Report.pdf"],
       ["FR Budget PDF", "../exports/FR_Budget_Status.pdf"]
     ];
     $("exportHealth").innerHTML = `<div class="export-grid">${exports.map(([label,href])=>`<div class="export-row"><a href="${freshHref(href)}" download>${label}</a><span>${href.split("/").pop()}</span></div>`).join("")}</div>`;

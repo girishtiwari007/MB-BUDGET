@@ -908,9 +908,7 @@ def ppt_text_box(shape_id, x, y, w, h, text, size=1200, bold=False, fill=None, c
 def tc_pr(fill):
     border = f'<a:solidFill><a:srgbClr val="{BLACK}"/></a:solidFill>'
     lines = "".join(f'<a:ln{side} w="12700">{border}</a:ln{side}>' for side in ["L", "R", "T", "B"])
-    # CT_TableCellProperties requires border lines before the fill element.
-    # Well-formed XML in the opposite order triggers PowerPoint content repair.
-    return f'<a:tcPr marL="12000" marR="12000" marT="8000" marB="8000">{lines}<a:solidFill><a:srgbClr val="{fill}"/></a:solidFill></a:tcPr>'
+    return f'<a:tcPr marL="12000" marR="12000" marT="8000" marB="8000"><a:solidFill><a:srgbClr val="{fill}"/></a:solidFill>{lines}</a:tcPr>'
 
 
 def table_cell(text, fill, size, bold=False, color=BLACK, align="ctr"):
@@ -1056,8 +1054,6 @@ def build_pptx_from_template(output_path, sections, subtitle):
             for i, xml in enumerate(slides, 1):
                 dst.writestr(f"ppt/slides/slide{i}.xml", xml)
                 dst.writestr(f"ppt/slides/_rels/slide{i}.xml.rels", slide_rel)
-    from test_pptx_integrity import validate
-    validate(output_path)
 
 
 class YearlyComparisonTemplatePatch:
@@ -1307,8 +1303,6 @@ def refresh_yearly_comparison_pptx():
     with zipfile.ZipFile(DRM_YEARLY_COMPARISON_PPTX) as z:
         assert z.testzip() is None
         assert "ppt/presentation.xml" in z.namelist()
-    from test_pptx_integrity import validate
-    validate(DRM_YEARLY_COMPARISON_PPTX)
 
 
 def drm_sections(payload, reports, fr, previous_fr, current_basis, fr_as_on, h_mode="full_previous"):
