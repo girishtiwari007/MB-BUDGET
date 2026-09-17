@@ -4,7 +4,11 @@ import json
 import subprocess
 import sys
 import threading
+import time
 import tkinter as tk
+import urllib.error
+import urllib.request
+import webbrowser
 import zipfile
 from tkinter import filedialog, messagebox, ttk
 
@@ -47,6 +51,7 @@ class LocalSyncApp(tk.Tk):
         self.completed_month = tk.StringVar(value=PERIOD_OPTIONS[0])
         self.running_month = tk.StringVar(value=PERIOD_OPTIONS[0])
         self.status = tk.StringVar(value="Ready. Choose a current-year folder or FR file; sync starts automatically.")
+        self.server_process = None
         self._build()
 
     def _build(self):
@@ -130,6 +135,8 @@ class LocalSyncApp(tk.Tk):
                 if output:
                     self.write(str(output))
                 self.write(self.validation_summary())
+                portal_url = self.refresh_local_portal()
+                self.write(f"- Portal page refreshed: {portal_url}")
                 self.status.set("Done.")
                 messagebox.showinfo("MB-BUDGET Local Sync", "Completed successfully.")
             except Exception as exc:
@@ -294,9 +301,44 @@ class LocalSyncApp(tk.Tk):
         lines.append("- Result: all pages and exports refreshed successfully.")
         return "\n".join(lines)
 
+    def local_server_ok(self):
+        try:
+            with urllib.request.urlopen("http://127.0.0.1:8000/", timeout=2) as response:
+                return 200 <= response.status < 500
+        except (OSError, urllib.error.URLError):
+            return False
+
+    def ensure_local_server(self):
+        if self.local_server_ok():
+            return True
+        self.write("- Local portal server not running. Starting scripts\\local-upload-server.py on port 8000...")
+        self.server_process = subprocess.Popen(
+            [sys.executable, str(REPO_ROOT / "scripts" / "local-upload-server.py"), "8000"],
+            cwd=REPO_ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform.startswith("win") else 0,
+        )
+        for _ in range(20):
+            time.sleep(0.25)
+            if self.local_server_ok():
+                return True
+        raise RuntimeError("Local portal server could not be started on http://127.0.0.1:8000/.")
+
+    def refresh_local_portal(self):
+        self.ensure_local_server()
+        token = str(int(time.time()))
+        url = f"http://127.0.0.1:8000/?fresh=local-sync-{token}"
+        webbrowser.open(url, new=0, autoraise=True)
+        return url
+
     def open_portal(self):
-        self.write("Open the portal from local server: http://127.0.0.1:8000/")
-        self.write("If it is not running, start: py -3 scripts\\local-upload-server.py 8000")
+        try:
+            portal_url = self.refresh_local_portal()
+            self.write(f"Open/reload local portal: {portal_url}")
+        except Exception as exc:
+            self.write("Could not open local portal: " + str(exc))
+            self.write("Manual start: py -3 scripts\\local-upload-server.py 8000")
 
 
 if __name__ == "__main__":

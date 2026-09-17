@@ -276,12 +276,33 @@ def add_previous_actual_column(tab, rows, previous_actuals, header_prefix="H", l
     return columns, next_rows
 
 
+def resolve_node():
+    candidates = [
+        shutil.which("node"),
+        ROOT / "node.exe",
+        ROOT / "tools" / "node" / "node.exe",
+        Path.home() / ".cache" / "codex-runtimes" / "codex-primary-runtime" / "dependencies" / "node" / "bin" / "node.exe",
+        Path.home() / "AppData" / "Local" / "Programs" / "nodejs" / "node.exe",
+        Path(r"C:\Program Files\nodejs\node.exe"),
+        Path(r"C:\Program Files (x86)\nodejs\node.exe"),
+    ]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = Path(candidate)
+        if path.exists():
+            return str(path)
+    raise RuntimeError(
+        "Node.js is required for the shared portal/export calculations. "
+        "Install Node.js or keep the bundled Codex runtime at "
+        r"C:\Users\HP\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
+    )
+
+
 def apply_completed_period(payload):
     # Share browser calculations so PDF/Excel/PPTX cannot drift from the portal.
     import subprocess
-    node = shutil.which("node")
-    if not node:
-        raise RuntimeError("Node.js is required for the shared portal/export calculations.")
+    node = resolve_node()
     result = subprocess.run([node, str(ROOT / "scripts" / "export-period-data.cjs")],
                             cwd=ROOT, capture_output=True, text=True, encoding="utf-8", check=True)
     return json.loads(result.stdout)
