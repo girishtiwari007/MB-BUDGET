@@ -7,7 +7,6 @@
   };
   let unlocked = false;
   let password = "";
-  const ADMIN_PASSWORD = "Moradabad@2026";
   const META = window.CURRENT_PAYLOAD_META || {};
   const app = document.getElementById("adminApp");
   const locked = document.getElementById("lockedPanel");
@@ -70,19 +69,19 @@
     const entered = window.prompt("Enter admin password");
     if(entered === null) return false;
     function unlock(){
-      unlocked=true; password=entered; app.hidden=false; locked.hidden=true; lockState.textContent="Admin Unlocked"; fillControls(); return true;
+      unlocked=true; password=entered; sessionStorage.setItem("mbBudgetProtectionUnlocked", "1"); app.hidden=false; locked.hidden=true; lockState.textContent="Admin Unlocked"; fillControls(); return true;
     }
-    if(entered !== ADMIN_PASSWORD){
-      window.alert("Incorrect password.");
-      return false;
-    }
+    if(!entered.trim()) return false;
     const form = new FormData(); form.append("password",entered);
     try{
       const response = await postForm("/api/upload-auth", form);
       if(!response.ok) throw new Error("Incorrect password.");
       return unlock();
     }catch(error){
-      if(!isLocalApiMode() || String(error.message || "").includes("local upload server") || entered === ADMIN_PASSWORD) return unlock();
+      if(!isLocalApiMode()) {
+        window.alert(localOnlyMessage());
+        return false;
+      }
       window.alert(error.message || "Incorrect password.");
       return false;
     }

@@ -1,6 +1,4 @@
 (function(){
-  const ADMIN_PASSWORD = "Moradabad@2026";
-  const EXPORT_PASSWORD = "#1";
   const ADMIN_KEY = "mbBudgetProtectionUnlocked";
   const EXPORT_KEY = "mbBudgetExportUnlocked";
   const BYPASS = "mbBudgetProtectionBypass";
@@ -40,29 +38,13 @@
 
   function askAdminPassword(reason){
     if (adminUnlocked()) return true;
-    const entered = window.prompt(reason || lockedMessage);
-    if (entered === null) return false;
-    if (entered === ADMIN_PASSWORD) {
-      setAdminUnlocked();
-      return true;
-    }
-    window.alert("Incorrect password.");
+    window.alert("Protected actions require local Admin Portal authentication. Open this portal through the local upload server and unlock Admin Portal.");
     return false;
   }
 
   function askExportPassword(reason){
     if (exportUnlocked()) return true;
-    const entered = window.prompt(reason || "Enter export password to download/export files.");
-    if (entered === null) return false;
-    if (entered === EXPORT_PASSWORD) {
-      setExportUnlocked();
-      return true;
-    }
-    if (entered === ADMIN_PASSWORD) {
-      setAdminUnlocked();
-      return true;
-    }
-    window.alert("Incorrect export password.");
+    window.alert("Exports require local Admin Portal authentication.");
     return false;
   }
 
