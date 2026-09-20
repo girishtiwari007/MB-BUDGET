@@ -27,6 +27,10 @@
     return sessionStorage.getItem(EXPORT_KEY) === "1" || adminUnlocked();
   }
 
+  function isHostedPortal(){
+    return !["localhost", "127.0.0.1"].includes(location.hostname) && location.protocol !== "file:";
+  }
+
   function setAdminUnlocked(){
     sessionStorage.setItem(ADMIN_KEY, "1");
     updateBadge();
@@ -43,6 +47,9 @@
   }
 
   function askExportPassword(reason){
+    // Generated reports are published portal artefacts. GitHub Pages cannot
+    // perform local-admin authentication, so hosted visitors may download them.
+    if (isHostedPortal()) return true;
     if (exportUnlocked()) return true;
     window.alert("Exports require local Admin Portal authentication.");
     return false;
@@ -79,7 +86,7 @@
 
   function protectClick(event){
     const target = exportTarget(event.target);
-    if (!target || target.dataset[BYPASS] === "1" || exportUnlocked()) return;
+    if (!target || isHostedPortal() || target.dataset[BYPASS] === "1" || exportUnlocked()) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     if (!askExportPassword("Enter export password to download/export files.")) return;
