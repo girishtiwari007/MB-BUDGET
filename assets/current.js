@@ -5,7 +5,6 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     let TAB_ORDER = ["demand", "staff", "nonstaff", "pu_prev", "demand_prev"].filter(key => DATA[key]);
     const STAFF_CODES = new Set(["01", "02", "03", "04", "07", "08", "10", "11", "12", "13", "14", "15", "16", "17", "20", "25", "26", "29", "34", "39", "40", "42", "43", "44", "53", "54", "63"]);
     const IMPORTANT_PU_CODES = new Set(["27", "28", "30", "32", "60"]);
-    const UPLOAD_PASSWORD = "Moradabad@2026";
     const UPLOAD_STATE = {};
     const UPLOAD_FILES = {};
     let uploadServerReady = false;
@@ -43,6 +42,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     const compareState = { entity:"pu", years:"1", metric:"ae", chart:"bar", item:"__total" };
     const analysisState = { scope:"current", metric:"ae", attention:"all", pu:"all", view:"overview", logicUnlocked:false };
     let uploadUnlocked = false;
+    let uploadPassword = "";
     const PERIOD_MONTHS = ["APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", "JAN", "FEB", "MAR"];
     function displayPeriodLabel(label, fallbackLabel) {
       const text = String(label || fallbackLabel || "AUG 2026").trim().toUpperCase();
@@ -757,6 +757,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       }
       const form = new FormData();
       form.append("year", year || "2026-2027");
+      form.append("password", uploadPassword);
       CURRENT_YEAR_UPLOAD_ROLES.forEach(role => form.append(role, UPLOAD_FILES[role], currentYearRoleTarget(role)));
       try {
         logUpload("Saving current-year files into repository folder...");
@@ -1100,9 +1101,9 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     }
     function requestUploadPassword() {
       if (uploadUnlocked) return true;
-      const entered = window.prompt("Enter password to open Upload Data");
-      if (entered === UPLOAD_PASSWORD) { uploadUnlocked = true; return true; }
-      if (entered !== null) window.alert("Incorrect password.");
+      const entered = window.prompt("Enter the local upload password");
+      if (entered && entered.trim()) { uploadPassword = entered; uploadUnlocked = true; return true; }
+      if (entered !== null) window.alert("A password is required for local upload actions.");
       return false;
     }
     function exportFileName(prefix, extension) {

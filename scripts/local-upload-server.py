@@ -9,6 +9,7 @@ import stat
 import subprocess
 import sys
 import zipfile
+import hmac
 from io import BytesIO
 from datetime import datetime, timezone
 
@@ -28,7 +29,7 @@ FR_UPLOAD_ROOT = REPO_ROOT / "data" / "fr"
 FR_TARGET_BASENAME = "FR_Budget_Status"
 FR_ALLOWED_EXTENSIONS = {".xls", ".xlsx"}
 FR_MANIFEST_NAME = "fr-upload-manifest.json"
-UPLOAD_PASSWORD = "Moradabad@2026"
+UPLOAD_PASSWORD_FILE = REPO_ROOT / "upload_password.json"
 MBRLR_REPO_ROOT = Path(os.environ.get("MBRLR_REPO_ROOT", REPO_ROOT.parent / "MBRLR")).resolve()
 MBRLR_SYNC_ROOT = MBRLR_REPO_ROOT / "data" / "mb-budget-sync"
 CURRENT_SYNC_YEAR = "2026-2027"
@@ -41,6 +42,28 @@ SYNC_CORE_FILES = [
     "year-sources.local.js",
     "year-sources.local.json",
 ]
+
+
+def upload_password():
+    """Read the local administrator secret without putting it in the repository."""
+    configured = os.environ.get("MB_BUDGET_UPLOAD_PASSWORD", "")
+    if configured:
+        return configured
+    if not UPLOAD_PASSWORD_FILE.exists():
+        return ""
+    try:
+        raw = UPLOAD_PASSWORD_FILE.read_text(encoding="utf-8").strip()
+        payload = json.loads(raw)
+        if isinstance(payload, dict):
+            return str(payload.get("password", ""))
+    except json.JSONDecodeError:
+        return raw
+    return ""
+
+
+def password_is_valid(value):
+    secret = upload_password()
+    return bool(secret) and hmac.compare_digest(str(value or ""), secret)
 
 def safe_year(value):
     year = str(value or "2026-2027").strip()
@@ -439,9 +462,12 @@ class Handler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(REPO_ROOT), **kwargs)
 
     def end_headers(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        # This server deliberately binds to loopback only. Do not make its write API
+        # available to arbitrary web origins.
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
+        self.send_header("Referrer-Policy", "same-origin")
+        self.send_header("Cache-Control", "no-store" if self.path.startswith("/api/") else "no-cache")
         super().end_headers()
 
     def do_OPTIONS(self):
@@ -495,6 +521,9 @@ class Handler(SimpleHTTPRequestHandler):
                 "REQUEST_METHOD": "POST",
                 "CONTENT_TYPE": self.headers.get("Content-Type", ""),
             })
+            if not password_is_valid(form.getfirst("password", "")):
+                self.send_json(403, {"error": "Authentication required. Configure upload_password.json or MB_BUDGET_UPLOAD_PASSWORD."})
+                return
             year = safe_year(form.getfirst("year", "2026-2027"))
             year_dir = (REPO_ROOT / "data" / "source-files" / year).resolve()
             source_root = (REPO_ROOT / "data" / "source-files").resolve()
@@ -535,7 +564,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "REQUEST_METHOD": "POST",
                 "CONTENT_TYPE": self.headers.get("Content-Type", ""),
             })
-            if form.getfirst("password", "") != UPLOAD_PASSWORD:
+            if not password_is_valid(form.getfirst("password", "")):
                 self.send_json(403, {"error": "Incorrect upload password"})
                 return
             self.send_json(200, {"ok": True})
@@ -556,7 +585,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "REQUEST_METHOD": "POST",
                 "CONTENT_TYPE": self.headers.get("Content-Type", ""),
             })
-            if form.getfirst("password", "") != UPLOAD_PASSWORD:
+            if not password_is_valid(form.getfirst("password", "")):
                 self.send_json(403, {"error": "Incorrect upload password"})
                 return
             excluded_dirs = {".git", "__pycache__"}
@@ -582,7 +611,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "REQUEST_METHOD": "POST",
                 "CONTENT_TYPE": self.headers.get("Content-Type", ""),
             })
-            if form.getfirst("password", "") != UPLOAD_PASSWORD:
+            if not password_is_valid(form.getfirst("password", "")):
                 self.send_json(403, {"error": "Incorrect upload password"})
                 return
             if "frFile" not in form or not getattr(form["frFile"], "filename", ""):
@@ -626,7 +655,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "REQUEST_METHOD": "POST",
                 "CONTENT_TYPE": self.headers.get("Content-Type", ""),
             })
-            if form.getfirst("password", "") != UPLOAD_PASSWORD:
+            if not password_is_valid(form.getfirst("password", "")):
                 self.send_json(403, {"error": "Incorrect upload password"})
                 return
             year = safe_year(form.getfirst("year", CURRENT_SYNC_YEAR))

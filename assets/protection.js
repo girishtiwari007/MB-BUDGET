@@ -1,6 +1,4 @@
 (function(){
-  const ADMIN_PASSWORD = "Moradabad@2026";
-  const EXPORT_PASSWORD = "#1";
   const ADMIN_KEY = "mbBudgetProtectionUnlocked";
   const EXPORT_KEY = "mbBudgetExportUnlocked";
   const BYPASS = "mbBudgetProtectionBypass";
@@ -29,6 +27,10 @@
     return sessionStorage.getItem(EXPORT_KEY) === "1" || adminUnlocked();
   }
 
+  function isHostedPortal(){
+    return !["localhost", "127.0.0.1"].includes(location.hostname) && location.protocol !== "file:";
+  }
+
   function setAdminUnlocked(){
     sessionStorage.setItem(ADMIN_KEY, "1");
     updateBadge();
@@ -40,29 +42,16 @@
 
   function askAdminPassword(reason){
     if (adminUnlocked()) return true;
-    const entered = window.prompt(reason || lockedMessage);
-    if (entered === null) return false;
-    if (entered === ADMIN_PASSWORD) {
-      setAdminUnlocked();
-      return true;
-    }
-    window.alert("Incorrect password.");
+    window.alert("Protected actions require local Admin Portal authentication. Open this portal through the local upload server and unlock Admin Portal.");
     return false;
   }
 
   function askExportPassword(reason){
+    // Generated reports are published portal artefacts. GitHub Pages cannot
+    // perform local-admin authentication, so hosted visitors may download them.
+    if (isHostedPortal()) return true;
     if (exportUnlocked()) return true;
-    const entered = window.prompt(reason || "Enter export password to download/export files.");
-    if (entered === null) return false;
-    if (entered === EXPORT_PASSWORD) {
-      setExportUnlocked();
-      return true;
-    }
-    if (entered === ADMIN_PASSWORD) {
-      setAdminUnlocked();
-      return true;
-    }
-    window.alert("Incorrect export password.");
+    window.alert("Exports require local Admin Portal authentication.");
     return false;
   }
 
@@ -97,7 +86,7 @@
 
   function protectClick(event){
     const target = exportTarget(event.target);
-    if (!target || target.dataset[BYPASS] === "1" || exportUnlocked()) return;
+    if (!target || isHostedPortal() || target.dataset[BYPASS] === "1" || exportUnlocked()) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     if (!askExportPassword("Enter export password to download/export files.")) return;
