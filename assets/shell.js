@@ -1,12 +1,17 @@
 ﻿const frame=document.getElementById("contentFrame");
 const home=document.getElementById("home");
 const pages={fr:"pages/fr.html",current:"pages/current.html",reports:"pages/reports.html",status:"pages/status.html",exports:"pages/exports.html",admin:"pages/admin.html"};
+const externalPages={owe:"https://girishtiwari007.github.io/MBRLR/"};
 function hardUrl(url){return `${url}${url.includes("?")?"&":"?"}fresh=${Date.now()}`;}
 function applyFrameCustom(){
   try { if (frame.contentWindow?.MBBudgetCustom) frame.contentWindow.MBBudgetCustom.apply(frame.contentDocument); }
   catch {}
 }
 function showPage(page){
+  if(externalPages[page]){
+    window.open(externalPages[page],"_blank","noopener");
+    return;
+  }
   document.querySelectorAll("[data-page]").forEach(btn=>btn.classList.toggle("active",btn.dataset.page===page));
   if(page==="home"){
     home.style.display="block";
