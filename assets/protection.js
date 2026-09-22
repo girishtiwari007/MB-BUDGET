@@ -14,9 +14,13 @@
     "#exportReportExcel",
     "#exportReportPdf",
     "#exportLogicPdf",
+    "#exportViewExcel",
+    "#exportViewPdf",
+    "#exportViewPpt",
     "#export-all",
     "#export-pdf",
-    "#copyReviewPack"
+    "#copyReviewPack",
+    ".view-export"
   ].join(",");
 
   function adminUnlocked(){

@@ -1231,7 +1231,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
         .dual-money{display:block;text-align:right;line-height:1.08;font-family:"Times New Roman",Times,serif;font-variant-numeric:tabular-nums}
         .dual-money span{display:block}
         .dual-money .thousand{font-size:12px;font-weight:700;font-family:"Times New Roman",Times,serif}
-        .dual-money .crore{margin-top:1px;font-size:9.5px;font-family:"Times New Roman",Times,serif;opacity:.82}
+        .dual-money .crore{margin-top:1px;font-size:9.5px;font-family:"Times New Roman",Times,serif;color:#006f78;opacity:1}
         .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
         .dot.green{background:#25a55b}.dot.yellow{background:#f2c230}.dot.red{background:#d92323}
         .finance-summary,.risk-rail{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 7px}
@@ -1276,7 +1276,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       return xlsxCell(`${main}\n${cr}`, style, [
         { text: main, size: 11, color },
         { text: "\n" },
-        { text: cr, size: 9, color }
+        { text: cr, size: 9, color: color || "FF006F78" }
       ]);
     }
     function xlsxAlertCell(value, style = "normal", format = "int") {

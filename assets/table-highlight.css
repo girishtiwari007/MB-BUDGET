@@ -3,6 +3,53 @@ table.table-highlight-enabled td {
   transition: background-color .08s ease, box-shadow .08s ease, color .08s ease;
 }
 
+table.table-highlight-enabled th.table-sortable {
+  cursor: pointer;
+  position: relative;
+  padding-right: 18px;
+  user-select: none;
+}
+
+table.table-highlight-enabled th.table-sortable::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 10px;
+  border-top: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  opacity: .62;
+}
+
+table.table-highlight-enabled th.table-sort-active::after {
+  opacity: 1;
+}
+
+table.table-highlight-enabled th.table-sort-asc::after {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 0;
+  border-bottom: 7px solid currentColor;
+}
+
+table.table-highlight-enabled th.table-sort-desc::after {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 0;
+  border-top: 7px solid currentColor;
+}
+
+table.table-highlight-enabled th.table-sortable:focus {
+  outline: 2px solid #f2c230;
+  outline-offset: -2px;
+}
+
 table.table-highlight-enabled tr.table-hover-row > th,
 table.table-highlight-enabled tr.table-hover-row > td,
 table.table-highlight-enabled .table-hover-col {

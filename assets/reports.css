@@ -30,7 +30,7 @@ body{margin:0;font-family:Calibri,Arial,sans-serif;background:#eef3f7;color:#172
 @media(max-width:430px){.summary,.actions{grid-template-columns:1fr}.title{font-size:17px}.hero h1{font-size:18px}}
 
 .special-demand-panel{border:1px solid #e1a8a8;border-left:4px solid #b42318;background:#fff5f5;border-radius:6px;padding:10px;margin:0 0 10px;overflow:auto}.special-demand-panel h2{margin:0 0 5px;color:#7a1f1f;font-size:15px}.special-demand-panel p{margin:0 0 8px;color:#7a1f1f;font-weight:700;font-size:12px}.special-demand-panel table{width:100%;min-width:620px;border-collapse:collapse;font-size:12px}.special-demand-panel th{background:#7a1f1f;color:white}.special-demand-panel th,.special-demand-panel td{border:1px solid #efc7c7;padding:5px 7px;text-align:right}.special-demand-panel th:first-child,.special-demand-panel td:first-child{text-align:left}.special-demand td{background:#fff1f1!important;color:#7a1f1f;font-weight:700}@media(max-width:640px){.special-demand-panel{border-radius:12px;margin:0 0 10px}.special-demand-panel table{font-size:11px}}
-.dual-money{display:flex;flex-direction:column;align-items:flex-end;line-height:1.05;font-family:"Times New Roman",Times,serif;font-variant-numeric:tabular-nums}.dual-money .thousand{font-size:11px;font-family:"Times New Roman",Times,serif}.dual-money .crore{margin-top:2px;font-size:9px;font-family:"Times New Roman",Times,serif;opacity:.72}.card .dual-money,.bar-row .dual-money,.legend .dual-money,.insights .dual-money{display:inline-flex;vertical-align:middle}
+.dual-money{display:flex;flex-direction:column;align-items:flex-end;line-height:1.05;font-family:"Times New Roman",Times,serif;font-variant-numeric:tabular-nums}.dual-money .thousand{font-size:11px;font-family:"Times New Roman",Times,serif}.dual-money .crore{margin-top:2px;font-size:9px;font-family:"Times New Roman",Times,serif;color:#006f78;opacity:1}.card .dual-money,.bar-row .dual-money,.legend .dual-money,.insights .dual-money{display:inline-flex;vertical-align:middle}
 
 /* Compact header pass */
 @media(min-width:761px){
@@ -59,7 +59,7 @@ body{margin:0;font-family:Calibri,Arial,sans-serif;background:#eef3f7;color:#172
   .insights div{font-size:12.5px;padding:8px 0}
   .dual-money{line-height:1.08}
   .dual-money .thousand{font-size:12.5px;font-weight:700}
-  .dual-money .crore{font-size:9.5px;opacity:.82}
+  .dual-money .crore{font-size:9.5px;color:#006f78;opacity:1}
   .card .dual-money .thousand,
   .important-row .dual-money .thousand{font-size:13px}
 }
@@ -68,7 +68,7 @@ body{margin:0;font-family:Calibri,Arial,sans-serif;background:#eef3f7;color:#172
   .data-table th,.data-table td,.heat th,.heat td{padding:6px 6px}
   .dual-money{line-height:1.1}
   .dual-money .thousand{font-size:12px;font-weight:700}
-  .dual-money .crore{font-size:9.5px;opacity:.82}
+  .dual-money .crore{font-size:9.5px;color:#006f78;opacity:1}
 }
 
 /* Rule-based finance attention analysis */

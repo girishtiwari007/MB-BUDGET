@@ -839,7 +839,7 @@ function reportExportStyles(mode) {
     .important-row td,.important-pu td{background:#fff4cc;font-weight:700}
     .dual-money{display:flex;flex-direction:column;align-items:flex-end;line-height:1.08;font-family:"Times New Roman",Times,serif;font-variant-numeric:tabular-nums}
     .dual-money .thousand{font-size:12px;font-weight:700;font-family:"Times New Roman",Times,serif}
-    .dual-money .crore{margin-top:1px;font-size:9.5px;font-family:"Times New Roman",Times,serif;opacity:.82}
+    .dual-money .crore{margin-top:1px;font-size:9.5px;font-family:"Times New Roman",Times,serif;color:#006f78;opacity:1}
     .card .dual-money,.bar-row .dual-money,.legend .dual-money,.insights .dual-money{display:inline-flex;vertical-align:middle}
     .summary,.report-layout{display:block}
     .card,.chart,.tablebox,.insights,.ai-analysis{border:1px solid #c8d6e2;margin:0 0 8px;padding:7px}

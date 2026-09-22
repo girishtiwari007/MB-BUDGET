@@ -35,6 +35,17 @@ HTML_TARGETS = [
     "pages/reports.html",
     "pages/status.html",
 ]
+VIEW_EXPORT_TARGETS = [
+    "pages/current.html",
+    "pages/exports.html",
+    "pages/fr.html",
+    "pages/reports.html",
+    "pages/status.html",
+]
+VIEW_EXPORT_ASSETS = [
+    "assets/view-export.css",
+    "assets/view-export.js",
+]
 OFFICE_SUFFIXES = {".xlsx", ".pptx"}
 PDF_SUFFIXES = {".pdf"}
 BASIS_EXPORTS = [
@@ -192,6 +203,34 @@ def validate_html_cache_token(token):
     return errors
 
 
+def validate_view_export_wiring():
+    errors = []
+    for rel in VIEW_EXPORT_ASSETS:
+        path = REPO_ROOT / rel
+        if not path.exists() or path.stat().st_size <= 0:
+            errors.append(f"View export asset missing or empty: {rel}")
+    script_path = REPO_ROOT / "assets" / "view-export.js"
+    if script_path.exists():
+        script = script_path.read_text(encoding="utf-8")
+        for required in ("exportViewExcel", "exportViewPdf", "exportViewPpt", "currentViewSheets", "printPdf", "exportPpt"):
+            if required not in script:
+                errors.append(f"View export script missing {required}.")
+    protection = (REPO_ROOT / "assets" / "protection.js").read_text(encoding="utf-8") if (REPO_ROOT / "assets" / "protection.js").exists() else ""
+    for required in ("#exportViewExcel", "#exportViewPdf", "#exportViewPpt", ".view-export"):
+        if required not in protection:
+            errors.append(f"Export protection does not lock {required}.")
+    for rel in VIEW_EXPORT_TARGETS:
+        path = REPO_ROOT / rel
+        if not path.exists():
+            errors.append(f"View export page missing: {rel}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for asset in ("view-export.css", "view-export.js"):
+            if asset not in text:
+                errors.append(f"{rel} does not include {asset}.")
+    return errors
+
+
 def validate_export_file(path, run_started):
     errors = []
     if not path.exists() or path.stat().st_size <= 0:
@@ -258,6 +297,7 @@ def smoke_test_manifest(payload, run_started):
     for rel in EXPECTED_EXPORTS:
         errors.extend(validate_export_file(REPO_ROOT / rel, run_started))
     errors.extend(validate_html_cache_token((payload.get("cacheRefresh") or {}).get("token")))
+    errors.extend(validate_view_export_wiring())
     errors.extend(validate_current_basis())
     errors.extend(validate_basis_export_content())
     payload["smokeTest"] = {
@@ -265,6 +305,7 @@ def smoke_test_manifest(payload, run_started):
         "checkedAt": datetime.now().isoformat(timespec="seconds"),
         "checkedExports": len(EXPECTED_EXPORTS),
         "checkedPages": len(HTML_TARGETS),
+        "checkedViewExportPages": len(VIEW_EXPORT_TARGETS),
         "yearlyComparisonTemplate": yearly_structure,
         "errors": errors,
     }

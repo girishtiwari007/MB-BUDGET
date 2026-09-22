@@ -9,6 +9,8 @@ from xml.sax.saxutils import escape as xesc
 
 import xlrd
 from openpyxl import Workbook, load_workbook
+from openpyxl.cell.rich_text import CellRichText, TextBlock
+from openpyxl.cell.text import InlineFont
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
@@ -46,6 +48,7 @@ BLACK = "000000"
 GREEN = "25A55B"
 AMBER = "F2C230"
 RED = "D92323"
+TEAL = "006F78"
 GREEN_LIGHT = "DFF3E7"
 AMBER_LIGHT = "FFF2CC"
 RED_LIGHT = "FCE4E4"
@@ -109,7 +112,7 @@ def money(value):
         n = float(value or 0)
     except Exception:
         n = 0
-    return f"{inr(n)}\nCr. {n / 10000:.2f}"
+    return f"{inr(n)}\n{n / 10000:.2f} Cr"
 
 
 def pct(value):
@@ -475,11 +478,25 @@ def fr_fund_table_with_previous(sheet, previous_fr):
     return headers, next_body
 
 
+def excel_rich_money(value):
+    if not isinstance(value, str) or "\n" not in value:
+        return value
+    main, cr = value.split("\n", 1)
+    if not re.search(r"\d", main) or not cr.strip().endswith(" Cr"):
+        return value
+    return CellRichText(
+        TextBlock(InlineFont(rFont="Times New Roman", sz=11), main),
+        "\n",
+        TextBlock(InlineFont(rFont="Times New Roman", sz=9, color=f"FF{TEAL}"), cr),
+    )
+
+
 def style_ws(ws):
     black = Side(style="thin", color="000000")
     border = Border(left=black, right=black, top=black, bottom=black)
     for row in ws.iter_rows():
         for cell in row:
+            cell.value = excel_rich_money(cell.value)
             cell.border = border
             cell.alignment = Alignment(wrap_text=True, vertical="center")
             cell.font = Font(name="Times New Roman", size=10)
@@ -749,7 +766,7 @@ def matrix_money_lines(value):
     n = number_value(value)
     if abs(n) < 0.5:
         return ["..", ""]
-    return [inr(n), f"Cr. {n / 10000:.2f}"]
+    return [inr(n), f"{n / 10000:.2f} Cr"]
 
 
 def add_matrix_amount(store, group, smh, metric, amount):
@@ -911,13 +928,20 @@ def write_smh_matrix_pdf(output_path=SMH_MATRIX_PDF):
     write_pdf_pages(pages, output_path)
 
 
+def money_like_text(text):
+    parts = clean_text(text).split("\n")
+    return len(parts) == 2 and bool(re.search(r"\d", parts[0])) and parts[1].strip().endswith(" Cr")
+
+
 def text_runs(text, size=900, bold=False, color=BLACK):
     bold_attr = ' b="1"' if bold else ""
     runs = []
     for idx, part in enumerate(clean_text(text).split("\n")):
         if idx:
             runs.append("<a:br/>")
-        runs.append(f'<a:r><a:rPr lang="en-US" sz="{size}"{bold_attr}><a:solidFill><a:srgbClr val="{color}"/></a:solidFill><a:latin typeface="Times New Roman"/></a:rPr><a:t>{xesc(part)}</a:t></a:r>')
+        run_size = max(680, size - 180) if money_like_text(text) and idx == 1 else size
+        run_color = TEAL if money_like_text(text) and idx == 1 and color == BLACK else color
+        runs.append(f'<a:r><a:rPr lang="en-US" sz="{run_size}"{bold_attr}><a:solidFill><a:srgbClr val="{run_color}"/></a:solidFill><a:latin typeface="Times New Roman"/></a:rPr><a:t>{xesc(part)}</a:t></a:r>')
     return "".join(runs)
 
 

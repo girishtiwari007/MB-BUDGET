@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import datetime
 import importlib.util
 import json
 import subprocess
@@ -9,7 +10,6 @@ import tkinter as tk
 import urllib.error
 import urllib.request
 import webbrowser
-import zipfile
 from tkinter import filedialog, messagebox, ttk
 
 
@@ -254,6 +254,7 @@ class LocalSyncApp(tk.Tk):
             lines.append("- FR manifest missing.")
             errors.append("FR manifest missing.")
         if export_manifest.exists():
+            from export_refresh import validate_export_file
             payload = json.loads(export_manifest.read_text(encoding="utf-8"))
             missing = payload.get("missing") or []
             lines.append(f"- Export refresh: {payload.get('status')} | Trigger: {payload.get('trigger')} | Missing: {len(missing)}")
@@ -265,20 +266,22 @@ class LocalSyncApp(tk.Tk):
             if smoke.get("status") != "success":
                 errors.extend(smoke.get("errors") or ["Export smoke test did not report success."])
             refreshed_at = payload.get("refreshedAt") or ""
+            run_started = datetime.fromisoformat(payload.get("runStartedAt") or refreshed_at or datetime.now().isoformat(timespec="seconds"))
             stale = []
             checked = 0
+            strict_errors = []
             for item in payload.get("files", []):
                 path = REPO_ROOT / item.get("path", "")
                 modified_at = item.get("modifiedAt") or ""
                 if refreshed_at and modified_at and modified_at[:16] < refreshed_at[:16]:
                     stale.append(item.get("path", ""))
-                if path.suffix.lower() in {".xlsx", ".pptx"} and path.exists():
-                    with zipfile.ZipFile(path) as archive:
-                        bad = archive.testzip()
-                    if bad:
-                        raise RuntimeError(f"Export integrity failed: {path.name} -> {bad}")
+                if path.exists():
+                    strict_errors.extend(validate_export_file(path, run_started))
+                if path.suffix.lower() in {".xlsx", ".pptx", ".pdf"} and path.exists():
                     checked += 1
-            lines.append(f"- Office export integrity checked: {checked} files OK")
+            if strict_errors:
+                errors.extend(strict_errors)
+            lines.append(f"- Strict export integrity checked: {checked} files OK")
             if stale:
                 errors.append("Export timestamp older than manifest refresh: " + ", ".join(stale))
             if smoke:
@@ -304,7 +307,8 @@ class LocalSyncApp(tk.Tk):
     def local_server_ok(self):
         try:
             with urllib.request.urlopen("http://127.0.0.1:8000/", timeout=2) as response:
-                return 200 <= response.status < 500
+                body = response.read(4096).decode("utf-8", errors="ignore")
+                return 200 <= response.status < 500 and "Moradabad Division Budget" in body
         except (OSError, urllib.error.URLError):
             return False
 
