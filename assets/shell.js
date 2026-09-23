@@ -1,6 +1,6 @@
 ﻿const frame=document.getElementById("contentFrame");
 const home=document.getElementById("home");
-const pages={fr:"pages/fr.html",current:"pages/current.html",reports:"pages/reports.html",status:"pages/status.html",exports:"pages/exports.html",ai:"pages/ai-insight.html",admin:"pages/admin.html"};
+const pages={fr:"pages/fr.html",current:"pages/current.html",reports:"pages/reports.html",yearly:"pages/yearly-review.html",status:"pages/status.html",exports:"pages/exports.html",ai:"pages/ai-insight.html",admin:"pages/admin.html"};
 const externalPages={owe:"https://girishtiwari007.github.io/MBRLR/"};
 function hardUrl(url){return `${url}${url.includes("?")?"&":"?"}fresh=${Date.now()}`;}
 function applyFrameCustom(){
