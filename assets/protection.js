@@ -48,7 +48,7 @@
   }
 
   function askExportPassword(reason){
-    if (exportUnlocked()) return true;
+    if (isHostedPortal() || exportUnlocked()) return true;
     const entered = window.prompt("Exports/downloads are protected. Enter export password.");
     if (entered === EXPORT_PASSWORD) return true;
     window.alert("Export cancelled. Wrong export password.");
@@ -86,7 +86,7 @@
 
   function protectClick(event){
     const target = exportTarget(event.target);
-    if (!target || target.dataset[BYPASS] === "1" || exportUnlocked()) return;
+    if (!target || isHostedPortal() || target.dataset[BYPASS] === "1" || exportUnlocked()) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     if (!askExportPassword("Enter export password to download/export files.")) return;
