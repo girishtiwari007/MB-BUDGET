@@ -1,44 +1,14 @@
-.view-export-actions {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
-.view-export {
-  border: 1px solid #0f6f68;
-  background: #0f6f68;
-  color: #fff;
-  border-radius: 5px;
-  padding: 7px 10px;
-  font: 700 13px Arial, Helvetica, sans-serif;
-  line-height: 1.1;
-  cursor: pointer;
-  min-height: 32px;
-}
-
-.view-export:hover,
-.view-export:focus {
-  background: #0a5550;
-  border-color: #0a5550;
-}
-
-@media (max-width: 760px) {
-  .view-export-actions {
-    display: grid;
-    grid-template-columns: 1fr;
-    width: 100%;
-    margin-top: 6px;
-  }
-
-  .view-export {
-    width: 100%;
-    min-height: 42px;
-  }
-}
-
-@media print {
-  .view-export-actions {
-    display: none !important;
-  }
-}
+.view-export-actions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.report-export-menu { position: relative; display: inline-block; z-index: 10; font: 700 13px Arial, Helvetica, sans-serif; }
+.report-export-menu summary { list-style: none; cursor: pointer; border: 1px solid #0f6f68; background: #0f6f68; color: #fff; border-radius: 5px; padding: 8px 11px; min-height: 34px; line-height: 1.1; }
+.report-export-menu summary::-webkit-details-marker { display: none; }
+.report-export-menu summary::after { content: "⌄"; margin-left: 8px; }
+.report-export-menu[open] summary, .report-export-menu summary:hover, .report-export-menu summary:focus { background: #0a5550; border-color: #0a5550; }
+.report-export-popover { position: absolute; right: 0; top: calc(100% + 5px); width: min(330px, calc(100vw - 28px)); padding: 9px; border: 1px solid #b8cad8; border-radius: 7px; background: #fff; box-shadow: 0 8px 22px rgba(20,44,61,.2); }
+.report-export-heading { margin: 2px 2px 6px; color: #42576a; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+.report-export-item { display: block; width: 100%; margin: 3px 0; border: 1px solid #c5d4df; border-radius: 4px; background: #f7fafc; color: #173b58; padding: 8px 9px; text-align: left; font: inherit; cursor: pointer; text-decoration: none; }
+.report-export-item:hover, .report-export-item:focus { border-color: #0f6f68; background: #e9f6f3; }
+.report-export-master { color: #174a78; }
+.report-export-divider { border-top: 1px solid #d6e1e8; margin: 9px 0; }
+@media (max-width: 760px) { .report-export-menu { width: 100%; } .report-export-menu summary { width: 100%; min-height: 42px; display: flex; align-items: center; justify-content: space-between; } .report-export-popover { position: absolute; width: 100%; right: 0; } }
+@media print { .view-export-actions, .report-export-menu { display: none !important; } }

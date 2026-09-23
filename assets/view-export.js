@@ -17,8 +17,15 @@
     return new Date().toISOString().slice(0, 10).replace(/-/g, "");
   }
 
+  function activeViewLabel(){
+    const active = document.querySelector(".tabs button.active,.tabs [aria-selected=\"true\"],.report-menu button.active,.report-menu [aria-selected=\"true\"]");
+    return clean(active?.textContent || document.querySelector(".panel.active h2")?.textContent || "");
+  }
+
   function pageTitle(){
-    return clean(document.querySelector("h1")?.textContent || document.querySelector("title")?.textContent || "MB Budget View");
+    const base = clean(document.querySelector("h1")?.textContent || document.querySelector("title")?.textContent || "MB Budget View");
+    const active = activeViewLabel();
+    return active && !base.includes(active) ? `${base} — ${active}` : base;
   }
 
   function visible(element){
@@ -29,7 +36,7 @@
 
   function selectedControls(){
     const rows = [];
-    document.querySelectorAll("select,input[type='checkbox'],input[type='radio']").forEach(control => {
+    document.querySelectorAll("select,input[type='checkbox'],input[type='radio'],input[type='search'],input[type='text']").forEach(control => {
       if (!visible(control)) return;
       const label = clean(control.closest("label")?.textContent || control.getAttribute("aria-label") || control.id || control.name);
       if (!label) return;
@@ -45,6 +52,10 @@
     return rows;
   }
 
+  function sortRows(){
+    return Array.from(document.querySelectorAll("th.table-sort-active,[aria-sort=\"ascending\"],[aria-sort=\"descending\"]")).map(header => ["Sort order", `${clean(header.textContent)} (${header.getAttribute("aria-sort") || header.dataset.sortDirection || "applied"})`]);
+  }
+
   function metaRows(extra = []){
     const stamp = clean(document.querySelector(".data-stamp")?.textContent || document.querySelector("#reportDataStamp")?.textContent || document.querySelector("#dataStamp")?.textContent || "");
     return [
@@ -52,6 +63,7 @@
       ["Generated", new Date().toLocaleString("en-IN")],
       ["Data basis", stamp || "As displayed on portal"],
       ...selectedControls(),
+      ...sortRows(),
       ...extra
     ];
   }
@@ -62,7 +74,9 @@
 
   function cloneForExport(root = visibleRoot()){
     const clone = root.cloneNode(true);
-    clone.querySelectorAll("script,style,button,input,select,textarea,.toolbar,.actions,.tabs,.topbar,.header-actions,.report-menu,.protection-badge,[data-view-export-ignore]").forEach(node => node.remove());
+    clone.querySelectorAll("table button").forEach(button => button.replaceWith(document.createTextNode(clean(button.textContent))));
+    clone.querySelectorAll("script,style,input,select,textarea,.toolbar,.actions,.tabs,.topbar,.header-actions,.report-menu,.protection-badge,[data-view-export-ignore]").forEach(node => node.remove());
+    clone.querySelectorAll("button").forEach(button => button.remove());
     clone.querySelectorAll("[style]").forEach(node => {
       node.style.maxHeight = "none";
       node.style.overflow = "visible";
@@ -109,12 +123,11 @@
     </style>`;
   }
 
-  function currentViewHtml(mode = "pdf"){
+  function currentViewHtml(){
     const active = visibleRoot();
     const clone = cloneForExport(active);
     const meta = metaRows().map(row => `${html(row[0])}: ${html(row[1])}`).join(" | ");
-    const appendices = mode === "pdf" ? appendixClones(active).map(item => item.html).join("") : "";
-    return `<!doctype html><html><head><meta charset="utf-8"><title>${html(pageTitle())}</title>${exportStyles()}</head><body><main><h1>${html(pageTitle())}</h1><p class="view-meta">${meta}</p>${clone.outerHTML}${appendices}</main></body></html>`;
+    return `<!doctype html><html><head><meta charset="utf-8"><title>${html(pageTitle())}</title>${exportStyles()}</head><body><main><h1>${html(pageTitle())}</h1><p class="view-meta">${meta}</p>${clone.outerHTML}</main></body></html>`;
   }
 
   function printPdf(){
@@ -157,16 +170,6 @@
     }
     const controlRows = selectedControls();
     if (controlRows.length) sheets.push({ name:"Applied Filters", rows:[["Applied Filters"], ...controlRows] });
-    appendixClones(root).forEach((appendix, index) => {
-      const wrapper = document.createElement("div");
-      wrapper.innerHTML = appendix.html;
-      const appendixTables = Array.from(wrapper.querySelectorAll("table"));
-      if (appendixTables.length) {
-        appendixTables.forEach((table, tableIndex) => {
-          sheets.push({ name:`App ${index + 1}-${tableIndex + 1}`, rows:[[appendix.title], ...tableToAoa(table)] });
-        });
-      }
-    });
     return sheets;
   }
 
@@ -249,24 +252,39 @@
   function exportPpt(){
     const active = visibleRoot();
     const body = cloneForExport(active).outerHTML;
-    const appendices = appendixClones(active).map(item => `<section class="slide"><h1>${html(item.title)}</h1>${item.html}</section>`).join("");
     const meta = metaRows().map(row => `<p><b>${html(row[0])}:</b> ${html(row[1])}</p>`).join("");
-    const ppt = `<!doctype html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:p="urn:schemas-microsoft-com:office:powerpoint"><head><meta charset="utf-8"><meta name="ProgId" content="PowerPoint.Slide"><title>${html(pageTitle())}</title>${exportStyles()}<style>body{width:13.333in;min-height:7.5in}.slide{page-break-after:always;padding:.25in}.slide:last-child{page-break-after:auto}</style></head><body><section class="slide"><h1>${html(pageTitle())}</h1>${meta}</section><section class="slide">${body}</section>${appendices}</body></html>`;
+    const ppt = `<!doctype html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:p="urn:schemas-microsoft-com:office:powerpoint"><head><meta charset="utf-8"><meta name="ProgId" content="PowerPoint.Slide"><title>${html(pageTitle())}</title>${exportStyles()}<style>body{width:13.333in;min-height:7.5in}.slide{page-break-after:always;padding:.25in}.slide:last-child{page-break-after:auto}</style></head><body><section class="slide"><h1>${html(pageTitle())}</h1>${meta}</section><section class="slide">${body}</section></body></html>`;
     download(new Blob([ppt], { type:"application/vnd.ms-powerpoint" }), `${pageTitle().replace(/[^A-Za-z0-9]+/g, "_")}_View_${fileStamp()}.ppt`);
+  }
+
+  function fullExportLabel(node){
+    const text = clean(node.textContent || "");
+    const format = /ppt/i.test(text) ? "PowerPoint" : /pdf/i.test(text) ? "PDF" : "Excel";
+    return `Download Full Dataset / Full Report (${format})`;
   }
 
   function addButtons(options = {}){
     const host = document.querySelector(options.host || ".actions,.header-actions,.hero,.pack-head") || document.body;
-    if (document.getElementById("exportViewPdf")) return;
-    const wrap = document.createElement("span");
-    wrap.className = "view-export-actions";
-    wrap.setAttribute("data-view-export-ignore", "1");
-    wrap.innerHTML = `<button class="export view-export" id="exportViewExcel" type="button">Export Current View Excel</button><button class="export view-export" id="exportViewPdf" type="button">Export Current View PDF</button><button class="export view-export" id="exportViewPpt" type="button">Export Current View PPT</button>`;
-    host.appendChild(wrap);
-    document.getElementById("exportViewExcel").addEventListener("click", exportExcel);
-    document.getElementById("exportViewPdf").addEventListener("click", printPdf);
-    document.getElementById("exportViewPpt").addEventListener("click", exportPpt);
+    if (document.getElementById("reportExportMenu")) return;
+    const fullControls = Array.from(document.querySelectorAll("#exportExcel,#exportPdf,#exportPptx,#exportReportExcel,#exportReportPdf,#export-all,#export-pdf"));
+    const menu = document.createElement("details");
+    menu.id = "reportExportMenu";
+    menu.className = "report-export-menu";
+    menu.setAttribute("data-view-export-ignore", "1");
+    menu.innerHTML = `<summary>Report / Export</summary><div class="report-export-popover"><p class="report-export-heading">Current visible view</p><button class="report-export-item" id="exportViewExcel" type="button">Excel</button><button class="report-export-item" id="exportViewPdf" type="button">PDF</button><button class="report-export-item" id="exportViewPpt" type="button">PowerPoint</button><div class="report-export-divider"></div><p class="report-export-heading">Master download</p><div class="report-export-full"></div></div>`;
+    host.appendChild(menu);
+    const fullHost = menu.querySelector(".report-export-full");
+    fullControls.forEach(control => {
+      control.classList.remove("export", "export-btn", "button-link");
+      control.classList.add("report-export-item", "report-export-master");
+      control.textContent = fullExportLabel(control);
+      fullHost.appendChild(control);
+    });
+    document.getElementById("exportViewExcel").addEventListener("click", () => { menu.open = false; exportExcel(); });
+    document.getElementById("exportViewPdf").addEventListener("click", () => { menu.open = false; printPdf(); });
+    document.getElementById("exportViewPpt").addEventListener("click", () => { menu.open = false; exportPpt(); });
   }
+
 
   window.MBViewExport = { addButtons, exportExcel, exportPdf:printPdf, exportPpt };
   document.addEventListener("DOMContentLoaded", () => addButtons());
