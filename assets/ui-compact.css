@@ -1,0 +1,310 @@
+:root {
+  --ui-bg: #f6f8fb;
+  --ui-panel: #ffffff;
+  --ui-line: #cbd5e1;
+  --ui-line-strong: #9fb3c8;
+  --ui-navy: #163b5c;
+  --ui-navy-hover: #0f2f4d;
+  --ui-teal: #0f766e;
+  --ui-teal-hover: #0b5f59;
+  --ui-text: #17212b;
+  --ui-muted: #607080;
+  --ui-focus: #f2c230;
+}
+
+button,
+.button-link,
+.export,
+.export-btn,
+.primary,
+.secondary,
+.reset-btn,
+.nav button,
+.tabs button,
+.report-menu button,
+.admin-tabs button,
+.quick-tabs button,
+#copyReviewPack {
+  min-height: 30px;
+  border-radius: 6px;
+  font: 800 11.5px "Segoe UI", Arial, sans-serif;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+select,
+input,
+textarea {
+  border: 1px solid var(--ui-line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ui-text);
+  font: 700 11.5px "Segoe UI", Arial, sans-serif;
+}
+
+select,
+input:not([type="checkbox"]):not([type="radio"]) {
+  min-height: 30px;
+  padding: 5px 8px;
+}
+
+textarea {
+  padding: 6px 8px;
+}
+
+button:hover,
+.button-link:hover,
+.export:hover,
+.export-btn:hover,
+.primary:hover,
+.secondary:hover,
+.reset-btn:hover,
+.nav button:hover,
+.tabs button:hover,
+.report-menu button:hover,
+.admin-tabs button:hover,
+.quick-tabs button:hover,
+#copyReviewPack:hover {
+  filter: none;
+}
+
+button:focus-visible,
+.button-link:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 1px;
+}
+
+.bar,
+.topbar,
+.toolbar,
+.filterbar,
+.report-menu,
+.actions,
+.header-actions,
+.admin-tabs,
+.sync-selectbar,
+.sync-controls,
+.setup-grid,
+.form-grid,
+.action-row,
+.pack-head,
+.panel-head {
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+.topbar,
+.toolbar,
+.filterbar,
+.report-menu,
+.admin-tabs,
+.sync-selectbar,
+.sync-controls,
+.setup-grid,
+.form-grid {
+  background: var(--ui-panel);
+  border: 1px solid var(--ui-line);
+  border-radius: 8px;
+  box-shadow: 0 1px 8px rgba(23, 33, 43, .05);
+}
+
+.topbar {
+  padding: 6px;
+}
+
+.toolbar,
+.filterbar,
+.report-menu,
+.admin-tabs,
+.sync-selectbar {
+  padding: 7px 8px;
+  gap: 6px;
+}
+
+.actions,
+.header-actions,
+.button-row,
+.action-row,
+.pack-head {
+  gap: 6px;
+}
+
+.toolbar label,
+.filterbar label,
+.form-grid label,
+.sync-controls label,
+.setup-grid label {
+  color: var(--ui-muted);
+  font-size: 10.5px;
+  font-weight: 800;
+  gap: 3px;
+}
+
+.export,
+.button-link,
+.export-btn,
+.primary,
+#copyReviewPack,
+.nav button.active,
+.tabs button.active,
+.tab.active,
+.report-menu button.active,
+.admin-tabs button.active {
+  background: var(--ui-navy);
+  border-color: var(--ui-navy);
+  color: #fff;
+}
+
+.export:hover,
+.button-link:hover,
+.export-btn:hover,
+.primary:hover,
+#copyReviewPack:hover,
+.nav button.active:hover,
+.tabs button.active:hover,
+.tab.active:hover,
+.report-menu button.active:hover,
+.admin-tabs button.active:hover {
+  background: var(--ui-navy-hover);
+  border-color: var(--ui-navy-hover);
+  color: #fff;
+}
+
+.view-export,
+#exportViewExcel,
+#exportViewPdf,
+#exportViewPpt,
+.secondary,
+.reset-btn,
+.upload-btn,
+.sync-selectbar .secondary,
+[data-sync-select],
+[data-refresh-fr-manifest],
+[data-reset-filter] {
+  background: var(--ui-teal);
+  border-color: var(--ui-teal);
+  color: #fff;
+}
+
+.view-export:hover,
+#exportViewExcel:hover,
+#exportViewPdf:hover,
+#exportViewPpt:hover,
+.secondary:hover,
+.reset-btn:hover,
+.upload-btn:hover,
+.sync-selectbar .secondary:hover,
+[data-sync-select]:hover,
+[data-refresh-fr-manifest]:hover,
+[data-reset-filter]:hover {
+  background: var(--ui-teal-hover);
+  border-color: var(--ui-teal-hover);
+  color: #fff;
+}
+
+.tabs,
+.nav,
+.actions,
+.header-actions,
+.admin-tabs,
+.report-menu {
+  gap: 5px;
+}
+
+.tabs button,
+.nav button,
+.report-menu button,
+.admin-tabs button,
+.quick-tabs button {
+  border: 1px solid var(--ui-line);
+  background: #fff;
+  color: var(--ui-navy);
+  padding: 6px 9px;
+}
+
+.nav button {
+  min-height: 32px;
+}
+
+.tabs button:hover,
+.nav button:hover,
+.report-menu button:hover,
+.admin-tabs button:hover,
+.quick-tabs button:hover {
+  background: #e8f2f8;
+  border-color: var(--ui-line-strong);
+  color: var(--ui-navy);
+}
+
+.check-control {
+  border: 1px solid var(--ui-line);
+  background: #fff;
+  border-radius: 6px;
+  min-height: 30px;
+  padding: 5px 8px;
+  color: var(--ui-text);
+  font: 800 11.5px "Segoe UI", Arial, sans-serif;
+}
+
+.check-control input,
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--ui-teal);
+}
+
+.hero .actions,
+.header-actions,
+.pack-head .view-export-actions {
+  align-items: center;
+}
+
+@media (max-width: 760px) {
+  button,
+  .button-link,
+  .export,
+  .export-btn,
+  .primary,
+  .secondary,
+  .reset-btn,
+  .nav button,
+  .tabs button,
+  .report-menu button,
+  .admin-tabs button,
+  .quick-tabs button,
+  #copyReviewPack {
+    min-height: 38px;
+    font-size: 11.5px;
+    border-radius: 8px;
+  }
+
+  select,
+  input:not([type="checkbox"]):not([type="radio"]) {
+    min-height: 38px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+
+  .actions,
+  .header-actions,
+  .admin-tabs,
+  .report-menu,
+  .sync-selectbar,
+  .action-row,
+  .view-export-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    width: 100%;
+  }
+
+  .actions > *,
+  .header-actions > *,
+  .admin-tabs > *,
+  .report-menu > *,
+  .sync-selectbar > *,
+  .action-row > *,
+  .view-export-actions > * {
+    width: 100%;
+  }
+}

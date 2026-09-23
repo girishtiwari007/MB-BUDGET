@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MB-BUDGET UI Style Options</title>
+  <style>
+    :root {
+      --ink: #17212b;
+      --muted: #607080;
+      --line: #cbd5e1;
+      --page: #eef3f7;
+      --white: #fff;
+      --navy: #163b5c;
+      --teal: #0f766e;
+      --gold: #d6a313;
+      --maroon: #7a1f1f;
+      --cream: #fffbea;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    .page {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 14px;
+      margin-bottom: 14px;
+      border-bottom: 3px solid var(--navy);
+      padding-bottom: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 24px;
+      line-height: 1.15;
+    }
+
+    .head p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .back {
+      border: 1px solid var(--navy);
+      background: var(--white);
+      color: var(--navy);
+      border-radius: 6px;
+      padding: 8px 12px;
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .options {
+      display: grid;
+      gap: 14px;
+    }
+
+    .size-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 12px;
+      padding: 9px 11px;
+      border: 1px solid #c8d6e2;
+      background: #fff;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--navy);
+    }
+
+    .size-toggle input {
+      width: 16px;
+      min-height: 16px;
+      accent-color: var(--teal);
+    }
+
+    .option {
+      background: var(--white);
+      border: 1px solid #c8d6e2;
+      box-shadow: 0 2px 12px rgba(23, 33, 43, .08);
+    }
+
+    .option-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #d9e4ee;
+    }
+
+    .option-title {
+      margin: 0;
+      font-size: 18px;
+      color: var(--navy);
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--navy);
+      background: #e8f2f8;
+      white-space: nowrap;
+    }
+
+    .mock-page {
+      padding: 12px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(130px, 1fr)) auto;
+      gap: 8px;
+      align-items: end;
+      margin-bottom: 10px;
+    }
+
+    .field {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .field label {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .02em;
+      color: #405060;
+      text-transform: uppercase;
+    }
+
+    select,
+    input {
+      width: 100%;
+      min-height: 34px;
+      padding: 6px 9px;
+      border: 1px solid var(--line);
+      background: var(--white);
+      color: var(--ink);
+      font: 700 13px "Segoe UI", Arial, sans-serif;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    button {
+      min-height: 34px;
+      border: 1px solid transparent;
+      padding: 7px 11px;
+      font: 800 13px "Segoe UI", Arial, sans-serif;
+      cursor: default;
+      white-space: nowrap;
+    }
+
+    body.compact-bars .toolbar { gap: 6px; }
+    body.compact-bars .field label { font-size: 9px; }
+    body.compact-bars select,
+    body.compact-bars input {
+      min-height: 30px;
+      padding: 5px 8px;
+      font-size: 11px;
+    }
+    body.compact-bars button {
+      min-height: 30px;
+      padding: 6px 9px;
+      font-size: 11px;
+    }
+
+    .sample-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: "Times New Roman", Times, serif;
+      font-size: 12px;
+      table-layout: fixed;
+    }
+
+    .sample-table th,
+    .sample-table td {
+      border: 1px solid #000;
+      padding: 5px 7px;
+      text-align: right;
+      background: #fff;
+    }
+
+    .sample-table th {
+      background: #1f4e79;
+      color: #fff;
+      text-align: center;
+      font-family: Arial, sans-serif;
+      font-size: 11px;
+    }
+
+    .sample-table td:first-child,
+    .sample-table th:first-child {
+      text-align: left;
+    }
+
+    .money {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      line-height: 1.05;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .money strong {
+      font-size: 12.5px;
+    }
+
+    .money span {
+      margin-top: 2px;
+      color: #006f78;
+      font-size: 9.5px;
+    }
+
+    .notes {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: #405060;
+    }
+
+    .notes div {
+      border: 1px solid #d9e4ee;
+      background: #f8fbfd;
+      padding: 8px;
+    }
+
+    .classic .mock-page { background: #fffbea; border-top: 3px solid var(--maroon); }
+    .classic .toolbar { background: #fff8dc; border: 1px solid #b67b7b; padding: 8px; }
+    .classic select,
+    .classic input {
+      min-height: 30px;
+      border: 1px solid #7a1f1f;
+      background: #ffffef;
+      border-radius: 2px;
+      font-family: Tahoma, Arial, sans-serif;
+      font-size: 12px;
+    }
+    .classic button {
+      min-height: 30px;
+      border-radius: 2px;
+      font-family: Tahoma, Arial, sans-serif;
+      font-size: 12px;
+    }
+    .classic .primary { background: #12385b; color: #fff; border-color: #12385b; }
+    .classic .secondary { background: #fffbea; color: #7a1f1f; border-color: #7a1f1f; }
+    .classic .tag { background: #fff2cc; color: #7a1f1f; }
+
+    .modern .mock-page { background: #f6f8fb; }
+    .modern .toolbar {
+      background: #fff;
+      border: 1px solid #d7e1eb;
+      border-radius: 8px;
+      padding: 10px;
+      box-shadow: 0 1px 8px rgba(23, 33, 43, .06);
+    }
+    .modern select,
+    .modern input {
+      border-radius: 6px;
+      background: #fff;
+    }
+    .modern select:focus,
+    .modern input:focus {
+      outline: 2px solid #f2c230;
+      border-color: #0f766e;
+    }
+    .modern button {
+      border-radius: 6px;
+    }
+    .modern .primary { background: #163b5c; color: #fff; border-color: #163b5c; }
+    .modern .secondary { background: #0f766e; color: #fff; border-color: #0f766e; }
+
+    .authority .mock-page { background: #edf2f7; }
+    .authority .toolbar {
+      background: #0f2f4d;
+      border: 1px solid #0b243b;
+      padding: 10px;
+      box-shadow: inset 0 -3px 0 #d6a313;
+    }
+    .authority .field label { color: #e8f2f8; }
+    .authority select,
+    .authority input {
+      border: 1px solid #8aa4bf;
+      background: #fff;
+      border-radius: 3px;
+    }
+    .authority button {
+      border-radius: 3px;
+    }
+    .authority .primary { background: #d6a313; color: #10243a; border-color: #d6a313; }
+    .authority .secondary { background: #0f766e; color: #fff; border-color: #0f766e; }
+    .authority .tag { background: #0f2f4d; color: #fff; }
+
+    @media (max-width: 980px) {
+      .toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .button-row { justify-content: stretch; grid-column: 1 / -1; }
+      .button-row button { flex: 1 1 150px; }
+      .notes { grid-template-columns: 1fr; }
+      .head { align-items: flex-start; flex-direction: column; }
+    }
+
+    @media (max-width: 560px) {
+      .page { padding: 10px; }
+      .toolbar { grid-template-columns: 1fr; }
+      .button-row button { flex-basis: 100%; }
+      .sample-table { font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="head">
+      <div>
+        <h1>MB-BUDGET Toolbar Style Preview</h1>
+        <p>Visual options only. Tables/calculations/export logic are not changed by this preview.</p>
+      </div>
+      <a class="back" href="../index.html">Back to Portal</a>
+    </header>
+
+    <label class="size-toggle">
+      <input id="compactToggle" type="checkbox">
+      Preview toolbar controls with 2px smaller font. Table/data size remains unchanged.
+    </label>
+
+    <section class="options">
+      <article class="option classic">
+        <div class="option-head">
+          <h2 class="option-title">Option A - Railway Office Classic</h2>
+          <span class="tag">Legacy official feel</span>
+        </div>
+        <div class="mock-page">
+          <div class="toolbar">
+            <div class="field"><label>Report Scope</label><select><option>Primary Unit</option></select></div>
+            <div class="field"><label>Item</label><select><option>PU - 27 Materials from stock</option></select></div>
+            <div class="field"><label>Year</label><select><option>2026-27</option></select></div>
+            <div class="field"><label>Search</label><input value="engineering"></div>
+            <div class="field"><label>Value Display</label><select><option>Thousands + Cr</option></select></div>
+            <div class="button-row"><button class="primary">Export Full</button><button class="secondary">Export Current View</button></div>
+          </div>
+          <table class="sample-table">
+            <thead><tr><th>PU</th><th>OBA / RG</th><th>BP</th><th>AE</th><th>% BP</th></tr></thead>
+            <tbody><tr><td>PU - 27</td><td><span class="money"><strong>36,34,059</strong><span>363.41 Cr</span></span></td><td><span class="money"><strong>15,12,450</strong><span>151.25 Cr</span></span></td><td><span class="money"><strong>14,98,220</strong><span>149.82 Cr</span></span></td><td>99</td></tr></tbody>
+          </table>
+          <div class="notes"><div>Font: Tahoma / Arial</div><div>Palette: cream, navy, maroon</div><div>Best for IPAS-like familiarity</div></div>
+        </div>
+      </article>
+
+      <article class="option modern">
+        <div class="option-head">
+          <h2 class="option-title">Option B - Modern Finance Dashboard</h2>
+          <span class="tag">Recommended</span>
+        </div>
+        <div class="mock-page">
+          <div class="toolbar">
+            <div class="field"><label>Report Scope</label><select><option>Primary Unit</option></select></div>
+            <div class="field"><label>Item</label><select><option>PU - 27 Materials from stock</option></select></div>
+            <div class="field"><label>Year</label><select><option>2026-27</option></select></div>
+            <div class="field"><label>Search</label><input value="engineering"></div>
+            <div class="field"><label>Value Display</label><select><option>Thousands + Cr</option></select></div>
+            <div class="button-row"><button class="primary">Export Full</button><button class="secondary">Export Current View</button></div>
+          </div>
+          <table class="sample-table">
+            <thead><tr><th>PU</th><th>OBA / RG</th><th>BP</th><th>AE</th><th>% BP</th></tr></thead>
+            <tbody><tr><td>PU - 27</td><td><span class="money"><strong>36,34,059</strong><span>363.41 Cr</span></span></td><td><span class="money"><strong>15,12,450</strong><span>151.25 Cr</span></span></td><td><span class="money"><strong>14,98,220</strong><span>149.82 Cr</span></span></td><td>99</td></tr></tbody>
+          </table>
+          <div class="notes"><div>Font: Segoe UI / Arial</div><div>Palette: white, navy, teal</div><div>Best balance for daily finance work</div></div>
+        </div>
+      </article>
+
+      <article class="option authority">
+        <div class="option-head">
+          <h2 class="option-title">Option C - Authority Presentation Style</h2>
+          <span class="tag">High contrast</span>
+        </div>
+        <div class="mock-page">
+          <div class="toolbar">
+            <div class="field"><label>Report Scope</label><select><option>Primary Unit</option></select></div>
+            <div class="field"><label>Item</label><select><option>PU - 27 Materials from stock</option></select></div>
+            <div class="field"><label>Year</label><select><option>2026-27</option></select></div>
+            <div class="field"><label>Search</label><input value="engineering"></div>
+            <div class="field"><label>Value Display</label><select><option>Thousands + Cr</option></select></div>
+            <div class="button-row"><button class="primary">Export Full</button><button class="secondary">Export Current View</button></div>
+          </div>
+          <table class="sample-table">
+            <thead><tr><th>PU</th><th>OBA / RG</th><th>BP</th><th>AE</th><th>% BP</th></tr></thead>
+            <tbody><tr><td>PU - 27</td><td><span class="money"><strong>36,34,059</strong><span>363.41 Cr</span></span></td><td><span class="money"><strong>15,12,450</strong><span>151.25 Cr</span></span></td><td><span class="money"><strong>14,98,220</strong><span>149.82 Cr</span></span></td><td>99</td></tr></tbody>
+          </table>
+          <div class="notes"><div>Font: Segoe UI Semibold / Arial</div><div>Palette: dark navy, gold, teal</div><div>Best for review/presentation mode</div></div>
+        </div>
+      </article>
+    </section>
+  </main>
+  <script>
+    const compactToggle = document.getElementById("compactToggle");
+    compactToggle.addEventListener("change", () => {
+      document.body.classList.toggle("compact-bars", compactToggle.checked);
+    });
+  </script>
+</body>
+</html>
