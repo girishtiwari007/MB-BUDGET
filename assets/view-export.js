@@ -130,15 +130,15 @@
     return `<!doctype html><html><head><meta charset="utf-8"><title>${html(pageTitle())}</title>${exportStyles()}</head><body><main><h1>${html(pageTitle())}</h1><p class="view-meta">${meta}</p>${clone.outerHTML}</main></body></html>`;
   }
 
-  function printPdf(){
-    const win = window.open("", "_blank");
-    if (!win) { window.alert("Please allow popups to generate PDF."); return; }
-    win.document.open();
-    win.document.write(currentViewHtml("pdf"));
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 350);
+  function pdfEscape(value){ return clean(value).replace(/[\\()]/g,"\\$&").replace(/[^\x20-\x7E]/g,"?"); }
+  function pdfBlob(){
+    const sheets=currentViewSheets(), pages=[];
+    sheets.forEach(sheet=>{ let page=[]; const lines=[pageTitle(),`Generated: ${new Date().toLocaleString("en-IN")}`,`Table: ${sheet.name}`,"",...sheet.rows.map(row=>row.map(clean).join(" | "))]; lines.forEach(line=>{(line.match(/.{1,118}(?:\s|$)|.{1,118}/g)||[""]).forEach(part=>{if(page.length>=42){pages.push(page);page=[];}page.push(part.trim());});});if(page.length)pages.push(page); });
+    const objects=[], add=(body)=>{objects.push(body);return objects.length;}, catalog=add(""), pagesRef=add(""), font=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"), pageRefs=[];
+    pages.forEach(lines=>{const content=["BT","/F1 10 Tf","40 560 Td",...lines.flatMap((line,index)=>[index?"0 -12 Td":"",`(${pdfEscape(line)}) Tj`]).filter(Boolean),"ET"].join("\n");const contentRef=add(`<< /Length ${encoder.encode(content).length} >>\nstream\n${content}\nendstream`);pageRefs.push(add(`<< /Type /Page /Parent ${pagesRef} 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 ${font} 0 R >> >> /Contents ${contentRef} 0 R >>`));});
+    objects[0]=`<< /Type /Catalog /Pages ${pagesRef} 0 R >>`;objects[1]=`<< /Type /Pages /Kids [${pageRefs.map(ref=>`${ref} 0 R`).join(" ")}] /Count ${pageRefs.length} >>`;let out="%PDF-1.4\n", offsets=[0];objects.forEach((body,index)=>{offsets.push(encoder.encode(out).length);out+=`${index+1} 0 obj\n${body}\nendobj\n`;});const xref=encoder.encode(out).length;out+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n${offsets.slice(1).map(offset=>String(offset).padStart(10,"0")+" 00000 n \n").join("")}trailer\n<< /Size ${objects.length+1} /Root ${catalog} 0 R >>\nstartxref\n${xref}\n%%EOF`;return new Blob([out],{type:"application/pdf"});
   }
+  function printPdf(){download(pdfBlob(),`${pageTitle().replace(/[^A-Za-z0-9]+/g,"_")}_View_${fileStamp()}.pdf`);}
 
   function tableToAoa(table){
     return Array.from(table.rows || []).map(row => Array.from(row.cells || []).map(cell => clean(cell.innerText || cell.textContent)));
@@ -249,13 +249,10 @@
     download(xlsxBlob(), `${pageTitle().replace(/[^A-Za-z0-9]+/g, "_")}_View_${fileStamp()}.xlsx`);
   }
 
-  function exportPpt(){
-    const active = visibleRoot();
-    const body = cloneForExport(active).outerHTML;
-    const meta = metaRows().map(row => `<p><b>${html(row[0])}:</b> ${html(row[1])}</p>`).join("");
-    const ppt = `<!doctype html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:p="urn:schemas-microsoft-com:office:powerpoint"><head><meta charset="utf-8"><meta name="ProgId" content="PowerPoint.Slide"><title>${html(pageTitle())}</title>${exportStyles()}<style>body{width:13.333in;min-height:7.5in}.slide{page-break-after:always;padding:.25in}.slide:last-child{page-break-after:auto}</style></head><body><section class="slide"><h1>${html(pageTitle())}</h1>${meta}</section><section class="slide">${body}</section></body></html>`;
-    download(new Blob([ppt], { type:"application/vnd.ms-powerpoint" }), `${pageTitle().replace(/[^A-Za-z0-9]+/g, "_")}_View_${fileStamp()}.ppt`);
-  }
+  function pptTextShape(text,x,y,w,h,size,bold){const paras=text.split("\n").map(line=>`<a:p><a:r><a:rPr lang="en-US" sz="${size}" b="${bold?1:0}"/><a:t>${xml(line)}</a:t></a:r><a:endParaRPr lang="en-US"/></a:p>`).join("");return `<p:sp><p:nvSpPr><p:cNvPr id="${x+y}" name="Text"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square"/><a:lstStyle/>${paras}</p:txBody></p:sp>`;}
+  function pptSlide(title,lines){return `<?xml version="1.0" encoding="UTF-8"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${pptTextShape(title,457200,228600,11277600,457200,2200,true)}${pptTextShape(lines.join("\n"),457200,914400,11277600,5715000,1050,false)}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;}
+  function pptxBlob(){const sheets=currentViewSheets(),slides=[{title:pageTitle(),lines:metaRows().map(row=>`${row[0]}: ${row[1]}`)}];sheets.forEach(sheet=>{for(let i=0;i<sheet.rows.length;i+=18)slides.push({title:sheet.name+(i?` (${Math.floor(i/18)+1})`:""),lines:sheet.rows.slice(i,i+18).map(row=>row.map(clean).join(" | "))});});const files=[{name:"[Content_Types].xml",content:`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>${slides.map((_,i)=>`<Override PartName="/ppt/slides/slide${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join("")}</Types>`},{name:"_rels/.rels",content:`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>`},{name:"ppt/presentation.xml",content:`<?xml version="1.0"?><p:presentation xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldIdLst>${slides.map((_,i)=>`<p:sldId id="${256+i}" r:id="rId${i+1}"/>`).join("")}</p:sldIdLst><p:sldSz cx="12192000" cy="6858000" type="screen16x9"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>`},{name:"ppt/_rels/presentation.xml.rels",content:`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${slides.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i+1}.xml"/>`).join("")}</Relationships>`},...slides.map((slide,i)=>({name:`ppt/slides/slide${i+1}.xml`,content:pptSlide(slide.title,slide.lines)}))];return zip(files,"application/vnd.openxmlformats-officedocument.presentationml.presentation");}
+  function exportPpt(){download(pptxBlob(),`${pageTitle().replace(/[^A-Za-z0-9]+/g,"_")}_View_${fileStamp()}.pptx`);}
 
   function addButtons(options = {}){
     if (document.getElementById("exportViewPdf") || document.getElementById("exportBoard")) return;
