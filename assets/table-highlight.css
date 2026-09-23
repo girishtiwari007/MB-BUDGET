@@ -5,26 +5,28 @@ table.table-highlight-enabled td {
 
 table.table-highlight-enabled th.table-sortable {
   cursor: pointer;
-  position: relative;
-  padding-right: 18px;
   user-select: none;
+}
+
+table.table-highlight-enabled thead th.table-sortable {
+  position: sticky;
+}
+
+table.table-highlight-enabled th.table-sortable:not(thead th) {
+  position: relative;
 }
 
 table.table-highlight-enabled th.table-sortable::after {
   content: "";
+  display: none;
   position: absolute;
-  right: 5px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 6px;
-  height: 10px;
-  border-top: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  opacity: .62;
+  right: 4px;
+  bottom: 3px;
+  opacity: .9;
 }
 
 table.table-highlight-enabled th.table-sort-active::after {
-  opacity: 1;
+  display: block;
 }
 
 table.table-highlight-enabled th.table-sort-asc::after {
@@ -48,6 +50,20 @@ table.table-highlight-enabled th.table-sort-desc::after {
 table.table-highlight-enabled th.table-sortable:focus {
   outline: 2px solid #f2c230;
   outline-offset: -2px;
+}
+
+table.table-highlight-enabled thead th {
+  position: sticky;
+  top: var(--sticky-top, 0px) !important;
+  z-index: 7;
+}
+
+table.table-highlight-enabled thead tr:first-child th {
+  z-index: 9;
+}
+
+table.table-highlight-enabled thead tr:not(:first-child) th {
+  z-index: 8;
 }
 
 table.table-highlight-enabled tr.table-hover-row > th,

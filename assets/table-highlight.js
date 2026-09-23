@@ -15,6 +15,22 @@
     table.dataset.highlightReady = "1";
     table.classList.add("table-highlight-enabled");
     enableSort(table);
+    refreshStickyHeader(table);
+  }
+
+  function refreshStickyHeader(table) {
+    const rows = Array.from(table?.tHead?.rows || []).filter((row) => row.cells.length);
+    let top = 0;
+    rows.forEach((row) => {
+      Array.from(row.cells || []).forEach((cell) => {
+        cell.style.setProperty("--sticky-top", `${top}px`);
+      });
+      top += Math.ceil(row.getBoundingClientRect().height || row.offsetHeight || 0);
+    });
+  }
+
+  function refreshStickyHeaders(root = document) {
+    root.querySelectorAll(TABLE_SELECTOR).forEach(refreshStickyHeader);
   }
 
   function sortValue(cell) {
@@ -80,6 +96,7 @@
     header.classList.add("table-sort-active", nextDirection === "asc" ? "table-sort-asc" : "table-sort-desc");
     header.setAttribute("aria-sort", nextDirection === "asc" ? "ascending" : "descending");
     [...decorated.map((item) => item.row), ...fixedRows].forEach((row) => tbody.appendChild(row));
+    refreshStickyHeader(table);
   }
 
   function enableSort(table) {
@@ -202,10 +219,15 @@
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
       enableAll();
+      requestAnimationFrame(() => refreshStickyHeaders());
       observer.observe(document.body, { childList: true, subtree: true });
     });
   } else {
     enableAll();
+    requestAnimationFrame(() => refreshStickyHeaders());
     observer.observe(document.body, { childList: true, subtree: true });
   }
+
+  window.addEventListener("resize", () => refreshStickyHeaders());
+  window.addEventListener("load", () => refreshStickyHeaders());
 })();

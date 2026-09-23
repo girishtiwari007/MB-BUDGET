@@ -41,6 +41,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     const puFocus = { mode:"all", item:"" };
     const compareState = { entity:"pu", years:"1", metric:"ae", chart:"bar", item:"__total" };
     const analysisState = { scope:"current", metric:"ae", attention:"all", pu:"all", view:"overview", logicUnlocked:false };
+    const quarterState = { scope:"pu", mode:"all", item:"", sort:"variance", years:[], quarters:["Q1", "Q2"] };
     let uploadUnlocked = false;
     let uploadPassword = "";
     const PERIOD_MONTHS = ["APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", "JAN", "FEB", "MAR"];
@@ -130,6 +131,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       if (tabKey === "upload") { renderUpload(); return; }
       if (tabKey === "analysis") { renderAnalysis(); return; }
       if (tabKey === "current_till") { renderTillDate(); return; }
+      if (tabKey === "quarter") { renderQuarterReview(); return; }
       const tab = tableForView(tabKey);
       document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tabKey));
       if (!tab || !tab.rows || !tab.rows.length) {
@@ -168,6 +170,179 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       const header = `<thead><tr>${tab.columns.map(col => `<th>${htmlEscape(String(col.label || "").replace(/\n/g, " "))}</th>`).join("")}</tr></thead>`;
       const body = rows.map(row => `<tr class="${rowClassName(row)}">${tab.columns.map(col => `<td>${formatCellHtml(row[col.key], col.format)}</td>`).join("")}</tr>`).join("");
       return `<section class="till-section"><h3>${htmlEscape(tab.title)}</h3><div class="note">Remarks - Figures in '000' (thousands). ${htmlEscape(RUNNING_PERIOD.displayLabel)} is running and shown only in this tab.</div>${specialNote}<table class="${tab.columns.length > 8 ? "wide" : ""}">${header}<tbody>${body}</tbody></table></section>`;
+    }
+    function currentFy() { return latestReportYear(0) || "2026-27"; }
+    function quarterScopeLabel(scope) { return { pu:"PU Wise", demand:"Demand / SMH Wise", dept:"Department Wise" }[scope] || "PU Wise"; }
+    function reportYears() { return (REPORTS_DATA.years || []).map(year => year.fy).filter(Boolean); }
+    function selectedQuarterYears() {
+      const years = reportYears();
+      if (!quarterState.years.length) quarterState.years = years.slice(-4);
+      return quarterState.years.filter(year => years.includes(year));
+    }
+    const QUARTER_DEFS = {
+      Q1: ["APR", "MAY", "JUN"],
+      Q2: ["JUL", "AUG", "SEP"],
+      Q3: ["OCT", "NOV", "DEC"],
+      Q4: ["JAN", "FEB", "MAR"]
+    };
+    function quarterWindows() {
+      const completedIndex = Math.max(0, Math.min(PERIOD_MONTHS.length - 1, COMPLETED_PERIOD.count - 1));
+      const currentStart = Math.floor(completedIndex / 3) * 3;
+      const currentMonths = PERIOD_MONTHS.slice(currentStart, completedIndex + 1);
+      const previousStart = Math.max(0, currentStart - 3);
+      const previousMonths = currentStart > 0 ? PERIOD_MONTHS.slice(previousStart, currentStart) : [];
+      return {
+        currentMonths,
+        previousMonths,
+        currentLabel: `Current quarter ${currentMonths[0] || ""}-${currentMonths.at(-1) || ""} ${COMPLETED_PERIOD.year}`.replace(/\s+/g, " ").trim(),
+        previousLabel: previousMonths.length ? `Previous quarter ${previousMonths[0]}-${previousMonths.at(-1)} ${COMPLETED_PERIOD.year}` : "Previous quarter not available in current FY"
+      };
+    }
+    function monthSum(values, months) {
+      return months.reduce((sum, month) => {
+        const index = PERIOD_MONTHS.indexOf(month);
+        return sum + Number(index >= 0 ? values?.[index] || 0 : 0);
+      }, 0);
+    }
+    function quarterTotal(values, quarter) { return monthSum(values, QUARTER_DEFS[quarter] || []); }
+    function quarterRows(scope = quarterState.scope) {
+      const fy = currentFy();
+      const source = REPORTS_DATA.monthly?.[scope] || {};
+      const { currentMonths, previousMonths } = quarterWindows();
+      const rows = Object.entries(source).map(([name, years]) => {
+        const values = years?.[fy] || [];
+        const current = monthSum(values, currentMonths);
+        const previous = monthSum(values, previousMonths);
+        const variation = current - previous;
+        const percent = previous ? current / previous * 100 : current ? 100 : 0;
+        return { Name:name, PreviousQuarter:previous, CurrentQuarter:current, Variation:variation, Percent:percent };
+      }).filter(row => row.PreviousQuarter || row.CurrentQuarter || row.Variation);
+      const total = rows.reduce((acc, row) => {
+        acc.PreviousQuarter += row.PreviousQuarter;
+        acc.CurrentQuarter += row.CurrentQuarter;
+        acc.Variation += row.Variation;
+        return acc;
+      }, { Name:"Total", PreviousQuarter:0, CurrentQuarter:0, Variation:0, Percent:0 });
+      total.Percent = total.PreviousQuarter ? total.CurrentQuarter / total.PreviousQuarter * 100 : 0;
+      rows.sort((a, b) => {
+        if (quarterState.sort === "name") return a.Name.localeCompare(b.Name, "en-IN", { numeric:true, sensitivity:"base" });
+        if (quarterState.sort === "current") return b.CurrentQuarter - a.CurrentQuarter;
+        if (quarterState.sort === "percent") return b.Percent - a.Percent;
+        return Math.abs(b.Variation) - Math.abs(a.Variation);
+      });
+      const filteredRows = quarterState.mode === "specific" && quarterState.item
+        ? rows.filter(row => row.Name === quarterState.item)
+        : rows;
+      if (quarterState.mode === "specific" && quarterState.item) return filteredRows;
+      return [...rows, total];
+    }
+    function quarterItemOptions() {
+      const fy = currentFy();
+      const source = REPORTS_DATA.monthly?.[quarterState.scope] || {};
+      return Object.entries(source)
+        .filter(([, years]) => Array.isArray(years?.[fy]) && years[fy].some(value => Number(value || 0)))
+        .map(([name]) => name)
+        .sort((a, b) => a.localeCompare(b, "en-IN", { numeric:true, sensitivity:"base" }));
+    }
+    function multiYearQuarterRows() {
+      const source = REPORTS_DATA.monthly?.[quarterState.scope] || {};
+      const years = selectedQuarterYears();
+      const quarters = (quarterState.quarters?.length ? quarterState.quarters : ["Q1", "Q2"]).filter(q => QUARTER_DEFS[q]);
+      const itemNames = quarterState.mode === "specific" && quarterState.item ? [quarterState.item] : quarterItemOptions();
+      const rows = [];
+      itemNames.forEach(name => {
+        quarters.forEach(quarter => {
+          const row = { Name:name, Quarter:`${quarter} (${QUARTER_DEFS[quarter].join(", ")})`, Total:0 };
+          years.forEach(year => {
+            row[year] = quarterTotal(source?.[name]?.[year] || [], quarter);
+            row.Total += row[year];
+          });
+          if (row.Total || quarterState.mode === "specific") rows.push(row);
+        });
+      });
+      return rows;
+    }
+    function multiYearQuarterColumns() {
+      const years = selectedQuarterYears();
+      return [
+        { key:"Name", label:quarterScopeLabel(quarterState.scope), format:"text" },
+        { key:"Quarter", label:"Quarter", format:"text" },
+        ...years.map(year => ({ key:year, label:year, format:"money" })),
+        { key:"Total", label:"Selected Years Total", format:"money" }
+      ];
+    }
+    function multiYearControlsHtml() {
+      const yearOptions = reportYears().map(year => `<label class="quarter-check"><input type="checkbox" data-quarter-year="${htmlEscape(year)}" ${selectedQuarterYears().includes(year) ? "checked" : ""}>${htmlEscape(year)}</label>`).join("");
+      const quarterOptions = Object.keys(QUARTER_DEFS).map(q => `<label class="quarter-check"><input type="checkbox" data-quarter-name="${q}" ${quarterState.quarters.includes(q) ? "checked" : ""}>${q} <span>${QUARTER_DEFS[q].join("-")}</span></label>`).join("");
+      return `<section class="quarter-multi-controls" data-view-export-ignore><strong>Multi-Year Quarter Selection</strong><div class="quarter-checks">${yearOptions}</div><div class="quarter-checks">${quarterOptions}</div></section>`;
+    }
+    function multiYearQuarterTableHtml() {
+      const columns = multiYearQuarterColumns();
+      const rows = multiYearQuarterRows();
+      const head = columns.map(col => `<th>${htmlEscape(col.label)}</th>`).join("");
+      const body = rows.length ? rows.map((row, index) => `<tr class="${index % 2 ? "" : ""}">${columns.map(col => `<td>${formatCellHtml(row[col.key], col.format)}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${columns.length}">No data available for selected year / quarter combination.</td></tr>`;
+      return `<section class="quarter-multi"><div class="quarter-section-head"><div><h3>Multi-Year Quarter Comparison</h3><span>${htmlEscape(quarterState.mode === "specific" && quarterState.item ? quarterState.item : "All selected items")} | Years: ${htmlEscape(selectedQuarterYears().join(", "))}</span></div><em>Figures in '000 with Cr shown below</em></div><table class="quarter-table quarter-pivot"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></section>`;
+    }
+    function quarterAiReviewText() {
+      const rows = quarterRows().filter(row => !isTotalRow(row));
+      const total = quarterRows().find(isTotalRow);
+      const sorted = rows.slice().sort((a, b) => Math.abs(b.Variation) - Math.abs(a.Variation));
+      const top = sorted[0];
+      const selectedItem = quarterState.mode === "specific" && quarterState.item ? quarterState.item : "All selected items";
+      const basis = `${quarterScopeLabel(quarterState.scope)} | ${selectedItem} | Completed ${COMPLETED_PERIOD.label}; running ${RUNNING_PERIOD.label} excluded`;
+      if (!top) return `AI Review / Analysis Remark: Report generated for ${basis}. No quarter movement is available for the selected filters.`;
+      const direction = Number(top.Variation || 0) >= 0 ? "increase" : "reduction";
+      const totalText = total ? ` Overall current quarter value is ${formatNumber(total.CurrentQuarter)} against previous quarter ${formatNumber(total.PreviousQuarter)} (${Math.round(Number(total.Percent || 0))}%).` : "";
+      const scopeText = quarterState.mode === "specific" && quarterState.item ? ` Specific selection enabled for ${selectedItem}.` : "";
+      return `AI Review / Analysis Remark: Report generated for ${basis}.${scopeText} Highest quarter movement is ${top.Name} with ${direction} of ${formatNumber(Math.abs(top.Variation))} (${formatCrore(Math.abs(top.Variation) / 10000)} Cr).${totalText}`;
+    }
+    function quarterAiReviewHtml() {
+      const windows = quarterWindows();
+      return `<section class="quarter-ai-review"><strong>AI Review / Analysis Remark</strong><p>${htmlEscape(quarterAiReviewText())}</p><span>Report generated: ${htmlEscape(new Date().toLocaleString("en-IN"))} | ${htmlEscape(windows.currentLabel)} compared with ${htmlEscape(windows.previousLabel)} | Source basis: ${htmlEscape(BASIS_SOURCE)}</span></section>`;
+    }
+    function quarterColumns() {
+      const windows = quarterWindows();
+      return [
+        { key:"Name", label:quarterScopeLabel(quarterState.scope), format:"text" },
+        { key:"PreviousQuarter", label:`Previous Quarter\n${windows.previousMonths.join(", ") || "N/A"}`, format:"money" },
+        { key:"CurrentQuarter", label:`Current Quarter\n${windows.currentMonths.join(", ")}`, format:"money" },
+        { key:"Variation", label:"Variation\nCurrent - Previous", format:"money" },
+        { key:"Percent", label:"Current vs Previous\n%", format:"int" }
+      ];
+    }
+    function renderQuarterReview() {
+      activeTab = "quarter";
+      refreshDataStamp();
+      document.querySelectorAll(".tabs button").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "quarter"));
+      document.getElementById("title").textContent = `Quarter Review - ${quarterScopeLabel(quarterState.scope)}`;
+      const windows = quarterWindows();
+      const columns = quarterColumns();
+      const items = quarterItemOptions();
+      if (quarterState.mode === "specific" && !items.includes(quarterState.item)) quarterState.item = items[0] || "";
+      const rows = quarterRows();
+      const body = rows.map((row, index) => {
+        const base = isTotalRow(row) ? "total" : index % 2 ? "" : "";
+        return `<tr class="${base}">${columns.map(col => {
+          if (col.key === "Percent") return `<td>${alertDotHtml(row[col.key])}${formatCell(row[col.key], col.format)}</td>`;
+          return `<td>${formatCellHtml(row[col.key], col.format)}</td>`;
+        }).join("")}</tr>`;
+      }).join("");
+      const headers = columns.map(col => `<th>${htmlEscape(col.label)}</th>`).join("");
+      document.getElementById("tableHost").innerHTML = `
+        <section class="quarter-toolbar" data-view-export-ignore>
+          <label>Scope<select id="quarterScope"><option value="pu" ${quarterState.scope === "pu" ? "selected" : ""}>PU Wise</option><option value="demand" ${quarterState.scope === "demand" ? "selected" : ""}>Demand / SMH Wise</option><option value="dept" ${quarterState.scope === "dept" ? "selected" : ""}>Department Wise</option></select></label>
+          <label>Show<select id="quarterMode"><option value="all" ${quarterState.mode === "all" ? "selected" : ""}>All</option><option value="specific" ${quarterState.mode === "specific" ? "selected" : ""}>Specific</option></select></label>
+          <label>Item<select id="quarterItem" ${quarterState.mode === "all" ? "disabled" : ""}>${items.map(item => `<option value="${htmlEscape(item)}" ${quarterState.item === item ? "selected" : ""}>${htmlEscape(item)}</option>`).join("")}</select></label>
+          <label>Sort<select id="quarterSort"><option value="variance" ${quarterState.sort === "variance" ? "selected" : ""}>Highest variation</option><option value="current" ${quarterState.sort === "current" ? "selected" : ""}>Current quarter value</option><option value="percent" ${quarterState.sort === "percent" ? "selected" : ""}>Current vs previous %</option><option value="name" ${quarterState.sort === "name" ? "selected" : ""}>Name</option></select></label>
+          <button class="export" type="button" data-quarter-export="excel">Export Quarter Excel</button>
+          <button class="export" type="button" data-quarter-export="pdf">Export Quarter PDF</button>
+          <button class="export" type="button" data-quarter-export="ppt">Export Quarter PPT</button>
+        </section>
+        <div class="future-note"><strong>${htmlEscape(windows.currentLabel)}</strong><br>${htmlEscape(windows.previousLabel)}. Figures in '000' with Crore value shown in each amount cell. Basis: completed actual month ${htmlEscape(COMPLETED_PERIOD.label)}; running ${htmlEscape(RUNNING_PERIOD.label)} excluded.</div>
+        <table class="quarter-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table>
+        ${multiYearControlsHtml()}
+        ${multiYearQuarterTableHtml()}
+        ${quarterAiReviewHtml()}`;
     }
     function puCode(row) { return codeFromLabel(rowName(row), "PU"); }
     function isImportantPuRow(row) { return IMPORTANT_PU_CODES.has(puCode(row)); }
@@ -1425,15 +1600,102 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       ];
       return xlsxZip(files);
     }
-    async function exportCurrentExcel() {
-      const blob = currentWorkbookBlob();
+    function quarterExportRows() {
+      const columns = quarterColumns();
+      const rows = [
+        [xlsxCell(`Quarter Review - ${quarterScopeLabel(quarterState.scope)}`, "title")],
+        [xlsxCell(exportNote(), "meta")],
+        [xlsxCell(`${quarterWindows().currentLabel}; ${quarterWindows().previousLabel}. Single-sheet export for current on-screen quarter view.`, "meta")],
+        columns.map(col => xlsxCell(String(col.label || "").replace(/\n/g, " "), "header"))
+      ];
+      quarterRows().forEach((row, index) => {
+        const isTotal = isTotalRow(row);
+        const base = isTotal ? "total" : index % 2 ? "alt" : "normal";
+        rows.push(columns.map(col => {
+          const value = row[col.key];
+          if (col.format === "money") return xlsxMoneyCell(value, xlsxFinancialStyle(value, base));
+          if (col.key === "Percent") return xlsxAlertCell(value, base, "percent");
+          return xlsxCell(xlsxText(value), base);
+        }));
+      });
+      const multiColumns = multiYearQuarterColumns();
+      rows.push(
+        [xlsxCell("", "normal")],
+        [xlsxCell("Multi-Year Quarter Comparison", "title")],
+        [xlsxCell(`Years: ${selectedQuarterYears().join(", ")} | Quarters: ${(quarterState.quarters || []).join(", ")}`, "meta")],
+        multiColumns.map(col => xlsxCell(String(col.label || "").replace(/\n/g, " "), "header"))
+      );
+      multiYearQuarterRows().forEach((row, index) => {
+        const base = index % 2 ? "alt" : "normal";
+        rows.push(multiColumns.map(col => {
+          const value = row[col.key];
+          if (col.format === "money") return xlsxMoneyCell(value, xlsxFinancialStyle(value, base));
+          return xlsxCell(xlsxText(value), base);
+        }));
+      });
+      rows.push(
+        [xlsxCell("", "normal")],
+        [xlsxCell("AI Review / Analysis Remark", "title")],
+        [xlsxCell(quarterAiReviewText(), "meta")]
+      );
+      return rows;
+    }
+    function singleSheetWorkbookBlob(sheetTitle, rows) {
+      const sheetNames = [xlsxSheetName(sheetTitle)];
+      const files = [
+        { name:"[Content_Types].xml", content:xlsxContentTypesXml(sheetNames) },
+        { name:"_rels/.rels", content:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+        { name:"xl/workbook.xml", content:xlsxWorkbookXml(sheetNames) },
+        { name:"xl/_rels/workbook.xml.rels", content:xlsxWorkbookRelsXml(sheetNames) },
+        { name:"xl/styles.xml", content:xlsxStylesXml() },
+        { name:"xl/worksheets/sheet1.xml", content:xlsxWorksheetXml(rows) }
+      ];
+      return xlsxZip(files);
+    }
+    function downloadBlob(blob, fileName) {
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = exportFileName("Current_Previous_Year_PU_Demand_Analysis", "xlsx");
+      link.download = fileName;
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(link.href);
+    }
+    function quarterExportHtml(mode = "pdf") {
+      const columns = quarterColumns();
+      const rows = quarterRows();
+      const windows = quarterWindows();
+      const headers = columns.map(col => `<th>${htmlEscape(String(col.label || "").replace(/\n/g, " "))}</th>`).join("");
+      const body = rows.map((row, index) => {
+        const cls = isTotalRow(row) ? "total" : index % 2 ? "alt" : "";
+        return `<tr class="${cls}">${columns.map(col => {
+          if (col.key === "Percent") return `<td>${alertDotHtml(row[col.key])}${formatCell(row[col.key], col.format)}</td>`;
+          return `<td>${formatCellHtml(row[col.key], col.format)}</td>`;
+        }).join("")}</tr>`;
+      }).join("");
+      const multiColumns = multiYearQuarterColumns();
+      const multiHeaders = multiColumns.map(col => `<th>${htmlEscape(String(col.label || "").replace(/\n/g, " "))}</th>`).join("");
+      const multiBody = multiYearQuarterRows().map((row, index) => `<tr class="${index % 2 ? "" : "alt"}">${multiColumns.map(col => `<td>${formatCellHtml(row[col.key], col.format)}</td>`).join("")}</tr>`).join("");
+      return `<!doctype html><html><head><meta charset="utf-8"><title>Quarter Review Export</title>${currentExportStyles(mode)}<style>body{font-family:Arial,sans-serif}.export-section{break-after:auto;page-break-after:auto}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}.dot.green{background:#25a55b}.dot.yellow{background:#f2c230}.dot.red{background:#d92323}.subhead{margin:10px 0 4px;color:#1f4e79;font-size:13px;font-weight:800}.ai-review{border:1px solid #c8d6e2;border-left:4px solid #126a66;background:#f5fbf7;padding:7px 9px;margin:8px 0 0;font-size:10px;font-weight:700;line-height:1.35}</style></head><body><main><section class="export-section"><h1>Quarter Review - ${htmlEscape(quarterScopeLabel(quarterState.scope))}</h1><p class="meta">${exportNote()} ${htmlEscape(windows.currentLabel)} compared with ${htmlEscape(windows.previousLabel)}.</p><table><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table><div class="subhead">Multi-Year Quarter Comparison</div><p class="meta">Years: ${htmlEscape(selectedQuarterYears().join(", "))} | Quarters: ${htmlEscape((quarterState.quarters || []).join(", "))}</p><table><thead><tr>${multiHeaders}</tr></thead><tbody>${multiBody}</tbody></table><div class="ai-review">${htmlEscape(quarterAiReviewText())}</div></section></main></body></html>`;
+    }
+    function exportQuarterExcel() {
+      downloadBlob(singleSheetWorkbookBlob("Quarter Review", quarterExportRows()), exportFileName("Quarter_Review_Current_vs_Previous", "xlsx"));
+    }
+    function exportQuarterPdf() {
+      const win = window.open("", "_blank");
+      if (!win) { window.alert("Please allow popups to generate PDF."); return; }
+      win.document.open();
+      win.document.write(quarterExportHtml("pdf"));
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 350);
+    }
+    function exportQuarterPpt() {
+      downloadBlob(new Blob([quarterExportHtml("ppt")], { type:"application/vnd.ms-powerpoint" }), exportFileName("Quarter_Review_Current_vs_Previous", "ppt"));
+    }
+    async function exportCurrentExcel() {
+      const blob = currentWorkbookBlob();
+      downloadBlob(blob, exportFileName("Current_Previous_Year_PU_Demand_Analysis", "xlsx"));
     }
     function exportCurrentPdf() {
       const win = window.open("", "_blank");
@@ -1452,12 +1714,67 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     document.getElementById("exportExcel")?.addEventListener("click", exportCurrentExcel);
     document.getElementById("exportPdf")?.addEventListener("click", exportCurrentPdf);
     document.getElementById("tableHost")?.addEventListener("change", event => {
+      const quarterScope = event.target.closest("#quarterScope");
+      if (quarterScope) {
+        quarterState.scope = quarterScope.value;
+        quarterState.item = "";
+        renderQuarterReview();
+        return;
+      }
+      const quarterMode = event.target.closest("#quarterMode");
+      if (quarterMode) {
+        quarterState.mode = quarterMode.value;
+        if (quarterState.mode === "specific" && !quarterState.item) quarterState.item = quarterItemOptions()[0] || "";
+        renderQuarterReview();
+        return;
+      }
+      const quarterItem = event.target.closest("#quarterItem");
+      if (quarterItem) {
+        quarterState.item = quarterItem.value;
+        quarterState.mode = "specific";
+        renderQuarterReview();
+        return;
+      }
+      const quarterYear = event.target.closest("[data-quarter-year]");
+      if (quarterYear) {
+        const year = quarterYear.dataset.quarterYear;
+        const selected = new Set(selectedQuarterYears());
+        if (quarterYear.checked) selected.add(year); else selected.delete(year);
+        quarterState.years = Array.from(selected);
+        if (!quarterState.years.length) quarterState.years = [year];
+        renderQuarterReview();
+        return;
+      }
+      const quarterName = event.target.closest("[data-quarter-name]");
+      if (quarterName) {
+        const q = quarterName.dataset.quarterName;
+        const selected = new Set(quarterState.quarters || []);
+        if (quarterName.checked) selected.add(q); else selected.delete(q);
+        quarterState.quarters = Array.from(selected).filter(item => QUARTER_DEFS[item]);
+        if (!quarterState.quarters.length) quarterState.quarters = [q];
+        renderQuarterReview();
+        return;
+      }
+      const quarterSort = event.target.closest("#quarterSort");
+      if (quarterSort) {
+        quarterState.sort = quarterSort.value;
+        renderQuarterReview();
+        return;
+      }
       const control = event.target.closest("[data-analysis-filter]");
       if (!control) return;
       analysisState[control.dataset.analysisFilter] = control.value;
       renderAnalysis();
     });
     document.getElementById("tableHost")?.addEventListener("click", event => {
+      const quarterExport = event.target.closest("[data-quarter-export]");
+      if (quarterExport) {
+        const type = quarterExport.dataset.quarterExport;
+        if (type === "excel") exportQuarterExcel();
+        if (type === "pdf") exportQuarterPdf();
+        if (type === "ppt") exportQuarterPpt();
+        return;
+      }
       const viewButton = event.target.closest("[data-analysis-view]");
       if (viewButton) {
         analysisState.view = viewButton.dataset.analysisView;
@@ -1479,8 +1796,8 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       analysisState.view = "alerts";
       renderAnalysis();
     });
-    window.addEventListener("message", event => { if (event.data?.type === "open-current-tab" && (DATA[event.data.tab] || event.data.tab === "analysis")) render(event.data.tab); });
+    window.addEventListener("message", event => { if (event.data?.type === "open-current-tab" && (DATA[event.data.tab] || ["analysis", "quarter"].includes(event.data.tab))) render(event.data.tab); });
     const initialTab = new URLSearchParams(window.location.search).get("tab");
-    if (initialTab && (DATA[initialTab] || ["analysis", "upload", "current_till"].includes(initialTab))) openTab(initialTab);
+    if (initialTab && (DATA[initialTab] || ["analysis", "upload", "current_till", "quarter"].includes(initialTab))) openTab(initialTab);
     else render(activeTab);
 

@@ -1,7 +1,7 @@
 (function(){
   const ADMIN_KEY = "mbBudgetProtectionUnlocked";
-  const EXPORT_KEY = "mbBudgetExportUnlocked";
   const BYPASS = "mbBudgetProtectionBypass";
+  const EXPORT_PASSWORD = "#1";
   const lockedMessage = "Protected portal view. Enter admin password to continue this action.";
   const exportSelector = [
     "a[href*='.pdf']",
@@ -20,7 +20,8 @@
     "#export-all",
     "#export-pdf",
     "#copyReviewPack",
-    ".view-export"
+    ".view-export",
+    "[data-quarter-export]"
   ].join(",");
 
   function adminUnlocked(){
@@ -28,7 +29,7 @@
   }
 
   function exportUnlocked(){
-    return sessionStorage.getItem(EXPORT_KEY) === "1" || adminUnlocked();
+    return adminUnlocked();
   }
 
   function isHostedPortal(){
@@ -40,10 +41,6 @@
     updateBadge();
   }
 
-  function setExportUnlocked(){
-    sessionStorage.setItem(EXPORT_KEY, "1");
-  }
-
   function askAdminPassword(reason){
     if (adminUnlocked()) return true;
     window.alert("Protected actions require local Admin Portal authentication. Open this portal through the local upload server and unlock Admin Portal.");
@@ -51,11 +48,10 @@
   }
 
   function askExportPassword(reason){
-    // Generated reports are published portal artefacts. GitHub Pages cannot
-    // perform local-admin authentication, so hosted visitors may download them.
-    if (isHostedPortal()) return true;
     if (exportUnlocked()) return true;
-    window.alert("Exports require local Admin Portal authentication.");
+    const entered = window.prompt("Exports/downloads are protected. Enter export password.");
+    if (entered === EXPORT_PASSWORD) return true;
+    window.alert("Export cancelled. Wrong export password.");
     return false;
   }
 
@@ -90,7 +86,7 @@
 
   function protectClick(event){
     const target = exportTarget(event.target);
-    if (!target || isHostedPortal() || target.dataset[BYPASS] === "1" || exportUnlocked()) return;
+    if (!target || target.dataset[BYPASS] === "1" || exportUnlocked()) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     if (!askExportPassword("Enter export password to download/export files.")) return;
