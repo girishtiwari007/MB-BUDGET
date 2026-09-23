@@ -28,19 +28,23 @@ EXPECTED_EXPORTS = [
 HTML_TARGETS = [
     "index.html",
     "pages/admin.html",
+    "pages/ai-insight.html",
     "pages/current.html",
     "pages/exports.html",
     "pages/fr.html",
     "pages/logic.html",
     "pages/reports.html",
     "pages/status.html",
+    "pages/yearly-review.html",
 ]
 VIEW_EXPORT_TARGETS = [
+    "pages/ai-insight.html",
     "pages/current.html",
     "pages/exports.html",
     "pages/fr.html",
     "pages/reports.html",
     "pages/status.html",
+    "pages/yearly-review.html",
 ]
 VIEW_EXPORT_ASSETS = [
     "assets/view-export.css",

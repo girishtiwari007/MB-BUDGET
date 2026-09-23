@@ -39,7 +39,7 @@ python .\scripts\local-upload-server.py 8000
 Or double-click/run:
 
 ```text
-Start-Local-Upload-Portal.cmd
+Launch MB-BUDGET Local Sync.bat
 ```
 
 Open:

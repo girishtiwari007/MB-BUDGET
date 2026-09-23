@@ -107,7 +107,11 @@
     });
 
     overBp.forEach(row => {
-      items.push(exceptionItem("watch", rowName(row), `Actual is ${Number(row.BPPercent || 0).toFixed(1)}% of BP. Variation ${money(row.Variation)}.`));
+      const percent = Number(row.BPPercent || 0);
+      const text = percent > 10000
+        ? `No comparable Budget Proportion is available. Variation ${money(row.Variation)}.`
+        : `Actual is ${percent.toFixed(1)}% of BP. Variation ${money(row.Variation)}.`;
+      items.push(exceptionItem("watch", rowName(row), text));
     });
 
     if (important.length) {
