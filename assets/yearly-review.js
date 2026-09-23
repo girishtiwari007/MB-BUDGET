@@ -4,12 +4,13 @@
   const quarters = { Q1:[0,1,2], Q2:[3,4,5], Q3:[6,7,8], Q4:[9,10,11] };
   const $ = (id) => document.getElementById(id);
   const years = () => (data.years || []).map((row) => row.fy).filter(Boolean);
-  const state = { scope:"pu", period:"quarter", month:"APR", quarter:"Q1", selectedYears:new Set(years()), selectedItems:null };
+  const state = { scope:"pu", period:"quarter", month:"APR", quarter:"Q1", selectedYears:new Set(years()), selectedItems:null, selectedDeptPus:null };
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const fmt = (v) => Number(v || 0).toLocaleString("en-IN");
   const money = (v) => `${fmt(v)}<small>${(Number(v || 0) / 10000).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})} Cr</small>`;
   const scopeName = () => state.scope === "pu" ? "Primary Unit" : state.scope === "demand" ? "Demand / SMH" : "Department";
   const source = () => data.monthly?.[state.scope] || {};
+  const puItems = () => Object.keys(data.monthly?.pu || {}).filter((n) => n.toUpperCase() !== "TOTAL").sort((a,b) => a.localeCompare(b,"en-IN",{numeric:true}));
   const items = () => Object.keys(source()).filter((n) => n.toUpperCase() !== "TOTAL").sort((a,b) => a.localeCompare(b,"en-IN",{numeric:true}));
   const selected = (all, set) => all.filter((v) => set.has(v));
   const label = (all, set, plural) => set.size === all.length ? `All ${plural}` : set.size === 1 ? [...set][0] : set.size ? `${set.size} ${plural} selected` : `No ${plural} selected`;
@@ -23,10 +24,12 @@
     $("reviewScope").value=state.scope; $("reviewPeriod").value=state.period;
     $("reviewMonth").innerHTML=months.map((m) => `<option ${m===state.month?"selected":""}>${m}</option>`).join(""); $("reviewQuarter").value=state.quarter;
     $("monthWrap").hidden=state.period!=="month"; $("quarterWrap").hidden=state.period!=="quarter";
-    const allYears=years(), allItems=items(); state.selectedYears=new Set([...state.selectedYears].filter((y) => allYears.includes(y)));
+    const allYears=years(), allItems=items(), allPus=puItems(); state.selectedYears=new Set([...state.selectedYears].filter((y) => allYears.includes(y)));
     if(state.selectedItems===null) state.selectedItems=new Set(allItems); else state.selectedItems=new Set([...state.selectedItems].filter((i) => allItems.includes(i)));
+    if(state.selectedDeptPus===null) state.selectedDeptPus=new Set(allPus); else state.selectedDeptPus=new Set([...state.selectedDeptPus].filter((i) => allPus.includes(i)));
     checkboxList($("yearChecks"),allYears,state.selectedYears,"year","All available years"); checkboxList($("itemChecks"),allItems,state.selectedItems,"item",`All ${scopeName()}s`);
     $("yearPickerLabel").textContent=label(allYears,state.selectedYears,"years"); $("itemPickerTitle").textContent=`Specific ${scopeName()}s`; $("itemPickerLabel").textContent=label(allItems,state.selectedItems,`${scopeName()}s`);
+    $("deptPuWrap").hidden=state.scope!=="dept"; checkboxList($("deptPuChecks"),allPus,state.selectedDeptPus,"dept-pu","All Primary Units"); $("deptPuPickerLabel").textContent=label(allPus,state.selectedDeptPus,"Primary Units");
   }
   function chart(names, chosenYears){
     if(!chosenYears.length || !names.length) return `<p class="empty-chart">Select at least one year and one item to view the trend.</p>`;
@@ -41,7 +44,7 @@
     if(!rows.length || !chosenYears.length) return ["Choose one or more financial years and items to generate review remarks."];
     const top=rows[0], latest=chosenYears.at(-1), latestValue=rows.reduce((sum,row) => sum+row.values.at(-1),0), previous=chosenYears.length>1?rows.reduce((sum,row) => sum+row.values.at(-2),0):0;
     const change=previous ? ((latestValue-previous)/Math.abs(previous))*100 : null;
-    return [`${esc(top.name)} is the highest selected ${scopeName().toLowerCase()}, contributing ${total ? ((top.total/total)*100).toFixed(1) : "0.0"}% of the selected review total.`, `${names.length} selected ${scopeName().toLowerCase()}${names.length===1?" is":"s are"} reviewed across ${chosenYears.length} financial year${chosenYears.length===1?"":"s"}.`, change===null ? `${esc(latest)} is the only selected year; select another year to view comparative movement.` : `${esc(latest)} is ${change>=0?"higher":"lower"} by ${Math.abs(change).toFixed(1)}% than the preceding selected year for this period.`];
+    return [`${esc(top.name)} is the highest selected ${scopeName().toLowerCase()}, contributing ${total ? ((top.total/total)*100).toFixed(1) : "0.0"}% of the selected review total.`, `${names.length} selected ${scopeName().toLowerCase()}${names.length===1?" is":"s are"} reviewed across ${chosenYears.length} financial year${chosenYears.length===1?"":"s"}.`, change===null ? `${esc(latest)} is the only selected year; select another year to view comparative movement.` : `${esc(latest)} is ${change>=0?"higher":"lower"} by ${Math.abs(change).toFixed(1)}% than the preceding selected year for this period.`, ...(state.scope==="dept" ? [`PU cross-review is active for ${label(puItems(),state.selectedDeptPus,"Primary Units")}.`] : [])];
   }
   function render(){
     sync(); const chosenYears=selected(years(),state.selectedYears), names=selected(items(),state.selectedItems);
@@ -49,7 +52,8 @@
     const total=rows.reduce((a,row) => a+row.total,0), top=rows[0]; $("reviewTitle").textContent=`Yearly Review — ${scopeName()}`; $("reviewStamp").textContent=`${periodLabel()} | ${label(years(),state.selectedYears,"years")} | Completed actuals through ${meta.completedMonth || "latest completed month"}`;
     $("reviewHost").innerHTML=`<section class="summary"><article><span>Period</span><strong>${esc(periodLabel())}</strong></article><article><span>Selected rows</span><strong>${rows.length}</strong></article><article><span>Review total</span><strong>${money(total)}</strong></article><article><span>Highest item</span><strong>${esc(top?.name||"N/A")}</strong></article></section><section class="review-panel"><div class="section-head"><h2>${esc(periodLabel())} expenditure review</h2><span>Completed actuals only · Figures in '000' with Crore below</span></div><div class="table-wrap"><table><thead><tr><th>${scopeName()}</th>${chosenYears.map((y)=>`<th>${esc(y)}</th>`).join("")}<th>Total</th></tr></thead><tbody>${rows.map((r)=>`<tr><td>${esc(r.name)}</td>${r.values.map((v)=>`<td>${money(v)}</td>`).join("")}<td>${money(r.total)}</td></tr>`).join("")||`<tr><td colspan="${chosenYears.length+2}">No data available for this selection.</td></tr>`}</tbody></table></div></section><section class="insight-grid"><article class="review-panel"><div class="section-head"><h2>Selection insights</h2><span>Derived from the displayed review</span></div><ul class="remark-list">${remarks(rows,total,names,chosenYears).map((remark)=>`<li>${remark}</li>`).join("")}</ul></article><article class="review-panel"><div class="section-head"><h2>Monthly completed-actual trend</h2><span>Markers show monthly values</span></div>${chart(names,chosenYears)}</article></section>`;
   }
-  ["reviewScope","reviewPeriod","reviewMonth","reviewQuarter"].forEach((id)=>$(id).addEventListener("change",(event)=>{ const keys={reviewScope:"scope",reviewPeriod:"period",reviewMonth:"month",reviewQuarter:"quarter"}; state[keys[id]]=event.target.value; if(id==="reviewScope")state.selectedItems=null; render(); }));
-  document.addEventListener("change",(event)=>{ const input=event.target; if(!input.matches("input[data-type]"))return; const all=input.dataset.type==="year"?years():items(), set=input.dataset.type==="year"?state.selectedYears:state.selectedItems; if(input.dataset.all){set.clear();if(input.checked)all.forEach((v)=>set.add(v));}else if(input.checked)set.add(input.value);else set.delete(input.value); $(input.dataset.type==="year"?"yearPicker":"itemPicker").open=false; render(); });
+  ["reviewScope","reviewPeriod","reviewMonth","reviewQuarter"].forEach((id)=>$(id).addEventListener("change",(event)=>{ const keys={reviewScope:"scope",reviewPeriod:"period",reviewMonth:"month",reviewQuarter:"quarter"}; state[keys[id]]=event.target.value; if(id==="reviewScope"){state.selectedItems=null;state.selectedDeptPus=null;} render(); }));
+  document.addEventListener("change",(event)=>{ const input=event.target; if(!input.matches("input[data-type]"))return; const all=input.dataset.type==="year"?years():input.dataset.type==="dept-pu"?puItems():items(), set=input.dataset.type==="year"?state.selectedYears:input.dataset.type==="dept-pu"?state.selectedDeptPus:state.selectedItems; if(input.dataset.all){set.clear();if(input.checked)all.forEach((v)=>set.add(v));}else if(input.checked)set.add(input.value);else set.delete(input.value); render(); });
+  ["yearPicker","itemPicker","deptPuPicker"].forEach((id)=>$(id).addEventListener("mouseleave",()=>{$(id).open=false;}));
   render();
 }());
