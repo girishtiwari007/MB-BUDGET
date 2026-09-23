@@ -16,6 +16,7 @@
   const previousYear = (REPORTS.years || []).at(-2)?.fy || "2025-26";
   const completedLabel = META.completedMonth || "AUG 2026";
   const runningLabel = META.runningMonth || "SEP 2026";
+  const basisSource = META.basisSource || "auto-sensed from uploaded file";
   const SCRIPT_TOKEN = (() => {
     const scripts = Array.from(document.scripts || []);
     const self = scripts.find(script => /assets\/status\.js/i.test(script.src || ""));
@@ -31,6 +32,9 @@
   function moneyPair(value){ return `${fmt(value)} | Cr ${crore(value)}`; }
   function freshHref(href){
     return /\.(pptx|xlsx|pdf)$/i.test(href) ? `${href}?v=${encodeURIComponent(SCRIPT_TOKEN)}` : href;
+  }
+  function esc(value){
+    return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch]));
   }
   function dateText(value){
     if (!value) return "Not recorded";
@@ -94,6 +98,82 @@
     ];
     $("exportHealth").innerHTML = `<div class="export-grid">${exports.map(([label,href])=>`<div class="export-row"><a href="${freshHref(href)}" download>${label}</a><span>${href.split("/").pop()}</span></div>`).join("")}</div>`;
   }
+  function reviewPackText(){
+    return [
+      "MB Budget Authority Review Pack",
+      "",
+      `GUI synced basis: Completed actuals up to ${completedLabel}.`,
+      `Basis source: ${basisSource}.`,
+      `Running month: ${runningLabel} data should be reviewed only in Till Date / Running Month views.`,
+      "Attention: Important PU 27, 28, 30, 32 and 60 should be checked separately.",
+      "Suspense: Demand 12N / 10N remains separate and excluded from normal demand totals.",
+      "",
+      "Before sharing:",
+      "- Confirm Data Basis and FR Data As On cards.",
+      "- Confirm export refresh status is OK.",
+      "- Open at least one .xlsx, one PDF and one PPTX after local sync.",
+      "- Use Data Export Centre only for final downloads."
+    ].join("\n");
+  }
+  function renderReviewPack(){
+    const items = [
+      ["Current Review", "Check Current / Previous PDF, Excel and PPTX against visible portal basis."],
+      ["DRM Review", "Use editable DRM PPTX and Excel package for presentation work."],
+      ["FR Review", "Confirm FR PDF and .xlsx reflect latest FR upload/date stamp."],
+      ["Audit Checks", "Confirm Demand 12N / 10N, important PU rows and completed/running month handling."]
+    ];
+    $("reviewPack").innerHTML = items.map(([title, text]) => `<article class="pack-card"><strong>${esc(title)}</strong><span>${esc(text)}</span></article>`).join("");
+    $("reviewPackText").textContent = reviewPackText();
+  }
+  function renderRefreshProof(exportManifest){
+    const host = $("refreshProof");
+    if (!host) return;
+    if (!exportManifest) {
+      host.innerHTML = `<div class="panel-head"><h2>Export Refresh</h2><span>Run local sync/upload once to generate the export refresh manifest.</span></div><div class="item warn"><strong>Manifest not found</strong><span>Export package cannot be confirmed from repository metadata.</span></div>`;
+      return;
+    }
+    const missing = exportManifest.missing?.length ? `Missing: ${exportManifest.missing.join(", ")}` : "All expected export files present.";
+    const tone = exportManifest.status === "success" ? "ok" : "warn";
+    host.innerHTML = `<div class="panel-head"><h2>Export Refresh</h2><span>${esc(new Date(exportManifest.refreshedAt).toLocaleString("en-IN"))}</span></div><div class="item ${tone === "ok" ? "" : "warn"}"><strong>${esc(exportManifest.status === "success" ? "Exports Refreshed" : "Export Refresh Needs Review")}</strong><span>Trigger: ${esc(exportManifest.trigger || "unknown")}. ${esc(missing)}</span></div>`;
+  }
+  function statusFor(file, modified){
+    if (!modified) return "Check";
+    const ageDays = (Date.now() - modified.getTime()) / 86400000;
+    return ageDays > 14 ? "Old" : "Fresh";
+  }
+  async function headInfo(href){
+    try {
+      const response = await fetch(freshHref(href), { method: "HEAD", cache: "no-store" });
+      if (!response.ok) return { exists: false, modified: null };
+      const raw = response.headers.get("Last-Modified");
+      return { exists: true, modified: raw ? new Date(raw) : null };
+    } catch (_error) {
+      return { exists: null, modified: null };
+    }
+  }
+  async function renderFreshness(){
+    const exports = [
+      ["Current / Previous PDF", "../exports/Current_Previous_Year_PU_Demand_Analysis.pdf", "PDF", `Completed ${completedLabel}`],
+      ["SMH Matrix PDF", "../exports/SMH_PU_Department_Wise_Matrix_Report.pdf", "PDF", `PU and Department ACT / BUD PROP / VAR up to ${completedLabel}`],
+      ["Current / Previous Excel", "../exports/Current_Previous_Year_PU_Demand_Analysis.xlsx", "XLSX", `Completed ${completedLabel}`],
+      ["Current / Previous PPTX", "../exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx", "PPTX", `Completed ${completedLabel}`],
+      ["DRM Existing Current-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx", "PPTX", `Completed ${completedLabel} + H full FY 2025-26`],
+      ["DRM H Till Actual Month PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_Actual_Month.pptx", "PPTX", `Completed ${completedLabel} + H up to ${completedLabel.replace("2026", "2025")}`],
+      ["DRM Full Previous-Year PPTX", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx", "PPTX", `Completed ${completedLabel} + H full FY 2025-26`],
+      ["DRM Yearly Comparison PPTX", "../exports/Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx", "PPTX", "Yearly comparison"],
+      ["DRM Excel", "../exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx", "XLSX", `Completed ${completedLabel}`],
+      ["FR Budget PDF", "../exports/FR_Budget_Status.pdf", "PDF", "FR as uploaded"],
+      ["FR Budget Excel", "../exports/FR_Budget_Status.xlsx", "XLSX", "FR as uploaded"]
+    ];
+    const rows = await Promise.all(exports.map(async file => {
+      const info = await headInfo(file[1]);
+      const status = info.exists === false ? "Missing" : statusFor(file, info.modified);
+      const modified = info.modified ? info.modified.toLocaleString("en-IN") : (info.exists === null ? "Open via local/server to check" : "Not available");
+      return { file, status, modified };
+    }));
+    $("freshnessStamp").textContent = `Checked ${new Date().toLocaleString("en-IN")}`;
+    $("freshnessTable").innerHTML = `<table><thead><tr><th>Export</th><th>Type</th><th>Basis</th><th>Last Modified</th><th>Status</th></tr></thead><tbody>${rows.map(({file, status, modified}) => `<tr class="${status.toLowerCase()}"><td><a href="${esc(freshHref(file[1]))}" download>${esc(file[0])}</a></td><td>${esc(file[2])}</td><td>${esc(file[3])}</td><td>${esc(modified)}</td><td>${esc(status)}</td></tr>`).join("")}</tbody></table>`;
+  }
   async function loadManifest(){
     try{
       const response = await fetch("../data/fr/fr-upload-manifest.json?ts=" + Date.now());
@@ -111,5 +191,18 @@
     renderTables();
     renderAttention(manifest);
     renderExports();
+    renderRefreshProof(exportManifest);
+    renderReviewPack();
+    renderFreshness();
+  });
+  $("copyReviewPack")?.addEventListener("click", async () => {
+    const text = reviewPackText();
+    $("reviewPackText").textContent = text;
+    try {
+      await navigator.clipboard.writeText(text);
+      $("reviewPackText").textContent = `${text}\n\nCopied review pack summary to clipboard.`;
+    } catch (_error) {
+      $("reviewPackText").textContent = `${text}\n\nClipboard copy was blocked. Select this text and copy manually.`;
+    }
   });
 })();

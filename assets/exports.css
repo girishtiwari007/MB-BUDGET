@@ -20,3 +20,43 @@ body{margin:0;background:#eef3f7;color:#17212b;font-family:Calibri,Arial,sans-se
   .pack-head p{font-size:12px;margin-top:2px}
   .pack-grid,.freshness-table{padding:8px}
 }
+
+/* Data Export Centre compact control-panel view */
+@media(min-width:900px){
+  .wrap{width:min(1380px,calc(100vw - 14px));margin:6px auto 16px}
+  .hero{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:9px 12px}
+  .hero h1{font-size:21px;line-height:1.1;white-space:nowrap}
+  .hero p{margin:0;text-align:right;max-width:720px;line-height:1.25}
+  .export-board{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+  .group{box-shadow:0 3px 10px rgba(23,33,43,.05)}
+  .group h2{padding:7px 9px;font-size:14px;border-bottom-width:2px}
+  .group-body{gap:5px;padding:7px}
+  .export-card{grid-template-columns:minmax(0,1fr) 82px;gap:7px;padding:7px 8px;min-height:50px}
+  .export-card strong{font-size:12.5px;line-height:1.15}
+  .export-card span{font-size:11px;line-height:1.2;margin-top:2px}
+  .export-card a{width:82px;min-height:28px;box-sizing:border-box;padding:4px 8px;font-size:11.5px;border-radius:5px}
+  .basis-guard,.refresh-proof,.review-pack,.freshness{margin-top:8px;box-shadow:0 3px 10px rgba(23,33,43,.05)}
+  .guard{padding:7px 10px}
+  .guard strong{font-size:14px}
+  .guard span{font-size:11.5px;margin-top:2px;line-height:1.25}
+  .guard a,.pack-head button{min-height:28px;padding:4px 9px;font-size:11.5px}
+  .pack-head{padding:7px 10px;align-items:center}
+  .pack-head h2{font-size:16px}
+  .pack-head p{font-size:11.5px;line-height:1.25}
+  .pack-head strong{padding:4px 9px;font-size:11.5px}
+  .pack-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:7px}
+  .pack-card{padding:7px}
+  .pack-card strong{font-size:12.5px}
+  .pack-card span{font-size:11px;line-height:1.2}
+  .pack-copy{margin:0 7px 7px;padding:7px;min-height:58px;font-size:11px}
+  .freshness-table{padding:7px}
+  .freshness-table table{font-size:11.5px;min-width:760px}
+  .freshness-table td,.freshness-table th{padding:4px 6px}
+  .note{margin-top:8px;padding:7px 10px;font-size:11.5px}
+}
+
+@media(min-width:900px) and (max-width:1180px){
+  .export-board{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .hero{display:block}
+  .hero p{text-align:left;margin-top:3px}
+}
