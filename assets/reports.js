@@ -50,14 +50,6 @@ const REPORTS = {
     chart: "bar",
     note: "Budget Proportion versus Actual Expenditure for the selected Primary Unit or Demand / Sub Major Head.",
   },
-  ai_insight: {
-    label: "AI INSIGHT",
-    title: "AI INSIGHT — FINANCE ATTENTION REVIEW",
-    scope: "pu",
-    metric: "ae_monthwise",
-    chart: "bar",
-    note: "Rule-based finance attention review based on the selected reporting basis and financial years.",
-  },
 };
 
 const state = { report: "pu_month", scope: "pu", item: "", metric: "ae_monthwise", month: "APR", chart: "grouped", importantPuOnly: false, basis: "completed", yearFilter: ["all"] };
@@ -272,14 +264,13 @@ function optionLabel(option) {
 function setControlVisibility() {
   const chartAllowed = state.report !== "demand_budget" || state.metric !== "ae_monthwise";
   const importantAllowed = state.scope === "pu" || state.report === "yearly";
-  const aiInsight = state.report === "ai_insight";
-  $("scopeWrap").classList.toggle("hide", aiInsight || !["bp_ae"].includes(state.report));
-  $("metricWrap").classList.toggle("hide", aiInsight || !["pu_month", "demand_budget", "bp_ae"].includes(state.report));
-  $("itemWrap").classList.toggle("hide", aiInsight || state.scope === "yearly");
-  $("monthWrap").classList.toggle("hide", aiInsight || state.metric !== "specific_month");
-  $("chartWrap").classList.toggle("hide", aiInsight || !chartAllowed);
+  $("scopeWrap").classList.toggle("hide", !["bp_ae"].includes(state.report));
+  $("metricWrap").classList.toggle("hide", !["pu_month", "demand_budget", "bp_ae"].includes(state.report));
+  $("itemWrap").classList.toggle("hide", state.scope === "yearly");
+  $("monthWrap").classList.toggle("hide", state.metric !== "specific_month");
+  $("chartWrap").classList.toggle("hide", !chartAllowed);
   $("yearWrap").classList.toggle("hide", false);
-  $("importantPuWrap").classList.toggle("hide", aiInsight || !importantAllowed);
+  $("importantPuWrap").classList.toggle("hide", !importantAllowed);
 }
 
 function reportMenuHtml() {
@@ -885,7 +876,7 @@ function budgetSourceTable(scope, title) {
 
 function reportExportDocument(mode) {
   const report = REPORTS[state.report];
-  const selectedView = `<section class="export-section"><h2>${esc(report.title)}</h2><p class="meta">${esc(dataStampText())}<br>${remarksText()}. ${esc(report.note)}</p>${summaryHtml()}${insightHtml()}${attentionAnalysisHtml()}${renderChart()}${tableHtml()}${importantBreakdownHtml()}</section>`;
+  const selectedView = `<section class="export-section"><h2>${esc(report.title)}</h2><p class="meta">${esc(dataStampText())}<br>${remarksText()}. ${esc(report.note)}</p>${summaryHtml()}${renderChart()}${tableHtml()}${importantBreakdownHtml()}</section>`;
   const appendices = [
     monthlySourceTable("pu", "Appendix A - Primary Unit Month-Wise Actual Expenditure"),
     monthlySourceTable("demand", "Appendix B - Demand / SMH Month-Wise Actual Expenditure"),
@@ -935,18 +926,12 @@ function renderChart() {
   return groupedChart();
 }
 
-function aiInsightPageHtml() {
-  return `<p class="note">${remarksText()}. ${esc(REPORTS.ai_insight.note)}</p>${summaryHtml()}<section class="ai-insight-page"><div class="section-head"><h2>AI INSIGHT</h2><span>Finance attention review for the selected basis and years</span></div><div class="analysis-stack">${insightHtml()}${attentionAnalysisHtml()}</div></section>`;
-}
-
 function render() {
   syncControls();
   const report = REPORTS[state.report];
   $("reportTitle").textContent = report.title;
   refreshDataStamp();
-  $("host").innerHTML = state.report === "ai_insight"
-    ? aiInsightPageHtml()
-    : `<p class="note">${remarksText()}. ${esc(report.note)}</p>${availabilityNote()}${summaryHtml()}<div class="report-layout"><div class="analysis-stack">${insightHtml()}${attentionAnalysisHtml()}</div>${renderChart()}</div>${tableHtml()}${importantBreakdownHtml()}`;
+  $("host").innerHTML = `<p class="note">${remarksText()}. ${esc(report.note)}</p>${availabilityNote()}${summaryHtml()}<div class="report-layout">${renderChart()}</div>${tableHtml()}${importantBreakdownHtml()}`;
 }
 
 document.addEventListener("DOMContentLoaded", setup);

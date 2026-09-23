@@ -1,0 +1,14 @@
+(function(){
+ const current=window.CURRENT_PAYLOAD||{}, reports=window.REPORTS_DATA||{}, meta=window.CURRENT_PAYLOAD_META||{};
+ const $=id=>document.getElementById(id), fmt=n=>Number(n||0).toLocaleString("en-IN"), money=n=>`${fmt(n)} (${(Number(n||0)/10000).toLocaleString("en-IN",{maximumFractionDigits:2})} Cr)`;
+ const cleanRows=rows=>(rows||[]).filter(r=>!/^total$/i.test(String(r.Name||""))&&!/12N|10N|suspense/i.test(String(r.Name||"")));
+ function top(rows,key,count=5){return [...cleanRows(rows)].sort((a,b)=>Number(b[key]||0)-Number(a[key]||0)).slice(0,count)}
+ function cards(items){return `<section class="cards">${items.map(([k,v])=>`<article><span>${k}</span><strong>${v}</strong></article>`).join("")}</section>`}
+ function list(title,rows,key,label){return `<section class="insight-panel"><h2>${title}</h2><ol>${rows.map(r=>`<li><strong>${r.Name||r.label||"Item"}</strong><span>${label}: ${money(r[key]??r.value)}</span></li>`).join("")||"<li>No source rows available.</li>"}</ol></section>`}
+ function currentView(){const rows=current.demand?.rows||[], total=rows.find(r=>/^total$/i.test(r.Name||""))||{}; return `${cards([["Completed basis",meta.completedMonth||"Current month"],["Demand AE",money(total.AE)],["Budget proportion",money(total.BP)],["BP utilization",`${Number(total.BPPercent||0).toFixed(1)}%`]])}${list("Highest demand actual expenditure",top(rows,"AE"),"AE","Actual expenditure")}${list("Demand lines above budget proportion",cleanRows(rows).filter(r=>Number(r.BPPercent)>100).sort((a,b)=>Number(b.BPPercent)-Number(a.BPPercent)).slice(0,5),"BPPercent","BP utilization")}`}
+ function fourYear(){const years=reports.years||[], pu=reports.monthly?.pu||{}; const latest=years.at(-1)?.fy; const rows=Object.entries(pu).filter(([n])=>!/^total$/i.test(n)).map(([name,data])=>({Name:name,AE:(data?.[latest]||[]).reduce((a,b)=>a+Number(b||0),0)})); return `${cards([["Financial years",years.map(y=>y.fy).join(", ")||"Not loaded"],["Latest year",latest||"Not loaded"],["Primary-unit series",rows.length],["Basis",meta.completedMonth||"Current month"]])}${list("Largest primary-unit annual expenditure",top(rows,"AE"),"AE","Annual actual")}`}
+ function frView(){return `<section class="insight-panel"><h2>FR Budget Status</h2><p>FR has its own plan-head and fund filters. Open the FR Budget Status page to apply those filters; this insight page keeps the review areas separate and links to the source view.</p><a class="open-link" href="fr.html">Open FR Budget Status</a></section>`}
+ function overview(){return `<section class="overview-grid"><div>${currentView()}</div><div>${fourYear()}</div><div>${frView()}</div></section>`}
+ function render(){const mode=$("insightSource").value; $("insightHost").innerHTML=mode==="current"?currentView():mode==="fouryear"?fourYear():mode==="fr"?frView():overview()}
+ $("insightSource").addEventListener("change",render); render();
+})();

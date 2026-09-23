@@ -257,32 +257,19 @@
     download(new Blob([ppt], { type:"application/vnd.ms-powerpoint" }), `${pageTitle().replace(/[^A-Za-z0-9]+/g, "_")}_View_${fileStamp()}.ppt`);
   }
 
-  function fullExportLabel(node){
-    const text = clean(node.textContent || "");
-    const format = /ppt/i.test(text) ? "PowerPoint" : /pdf/i.test(text) ? "PDF" : "Excel";
-    return `Download Full Dataset / Full Report (${format})`;
-  }
-
   function addButtons(options = {}){
+    if (document.getElementById("exportViewPdf") || document.getElementById("exportBoard")) return;
     const host = document.querySelector(options.host || ".actions,.header-actions,.hero,.pack-head") || document.body;
-    if (document.getElementById("reportExportMenu")) return;
-    const fullControls = Array.from(document.querySelectorAll("#exportExcel,#exportPdf,#exportPptx,#exportReportExcel,#exportReportPdf,#export-all,#export-pdf"));
-    const menu = document.createElement("details");
-    menu.id = "reportExportMenu";
-    menu.className = "report-export-menu";
-    menu.setAttribute("data-view-export-ignore", "1");
-    menu.innerHTML = `<summary>Report / Export</summary><div class="report-export-popover"><p class="report-export-heading">Current visible view</p><button class="report-export-item" id="exportViewExcel" type="button">Excel</button><button class="report-export-item" id="exportViewPdf" type="button">PDF</button><button class="report-export-item" id="exportViewPpt" type="button">PowerPoint</button><div class="report-export-divider"></div><p class="report-export-heading">Master download</p><div class="report-export-full"></div></div>`;
-    host.appendChild(menu);
-    const fullHost = menu.querySelector(".report-export-full");
-    fullControls.forEach(control => {
-      control.classList.remove("export", "export-btn", "button-link");
-      control.classList.add("report-export-item", "report-export-master");
-      control.textContent = fullExportLabel(control);
-      fullHost.appendChild(control);
-    });
-    document.getElementById("exportViewExcel").addEventListener("click", () => { menu.open = false; exportExcel(); });
-    document.getElementById("exportViewPdf").addEventListener("click", () => { menu.open = false; printPdf(); });
-    document.getElementById("exportViewPpt").addEventListener("click", () => { menu.open = false; exportPpt(); });
+    const masters = Array.from(document.querySelectorAll("#exportExcel,#exportPdf,#exportPptx,#exportReportExcel,#exportReportPdf,#export-all,#export-pdf"));
+    masters.forEach(control => { control.hidden = true; control.setAttribute("aria-hidden", "true"); });
+    const wrap = document.createElement("span");
+    wrap.className = "view-export-actions";
+    wrap.setAttribute("data-view-export-ignore", "1");
+    wrap.innerHTML = `<button class="export view-export" id="exportViewExcel" type="button">Excel</button><button class="export view-export" id="exportViewPdf" type="button">PDF</button><button class="export view-export" id="exportViewPpt" type="button">PowerPoint</button>`;
+    host.appendChild(wrap);
+    document.getElementById("exportViewExcel").addEventListener("click", exportExcel);
+    document.getElementById("exportViewPdf").addEventListener("click", printPdf);
+    document.getElementById("exportViewPpt").addEventListener("click", exportPpt);
   }
 
 
