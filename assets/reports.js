@@ -50,6 +50,14 @@ const REPORTS = {
     chart: "bar",
     note: "Budget Proportion versus Actual Expenditure for the selected Primary Unit or Demand / Sub Major Head.",
   },
+  ai_insight: {
+    label: "AI INSIGHT",
+    title: "AI INSIGHT — FINANCE ATTENTION REVIEW",
+    scope: "pu",
+    metric: "ae_monthwise",
+    chart: "bar",
+    note: "Rule-based finance attention review based on the selected reporting basis and financial years.",
+  },
 };
 
 const state = { report: "pu_month", scope: "pu", item: "", metric: "ae_monthwise", month: "APR", chart: "grouped", importantPuOnly: false, basis: "completed", yearFilter: ["all"] };
@@ -264,19 +272,20 @@ function optionLabel(option) {
 function setControlVisibility() {
   const chartAllowed = state.report !== "demand_budget" || state.metric !== "ae_monthwise";
   const importantAllowed = state.scope === "pu" || state.report === "yearly";
-  $("monthWrap").classList.toggle("hide", state.metric !== "specific_month");
-  $("itemWrap").classList.toggle("hide", state.scope === "yearly");
-  $("scopeWrap").classList.toggle("hide", !["bp_ae"].includes(state.report));
-  $("metricWrap").classList.toggle("hide", !["pu_month", "demand_budget", "bp_ae"].includes(state.report));
-  $("chartWrap").classList.toggle("hide", !chartAllowed);
+  const aiInsight = state.report === "ai_insight";
+  $("scopeWrap").classList.toggle("hide", aiInsight || !["bp_ae"].includes(state.report));
+  $("metricWrap").classList.toggle("hide", aiInsight || !["pu_month", "demand_budget", "bp_ae"].includes(state.report));
+  $("itemWrap").classList.toggle("hide", aiInsight || state.scope === "yearly");
+  $("monthWrap").classList.toggle("hide", aiInsight || state.metric !== "specific_month");
+  $("chartWrap").classList.toggle("hide", aiInsight || !chartAllowed);
   $("yearWrap").classList.toggle("hide", false);
-  $("importantPuWrap").classList.toggle("hide", !importantAllowed);
+  $("importantPuWrap").classList.toggle("hide", aiInsight || !importantAllowed);
 }
 
 function reportMenuHtml() {
-  return Object.entries(REPORTS).map(([key, report]) =>
-    `<button type="button" data-report="${key}" class="${state.report === key ? "active" : ""}">${esc(report.label)}</button>`,
-  ).join("");
+  return `<label class="report-selector-label" for="reportSelector">Report / Analysis<select id="reportSelector">${Object.entries(REPORTS).map(([key, report]) =>
+    `<option value="${esc(key)}" ${state.report === key ? "selected" : ""}>${esc(report.label)}</option>`,
+  ).join("")}</select></label>`;
 }
 
 function applyReportDefaults(reportKey) {
@@ -291,10 +300,10 @@ function applyReportDefaults(reportKey) {
 
 function setup() {
   $("reportMenu").innerHTML = reportMenuHtml();
-  $("reportMenu").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-report]");
-    if (!button) return;
-    applyReportDefaults(button.dataset.report);
+  $("reportMenu").addEventListener("change", (event) => {
+    const selector = event.target.closest("#reportSelector");
+    if (!selector) return;
+    applyReportDefaults(selector.value);
     render();
   });
   setOptions($("scope"), ["pu", "demand"], state.scope);
@@ -926,12 +935,18 @@ function renderChart() {
   return groupedChart();
 }
 
+function aiInsightPageHtml() {
+  return `<p class="note">${remarksText()}. ${esc(REPORTS.ai_insight.note)}</p>${summaryHtml()}<section class="ai-insight-page"><div class="section-head"><h2>AI INSIGHT</h2><span>Finance attention review for the selected basis and years</span></div><div class="analysis-stack">${insightHtml()}${attentionAnalysisHtml()}</div></section>`;
+}
+
 function render() {
   syncControls();
   const report = REPORTS[state.report];
   $("reportTitle").textContent = report.title;
   refreshDataStamp();
-  $("host").innerHTML = `<p class="note">${remarksText()}. ${esc(report.note)}</p>${availabilityNote()}${summaryHtml()}<div class="report-layout"><div class="analysis-stack">${insightHtml()}${attentionAnalysisHtml()}</div>${renderChart()}</div>${tableHtml()}${importantBreakdownHtml()}`;
+  $("host").innerHTML = state.report === "ai_insight"
+    ? aiInsightPageHtml()
+    : `<p class="note">${remarksText()}. ${esc(report.note)}</p>${availabilityNote()}${summaryHtml()}<div class="report-layout"><div class="analysis-stack">${insightHtml()}${attentionAnalysisHtml()}</div>${renderChart()}</div>${tableHtml()}${importantBreakdownHtml()}`;
 }
 
 document.addEventListener("DOMContentLoaded", setup);

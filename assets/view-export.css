@@ -1,5 +1,5 @@
 .view-export-actions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.report-export-menu { position: relative; display: inline-block; z-index: 10; font: 700 13px Arial, Helvetica, sans-serif; }
+.report-export-menu { position: relative; display: inline-block; z-index: 10; margin-left: auto; font: 700 13px Arial, Helvetica, sans-serif; }
 .report-export-menu summary { list-style: none; cursor: pointer; border: 1px solid #0f6f68; background: #0f6f68; color: #fff; border-radius: 5px; padding: 8px 11px; min-height: 34px; line-height: 1.1; }
 .report-export-menu summary::-webkit-details-marker { display: none; }
 .report-export-menu summary::after { content: "⌄"; margin-left: 8px; }
@@ -10,5 +10,5 @@
 .report-export-item:hover, .report-export-item:focus { border-color: #0f6f68; background: #e9f6f3; }
 .report-export-master { color: #174a78; }
 .report-export-divider { border-top: 1px solid #d6e1e8; margin: 9px 0; }
-@media (max-width: 760px) { .report-export-menu { width: 100%; } .report-export-menu summary { width: 100%; min-height: 42px; display: flex; align-items: center; justify-content: space-between; } .report-export-popover { position: absolute; width: 100%; right: 0; } }
+@media (max-width: 760px) { .report-export-menu { width: auto; margin-left: auto; } .report-export-menu summary { width: auto; min-height: 36px; display: flex; align-items: center; justify-content:space-between; padding:7px 9px; } .report-export-popover { position: absolute; width:min(300px,calc(100vw - 20px)); right:0; } }
 @media print { .view-export-actions, .report-export-menu { display: none !important; } }
