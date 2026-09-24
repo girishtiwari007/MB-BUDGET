@@ -213,21 +213,25 @@ function setOptions(select, options, value) {
 }
 
 function setYearOptions() {
-  const select = $("yearFilter");
-  if (!select) return;
+  const host = $("yearChecks");
+  if (!host) return;
   const available = allYears();
   const selected = Array.isArray(state.yearFilter) && state.yearFilter.length ? state.yearFilter : ["all"];
-  select.innerHTML = [
-    `<option value="all" ${selected.includes("all") ? "selected" : ""}>ALL YEARS</option>`,
-    ...available.map((year) => `<option value="${esc(year)}" ${selected.includes(year) ? "selected" : ""}>${esc(year)}</option>`),
+  const allSelected = selected.includes("all") || selected.length === available.length;
+  host.innerHTML = [
+    `<label class="check-all"><input type="checkbox" data-year-filter="all" ${allSelected ? "checked" : ""}> All financial years</label>`,
+    ...available.map((year) => `<label><input type="checkbox" data-year-filter="${esc(year)}" ${allSelected || selected.includes(year) ? "checked" : ""}> ${esc(year)}</label>`),
   ].join("");
+  const label = $("yearPickerLabel");
+  if (label) label.textContent = selectedYearsText();
 }
 
 function readSelectedYears() {
-  const select = $("yearFilter");
-  if (!select) return ["all"];
-  const picked = Array.from(select.selectedOptions || []).map((option) => option.value);
-  if (!picked.length || picked.includes("all")) return ["all"];
+  const host = $("yearChecks");
+  if (!host) return ["all"];
+  const available = allYears();
+  const picked = Array.from(host.querySelectorAll('input[data-year-filter]:checked')).map((input) => input.dataset.yearFilter);
+  if (!picked.length || picked.includes("all") || picked.length === available.length) return ["all"];
   return picked.filter((year) => allYears().includes(year));
 }
 
@@ -311,8 +315,18 @@ function setup() {
       render();
     }),
   );
-  $("yearFilter").addEventListener("change", () => {
-    state.yearFilter = readSelectedYears();
+  $("yearChecks")?.addEventListener("change", (event) => {
+    const input = event.target.closest("input[data-year-filter]");
+    if (!input) return;
+    const available = allYears();
+    if (input.dataset.yearFilter === "all") {
+      state.yearFilter = input.checked ? ["all"] : [];
+    } else {
+      const current = new Set(years());
+      if (input.checked) current.add(input.dataset.yearFilter);
+      else current.delete(input.dataset.yearFilter);
+      state.yearFilter = current.size === available.length ? ["all"] : [...current].filter((year) => available.includes(year));
+    }
     render();
   });
   $("importantPuOnly").addEventListener("change", (event) => {
@@ -517,7 +531,7 @@ function pieChart() {
     cursor += item.abs / sum * 100;
     return `${colors[index % colors.length]} ${start}% ${cursor}%`;
   }).join(",");
-  return `<section class="chart"><div class="section-head"><h2>SHARE VIEW</h2><span>${remarksText()}</span></div><div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops || "#edf4f8 0 100%"})"></div><div>${vals.map((item, index) => `<div class="legend"><span style="background:${colors[index % colors.length]}"></span>${esc(item.label)}: ${moneyCell(item.value)} (${fmt(item.abs / sum * 100, 1)}%)</div>`).join("") || "No available values for pie chart."}</div></div></section>`;
+  return `<section class="chart"><div class="section-head"><h2>SHARE VIEW</h2><span>${remarksText()}</span></div><div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops || "#edf4f8 0 100%"})"></div><div class="pie-values">${vals.map((item, index) => `<div class="legend"><span style="background:${colors[index % colors.length]}"></span>${esc(item.label)}: ${moneyCell(item.value)} (${fmt(item.abs / sum * 100, 1)}%)</div>`).join("") || "No available values for pie chart."}</div></div></section>`;
 }
 
 function chartMarkerTone(value, seriesMax) {

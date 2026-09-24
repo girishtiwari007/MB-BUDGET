@@ -1,5 +1,14 @@
 
-.view-export-actions{display:inline-flex;align-items:center;justify-content:flex-end;gap:5px;margin-left:auto;white-space:nowrap}
-.view-export{border:1px solid #0f6f68;background:#0f6f68;color:#fff;border-radius:5px;padding:6px 9px;min-height:31px;font:700 12px Arial,Helvetica,sans-serif;line-height:1.1;cursor:pointer}.view-export:hover,.view-export:focus{background:#0a5550;border-color:#0a5550}
-@media(max-width:760px){.view-export-actions{gap:4px;margin-left:auto}.view-export{min-height:36px;padding:7px 8px;font-size:11px}}
+.view-export-actions{display:inline-flex;align-items:center;justify-content:flex-end;gap:0;margin-left:auto;white-space:nowrap;border:2px solid #f0a324;border-radius:7px;background:#fff7df;box-shadow:0 1px 4px rgba(23,33,43,.12);overflow:visible}
+.view-export-label{display:inline-flex;align-items:center;align-self:stretch;padding:0 10px;background:#ffe2a3;color:#17212b;border-right:1px solid #d7a72b;font:900 11px Arial,Helvetica,sans-serif;letter-spacing:.2px}
+.view-export-menu{position:relative;display:inline-block;min-width:230px}
+.view-export-menu summary{list-style:none;min-height:30px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 30px 5px 10px;border:1px solid #1f4e79;background:#fff;color:#17212b;font:800 12px Arial,Helvetica,sans-serif;cursor:pointer}
+.view-export-menu summary::-webkit-details-marker{display:none}
+.view-export-menu summary:after{content:"▾";position:absolute;right:9px;color:#1f4e79;font-size:13px}
+.view-export-popover{position:absolute;right:0;top:calc(100% + 2px);z-index:80;width:280px;border:1px solid #8b8b8b;background:#fffdf0;box-shadow:0 8px 20px rgba(23,33,43,.22);padding:6px 0;text-align:left}
+.view-export-heading{padding:7px 11px 4px;color:#000;font:900 11px Arial,Helvetica,sans-serif}
+.view-export-menu-item{display:block;width:100%;border:0;background:transparent;color:#17212b;text-align:left;padding:7px 13px 7px 22px;font:700 11.5px Arial,Helvetica,sans-serif;cursor:pointer}
+.view-export-menu-item:hover,.view-export-menu-item:focus{background:#1f6bd6;color:#fff;outline:0}
+.view-export{border:0;border-radius:0;min-height:auto}
+@media(max-width:760px){.view-export-actions{width:100%;margin-left:0}.view-export-label{padding:0 8px;font-size:10px}.view-export-menu{min-width:0;flex:1}.view-export-menu summary{min-height:38px;font-size:12px}.view-export-popover{left:0;right:auto;width:min(320px,calc(100vw - 26px))}.view-export-menu-item{padding:9px 12px 9px 18px;font-size:12px}}
 @media print{.view-export-actions{display:none!important}}

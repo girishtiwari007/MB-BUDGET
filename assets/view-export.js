@@ -69,7 +69,34 @@
   }
 
   function visibleRoot(){
-    return document.querySelector(".panel.active") || document.querySelector("#host") || document.querySelector("#tableHost") || document.querySelector("main") || document.body;
+    return document.querySelector("#tableHost") || document.querySelector("#host") || document.querySelector("#reviewHost") || document.querySelector(".panel.active") || document.querySelector("main") || document.body;
+  }
+
+  function dataBasisText(){
+    const candidates = [
+      document.querySelector("#dataStamp"),
+      document.querySelector("#reportDataStamp"),
+      document.querySelector("#reviewStamp"),
+      document.querySelector(".data-stamp")
+    ];
+    const text = clean(candidates.map(node => node?.textContent || "").find(Boolean) || "");
+    return text || "Data basis: As displayed on portal";
+  }
+
+  function remarksText(root = visibleRoot()){
+    const remarks = Array.from(root.querySelectorAll(".note,.small,.subtitle,p,div,span"))
+      .map(node => clean(node.textContent || ""))
+      .find(text => /Remarks\s*-\s*Figures/i.test(text));
+    return remarks || "Remarks - Figures in '000' (thousands). Crore values are shown below where available.";
+  }
+
+  function compactContextRows(root = visibleRoot()){
+    return [
+      [pageTitle()],
+      [dataBasisText()],
+      [remarksText(root)],
+      []
+    ].filter(row => clean(row[0]));
   }
 
   function cloneForExport(root = visibleRoot()){
@@ -126,14 +153,15 @@
   function currentViewHtml(){
     const active = visibleRoot();
     const clone = cloneForExport(active);
-    const meta = metaRows().map(row => `${html(row[0])}: ${html(row[1])}`).join(" | ");
-    return `<!doctype html><html><head><meta charset="utf-8"><title>${html(pageTitle())}</title>${exportStyles()}</head><body><main><h1>${html(pageTitle())}</h1><p class="view-meta">${meta}</p>${clone.outerHTML}</main></body></html>`;
+    const basis = dataBasisText();
+    const remarks = remarksText(active);
+    return `<!doctype html><html><head><meta charset="utf-8"><title>${html(pageTitle())}</title>${exportStyles()}</head><body><main><h1>${html(pageTitle())}</h1><p class="view-meta">${html(basis)}<br>${html(remarks)}</p>${clone.outerHTML}</main></body></html>`;
   }
 
   function pdfEscape(value){ return clean(value).replace(/[\\()]/g,"\\$&").replace(/[^\x20-\x7E]/g,"?"); }
   function pdfBlob(){
     const sheets=currentViewSheets(), pages=[];
-    sheets.forEach(sheet=>{ let page=[]; const lines=[pageTitle(),`Generated: ${new Date().toLocaleString("en-IN")}`,`Table: ${sheet.name}`,"",...sheet.rows.map(row=>row.map(clean).join(" | "))]; lines.forEach(line=>{(line.match(/.{1,118}(?:\s|$)|.{1,118}/g)||[""]).forEach(part=>{if(page.length>=42){pages.push(page);page=[];}page.push(part.trim());});});if(page.length)pages.push(page); });
+    sheets.forEach(sheet=>{ let page=[]; const lines=sheet.rows.map(row=>row.map(clean).join(" | ")); lines.forEach(line=>{(line.match(/.{1,118}(?:\s|$)|.{1,118}/g)||[""]).forEach(part=>{if(page.length>=42){pages.push(page);page=[];}page.push(part.trim());});});if(page.length)pages.push(page); });
     const objects=[], add=(body)=>{objects.push(body);return objects.length;}, catalog=add(""), pagesRef=add(""), font=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"), pageRefs=[];
     pages.forEach(lines=>{const content=["BT","/F1 10 Tf","40 560 Td",...lines.flatMap((line,index)=>[index?"0 -12 Td":"",`(${pdfEscape(line)}) Tj`]).filter(Boolean),"ET"].join("\n");const contentRef=add(`<< /Length ${encoder.encode(content).length} >>\nstream\n${content}\nendstream`);pageRefs.push(add(`<< /Type /Page /Parent ${pagesRef} 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 ${font} 0 R >> >> /Contents ${contentRef} 0 R >>`));});
     objects[0]=`<< /Type /Catalog /Pages ${pagesRef} 0 R >>`;objects[1]=`<< /Type /Pages /Kids [${pageRefs.map(ref=>`${ref} 0 R`).join(" ")}] /Count ${pageRefs.length} >>`;let out="%PDF-1.4\n", offsets=[0];objects.forEach((body,index)=>{offsets.push(encoder.encode(out).length);out+=`${index+1} 0 obj\n${body}\nendobj\n`;});const xref=encoder.encode(out).length;out+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n${offsets.slice(1).map(offset=>String(offset).padStart(10,"0")+" 00000 n \n").join("")}trailer\n<< /Size ${objects.length+1} /Root ${catalog} 0 R >>\nstartxref\n${xref}\n%%EOF`;return new Blob([out],{type:"application/pdf"});
@@ -157,7 +185,7 @@
   function currentViewSheets(){
     const root = visibleRoot();
     const sheets = [];
-    const intro = [["MB-BUDGET Current View Export"], ...metaRows(), []];
+    const intro = compactContextRows(root);
     const tables = Array.from(root.querySelectorAll("table")).filter(table => visible(table));
     if (tables.length) {
       tables.forEach((table, index) => {
@@ -168,8 +196,6 @@
       const rows = cardsAoa(root);
       sheets.push({ name:pageTitle(), rows:[...intro, ["Visible content"], ...(rows.length ? rows : [[clean(root.innerText || root.textContent)]])] });
     }
-    const controlRows = selectedControls();
-    if (controlRows.length) sheets.push({ name:"Applied Filters", rows:[["Applied Filters"], ...controlRows] });
     return sheets;
   }
 
@@ -251,22 +277,68 @@
 
   function pptTextShape(text,x,y,w,h,size,bold){const paras=text.split("\n").map(line=>`<a:p><a:r><a:rPr lang="en-US" sz="${size}" b="${bold?1:0}"/><a:t>${xml(line)}</a:t></a:r><a:endParaRPr lang="en-US"/></a:p>`).join("");return `<p:sp><p:nvSpPr><p:cNvPr id="${x+y}" name="Text"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square"/><a:lstStyle/>${paras}</p:txBody></p:sp>`;}
   function pptSlide(title,lines){return `<?xml version="1.0" encoding="UTF-8"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${pptTextShape(title,457200,228600,11277600,457200,2200,true)}${pptTextShape(lines.join("\n"),457200,914400,11277600,5715000,1050,false)}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;}
-  function pptxBlob(){const sheets=currentViewSheets(),slides=[{title:pageTitle(),lines:metaRows().map(row=>`${row[0]}: ${row[1]}`)}];sheets.forEach(sheet=>{for(let i=0;i<sheet.rows.length;i+=18)slides.push({title:sheet.name+(i?` (${Math.floor(i/18)+1})`:""),lines:sheet.rows.slice(i,i+18).map(row=>row.map(clean).join(" | "))});});const files=[{name:"[Content_Types].xml",content:`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>${slides.map((_,i)=>`<Override PartName="/ppt/slides/slide${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join("")}</Types>`},{name:"_rels/.rels",content:`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>`},{name:"ppt/presentation.xml",content:`<?xml version="1.0"?><p:presentation xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldIdLst>${slides.map((_,i)=>`<p:sldId id="${256+i}" r:id="rId${i+1}"/>`).join("")}</p:sldIdLst><p:sldSz cx="12192000" cy="6858000" type="screen16x9"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>`},{name:"ppt/_rels/presentation.xml.rels",content:`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${slides.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i+1}.xml"/>`).join("")}</Relationships>`},...slides.map((slide,i)=>({name:`ppt/slides/slide${i+1}.xml`,content:pptSlide(slide.title,slide.lines)}))];return zip(files,"application/vnd.openxmlformats-officedocument.presentationml.presentation");}
+  function pptxBlob(){const sheets=currentViewSheets(),slides=[];sheets.forEach(sheet=>{for(let i=0;i<sheet.rows.length;i+=18)slides.push({title:sheet.name+(i?` (${Math.floor(i/18)+1})`:""),lines:sheet.rows.slice(i,i+18).map(row=>row.map(clean).join(" | "))});});if(!slides.length)slides.push({title:pageTitle(),lines:[dataBasisText(),remarksText()]});const files=[{name:"[Content_Types].xml",content:`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>${slides.map((_,i)=>`<Override PartName="/ppt/slides/slide${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join("")}</Types>`},{name:"_rels/.rels",content:`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>`},{name:"ppt/presentation.xml",content:`<?xml version="1.0"?><p:presentation xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldIdLst>${slides.map((_,i)=>`<p:sldId id="${256+i}" r:id="rId${i+1}"/>`).join("")}</p:sldIdLst><p:sldSz cx="12192000" cy="6858000" type="screen16x9"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>`},{name:"ppt/_rels/presentation.xml.rels",content:`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${slides.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i+1}.xml"/>`).join("")}</Relationships>`},...slides.map((slide,i)=>({name:`ppt/slides/slide${i+1}.xml`,content:pptSlide(slide.title,slide.lines)}))];return zip(files,"application/vnd.openxmlformats-officedocument.presentationml.presentation");}
   function exportPpt(){download(pptxBlob(),`${pageTitle().replace(/[^A-Za-z0-9]+/g,"_")}_View_${fileStamp()}.pptx`);}
+
+  function fullExportTargets(){
+    return {
+      excel: document.querySelector("#exportExcel,#exportReportExcel,#export-all"),
+      pdf: document.querySelector("#exportPdf,#exportReportPdf,#export-pdf"),
+      ppt: document.querySelector("#exportPptx")
+    };
+  }
+
+  function forwardFullExport(kind){
+    const target = fullExportTargets()[kind];
+    if (!target) return;
+    target.dataset.mbBudgetProtectionBypass = "1";
+    target.click();
+    setTimeout(() => delete target.dataset.mbBudgetProtectionBypass, 0);
+  }
+
+  function exportMenuHtml(targets){
+    const fullRows = [
+      targets.excel ? `<button class="view-export-menu-item" type="button" data-export-menu="full-excel">Excel - full dataset</button>` : "",
+      targets.pdf ? `<button class="view-export-menu-item" type="button" data-export-menu="full-pdf">PDF - full report</button>` : "",
+      targets.ppt ? `<button class="view-export-menu-item" type="button" data-export-menu="full-ppt">PowerPoint - full report</button>` : ""
+    ].filter(Boolean).join("");
+    return `<span class="view-export-label">REPORT / EXPORT</span>
+      <details class="view-export-menu">
+        <summary>Select export...</summary>
+        <div class="view-export-popover">
+          <div class="view-export-heading">Current visible view</div>
+          <button class="view-export-menu-item view-export" id="exportViewExcel" type="button" data-export-menu="view-excel">Excel - current visible view</button>
+          <button class="view-export-menu-item view-export" id="exportViewPdf" type="button" data-export-menu="view-pdf">PDF - current visible view</button>
+          <button class="view-export-menu-item view-export" id="exportViewPpt" type="button" data-export-menu="view-ppt">PowerPoint - current visible view</button>
+          ${fullRows ? `<div class="view-export-heading">Download Full Dataset / Full Report</div>${fullRows.replace(/class="view-export-menu-item"/g, 'class="view-export-menu-item view-export"')}` : ""}
+        </div>
+      </details>`;
+  }
 
   function addButtons(options = {}){
     if (document.getElementById("exportViewPdf") || document.getElementById("exportBoard")) return;
     const host = document.querySelector(options.host || ".actions,.header-actions,.hero,.pack-head") || document.body;
-    const masters = Array.from(document.querySelectorAll("#exportExcel,#exportPdf,#exportPptx,#exportReportExcel,#exportReportPdf,#export-all,#export-pdf"));
+    const targets = fullExportTargets();
+    const masters = Object.values(targets).filter(Boolean);
     masters.forEach(control => { control.hidden = true; control.setAttribute("aria-hidden", "true"); });
     const wrap = document.createElement("span");
     wrap.className = "view-export-actions";
     wrap.setAttribute("data-view-export-ignore", "1");
-    wrap.innerHTML = `<button class="export view-export" id="exportViewExcel" type="button">Excel</button><button class="export view-export" id="exportViewPdf" type="button">PDF</button><button class="export view-export" id="exportViewPpt" type="button">PowerPoint</button>`;
+    wrap.innerHTML = exportMenuHtml(targets);
     host.appendChild(wrap);
-    document.getElementById("exportViewExcel").addEventListener("click", exportExcel);
-    document.getElementById("exportViewPdf").addEventListener("click", printPdf);
-    document.getElementById("exportViewPpt").addEventListener("click", exportPpt);
+    wrap.addEventListener("click", (event) => {
+      const item = event.target.closest("[data-export-menu]");
+      if (!item) return;
+      const menu = wrap.querySelector(".view-export-menu");
+      if (menu) menu.open = false;
+      const action = item.dataset.exportMenu;
+      if (action === "view-excel") exportExcel();
+      if (action === "view-pdf") printPdf();
+      if (action === "view-ppt") exportPpt();
+      if (action === "full-excel") forwardFullExport("excel");
+      if (action === "full-pdf") forwardFullExport("pdf");
+      if (action === "full-ppt") forwardFullExport("ppt");
+    });
   }
 
 
