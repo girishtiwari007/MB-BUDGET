@@ -2,7 +2,6 @@
   const ADMIN_KEY = "mbBudgetProtectionUnlocked";
   const BYPASS = "mbBudgetProtectionBypass";
   const EXPORT_PASSWORD = "#1";
-  const lockedMessage = "Protected portal view. Enter admin password to continue this action.";
   const exportSelector = [
     "a[href*='.pdf']",
     "a[href*='.xlsx']",
@@ -32,22 +31,18 @@
     return adminUnlocked();
   }
 
-  function isHostedPortal(){
-    return !["localhost", "127.0.0.1"].includes(location.hostname) && location.protocol !== "file:";
-  }
-
   function setAdminUnlocked(){
     sessionStorage.setItem(ADMIN_KEY, "1");
-    updateBadge();
+    updateProtectionState();
   }
 
-  function askAdminPassword(reason){
+  function askAdminPassword(){
     if (adminUnlocked()) return true;
     window.alert("Protected actions require local Admin Portal authentication. Open this portal through the local upload server and unlock Admin Portal.");
     return false;
   }
 
-  function askExportPassword(reason){
+  function askExportPassword(){
     if (exportUnlocked()) return true;
     const entered = window.prompt("Exports/downloads are protected. Enter export password.");
     if (entered === EXPORT_PASSWORD) return true;
@@ -63,7 +58,8 @@
   function blockContextMenu(event){
     if (adminUnlocked()) return;
     event.preventDefault();
-    window.alert("Right click is disabled in protected view. Use admin password to unlock protected actions.");
+    event.stopImmediatePropagation();
+    window.alert("Right click is disabled in protected view.");
   }
 
   function blockKeys(event){
@@ -77,7 +73,7 @@
       (event.ctrlKey && event.shiftKey && ["i","j","c"].includes(key));
     if (!blocked) return;
     event.preventDefault();
-    window.alert("This shortcut is disabled in protected view.");
+    event.stopImmediatePropagation();
   }
 
   function exportTarget(target){
@@ -89,7 +85,7 @@
     if (!target || target.dataset[BYPASS] === "1" || exportUnlocked()) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (!askExportPassword("Enter export password to download/export files.")) return;
+    if (!askExportPassword()) return;
     target.dataset[BYPASS] = "1";
     setTimeout(() => {
       target.click();
@@ -97,32 +93,32 @@
     }, 0);
   }
 
-  function updateBadge(){
+  function removeProtectionBadges(){
+    document.querySelectorAll("#protectionBadge,.protection-badge").forEach((node) => node.remove());
+  }
+
+  function updateProtectionState(){
     document.body?.classList.toggle("protection-unlocked", adminUnlocked());
-    const badge = document.getElementById("protectionBadge");
-    if (!badge) return;
-    badge.querySelector("strong").textContent = adminUnlocked() ? "Unlocked" : "Protected";
-    const button = badge.querySelector("button");
-    button.textContent = adminUnlocked() ? "Lock" : "Unlock";
+    removeProtectionBadges();
   }
 
   function lock(){
     sessionStorage.removeItem(ADMIN_KEY);
-    updateBadge();
+    updateProtectionState();
   }
 
   function buildUi(){
     document.body.classList.add("protection-active");
-    if (!document.getElementById("protectionBadge")) {
-      const badge = document.createElement("div");
-      badge.className = "protection-badge";
-      badge.id = "protectionBadge";
-      badge.innerHTML = `<span>View: <strong>Protected</strong></span><button type="button">Unlock</button>`;
-      badge.querySelector("button").addEventListener("click", () => adminUnlocked() ? lock() : askAdminPassword("Enter admin password to unlock protected view."));
-      document.body.appendChild(badge);
-    }
-    updateBadge();
+    updateProtectionState();
   }
+
+  window.MBBudgetProtection = Object.assign(window.MBBudgetProtection || {}, {
+    askAdminPassword,
+    askExportPassword,
+    lock,
+    setAdminUnlocked,
+    updateProtectionState
+  });
 
   document.addEventListener("contextmenu", blockContextMenu, true);
   document.addEventListener("keydown", blockKeys, true);

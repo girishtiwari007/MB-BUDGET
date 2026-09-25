@@ -1,10 +1,17 @@
 :root{--protect-blue:#1f4e79;--protect-red:#b71c1c;--protect-line:#c8d6e2}
-body.protection-active:not(.protection-unlocked){-webkit-user-select:none;user-select:none}
+body.protection-active{ -webkit-user-select:auto; user-select:auto }
+body.protection-active table,
+body.protection-active th,
+body.protection-active td,
+body.protection-active .table-wrap,
+body.protection-active .review-panel,
+body.protection-active .analysis-shell,
+body.protection-active .report-card,
+body.protection-active .status-card,
+body.protection-active .summary,
+body.protection-active .remark-list{ -webkit-user-select:text; user-select:text }
 body.protection-active input,
 body.protection-active textarea,
 body.protection-active select,
-body.protection-active button{ -webkit-user-select:auto;user-select:auto }
-.protection-badge{position:fixed;right:10px;bottom:10px;z-index:99999;display:flex;gap:6px;align-items:center;border:1px solid var(--protect-line);background:rgba(255,255,255,.96);box-shadow:0 6px 18px rgba(23,33,43,.18);padding:6px 8px;border-radius:6px;color:var(--protect-blue);font:700 11px Arial,Helvetica,sans-serif}
-.protection-badge strong{color:var(--protect-red)}
-.protection-badge button{border:1px solid var(--protect-blue);background:var(--protect-blue);color:#fff;border-radius:4px;padding:4px 7px;font:700 11px Arial,Helvetica,sans-serif;cursor:pointer}
-@media print{.protection-badge{display:none!important}body.protection-active{-webkit-user-select:auto;user-select:auto}}
+body.protection-active button{ -webkit-user-select:auto; user-select:auto }
+@media print{body.protection-active{-webkit-user-select:auto;user-select:auto}}

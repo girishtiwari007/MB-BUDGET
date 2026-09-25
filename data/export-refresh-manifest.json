@@ -1,81 +1,81 @@
 {
-  "refreshedAt": "2026-09-24T13:46:48",
-  "runStartedAt": "2026-09-24T13:46:44",
-  "trigger": "remove-duplicate-visible-remarks",
+  "refreshedAt": "2026-09-25T16:18:23",
+  "runStartedAt": "2026-09-25T16:18:20",
+  "trigger": "fr-sync",
   "status": "success",
   "missing": [],
   "files": [
     {
       "path": "exports/Current_Previous_Year_PU_Demand_Analysis.xlsx",
       "exists": true,
-      "size": 23534,
-      "modifiedAt": "2026-09-24T13:46:46"
+      "size": 24759,
+      "modifiedAt": "2026-09-25T16:18:21"
     },
     {
       "path": "exports/Current_Previous_Year_PU_Demand_Analysis.pdf",
       "exists": true,
-      "size": 163201,
-      "modifiedAt": "2026-09-24T13:46:46"
+      "size": 163409,
+      "modifiedAt": "2026-09-25T16:18:21"
     },
     {
       "path": "exports/SMH_PU_Department_Wise_Matrix_Report.pdf",
       "exists": true,
       "size": 362875,
-      "modifiedAt": "2026-09-24T13:46:46"
+      "modifiedAt": "2026-09-25T16:18:22"
     },
     {
       "path": "exports/FR_Budget_Status.xlsx",
       "exists": true,
-      "size": 11266,
-      "modifiedAt": "2026-09-24T13:46:46"
+      "size": 11269,
+      "modifiedAt": "2026-09-25T16:18:21"
     },
     {
       "path": "exports/FR_Budget_Status.pdf",
       "exists": true,
-      "size": 44724,
-      "modifiedAt": "2026-09-24T13:46:46"
+      "size": 44722,
+      "modifiedAt": "2026-09-25T16:18:21"
     },
     {
       "path": "exports/Moradabad_Division_Current_Year_Budget_Analysis.pptx",
       "exists": true,
-      "size": 89439,
-      "modifiedAt": "2026-09-24T13:46:46"
+      "size": 90868,
+      "modifiedAt": "2026-09-25T16:18:22"
     },
     {
       "path": "exports/Moradabad_Division_DRM_Budget_FR_Analysis.xlsx",
       "exists": true,
-      "size": 15879,
-      "modifiedAt": "2026-09-24T13:46:46"
+      "size": 16104,
+      "modifiedAt": "2026-09-25T16:18:21"
     },
     {
       "path": "exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx",
       "exists": true,
-      "size": 68406,
-      "modifiedAt": "2026-09-24T13:46:46"
+      "size": 68613,
+      "modifiedAt": "2026-09-25T16:18:22"
     },
     {
       "path": "exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_Actual_Month.pptx",
       "exists": true,
-      "size": 68346,
-      "modifiedAt": "2026-09-24T13:46:47"
+      "size": 68552,
+      "modifiedAt": "2026-09-25T16:18:22"
     },
     {
       "path": "exports/Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx",
       "exists": true,
-      "size": 68406,
-      "modifiedAt": "2026-09-24T13:46:47"
+      "size": 68613,
+      "modifiedAt": "2026-09-25T16:18:22"
     },
     {
       "path": "exports/Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx",
       "exists": true,
-      "size": 403858,
-      "modifiedAt": "2026-09-24T13:46:47"
+      "size": 403851,
+      "modifiedAt": "2026-09-25T16:18:22"
     }
   ],
   "generator": "scripts/generate_drm_exports.py",
   "output": "Generated D:\\github\\MB-BUDGET\\exports\\Current_Previous_Year_PU_Demand_Analysis.xlsx\nGenerated D:\\github\\MB-BUDGET\\exports\\Current_Previous_Year_PU_Demand_Analysis.pdf\nGenerated D:\\github\\MB-BUDGET\\exports\\FR_Budget_Status.xlsx\nGenerated D:\\github\\MB-BUDGET\\exports\\FR_Budget_Status.pdf\nGenerated D:\\github\\MB-BUDGET\\exports\\SMH_PU_Department_Wise_Matrix_Report.pdf\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_Budget_FR_Analysis.xlsx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_Current_Year_Budget_Analysis.pptx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_Budget_FR_Analysis.pptx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_Budget_FR_Analysis_H_Till_Actual_Month.pptx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_Budget_FR_Analysis_H_Full_FY_2025_26_Actual.pptx\nGenerated D:\\github\\MB-BUDGET\\exports\\Moradabad_Division_DRM_PPT_With_Yearly_Comparison.pptx",
   "cacheRefresh": {
-    "token": "20260924134648",
+    "token": "20260925161823",
     "files": [
       "index.html",
       "pages/admin.html",
@@ -91,7 +91,7 @@
   },
   "smokeTest": {
     "status": "success",
-    "checkedAt": "2026-09-24T13:46:48",
+    "checkedAt": "2026-09-25T16:18:23",
     "checkedExports": 11,
     "checkedPages": 10,
     "checkedViewExportPages": 7,

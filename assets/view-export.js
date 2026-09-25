@@ -13,6 +13,38 @@
     return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;" }[ch]));
   }
 
+
+  function cellText(cell){
+    const dual = cell.querySelector?.(".dual-money");
+    if (dual) {
+      const thousand = clean(dual.querySelector(".thousand")?.textContent || "");
+      const crore = clean(dual.querySelector(".crore")?.textContent || "");
+      return [thousand, crore].filter(Boolean).join("\n");
+    }
+    const clone = cell.cloneNode(true);
+    clone.querySelectorAll("br").forEach(br => br.replaceWith("\n"));
+    clone.querySelectorAll("small,.crore").forEach(node => node.before("\n"));
+    return String(clone.textContent || "").replace(/[ \t]+/g, " ").replace(/\n\s+/g, "\n").replace(/\n{2,}/g, "\n").trim();
+  }
+
+  function safeRows(rows){
+    return rows.map(row => row.map(cell => String(cell ?? "")));
+  }
+
+  function analysisRows(root = visibleRoot()){
+    const selectors = [".remark-list li", ".ai-cell", ".note", ".subtitle", ".data-stamp", ".finance-guide article", ".analysis-context", ".ai-review li"];
+    const seen = new Set();
+    const rows = [["Remarks / Analysis"]];
+    selectors.forEach(selector => {
+      root.querySelectorAll(selector).forEach(node => {
+        if (!visible(node)) return;
+        const text = clean(node.textContent || "");
+        if (text && text.length > 8 && !seen.has(text)) { seen.add(text); rows.push([text]); }
+      });
+    });
+    if (rows.length === 1) rows.push([remarksText(root)]);
+    return rows;
+  }
   function fileStamp(){
     return new Date().toISOString().slice(0, 10).replace(/-/g, "");
   }
@@ -158,18 +190,75 @@
     return `<!doctype html><html><head><meta charset="utf-8"><title>${html(pageTitle())}</title>${exportStyles()}</head><body><main><h1>${html(pageTitle())}</h1><p class="view-meta">${html(basis)}<br>${html(remarks)}</p>${clone.outerHTML}</main></body></html>`;
   }
 
-  function pdfEscape(value){ return clean(value).replace(/[\\()]/g,"\\$&").replace(/[^\x20-\x7E]/g,"?"); }
+  function pdfEscape(value){ return String(value ?? "").replace(/[\\()]/g,"\\$&").replace(/[^\x20-\x7E]/g,"?"); }
+  function pdfTextAt(x,y,text,size=8,bold=false){ return `BT /${bold?"F2":"F1"} ${size} Tf ${x.toFixed(2)} ${y.toFixed(2)} Td (${pdfEscape(text)}) Tj ET\n`; }
+  function pdfLine(x1,y1,x2,y2){ return `${x1.toFixed(2)} ${y1.toFixed(2)} m ${x2.toFixed(2)} ${y2.toFixed(2)} l S\n`; }
+  function pdfRect(x,y,w,h,fill){ return fill ? `q ${fill} rg ${x.toFixed(2)} ${y.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re f Q\n${x.toFixed(2)} ${y.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re S\n` : `${x.toFixed(2)} ${y.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re S\n`; }
+  function pdfWrap(text, maxChars, maxLines=3){ const raw=String(text||"").split(/\n/), out=[]; raw.forEach(part=>{ const words=part.split(/\s+/).filter(Boolean); let line=""; words.forEach(word=>{ if((line+" "+word).trim().length>maxChars){ if(line) out.push(line); line=word; } else line=(line+" "+word).trim(); }); out.push(line||""); }); return out.slice(0,maxLines); }
+  function isRemarksSheet(sheet){
+    return /remarks|analysis/i.test(sheet?.name || "") && Math.max(1, ...(sheet.rows || []).map(row => row.length)) <= 1;
+  }
+
+  function pdfNotePages(sheet){
+    const rows = safeRows(sheet.rows || []), pages = [], pageW = 842, pageH = 595, margin = 18, lineH = 11, blockGap = 7;
+    let y = pageH - margin - 42, content = "0 0 0 RG 0.6 w\n";
+    function header(cont=false){
+      content += pdfTextAt(margin, pageH - margin - 9, cont ? `${sheet.name} continued` : sheet.name, 14, true);
+      content += pdfTextAt(margin, pageH - margin - 24, dataBasisText(), 7, false);
+      content += pdfTextAt(margin, pageH - margin - 35, "Figures in '000 with Crore value below where shown. Current visible view export.", 7, false);
+      y = pageH - margin - 52;
+    }
+    function close(){ pages.push(content); content = "0 0 0 RG 0.6 w\n"; header(true); }
+    header(false);
+    rows.forEach((row, index) => {
+      const text = clean(row.join(" "));
+      if (!text) return;
+      const isHead = index === 0;
+      const maxChars = isHead ? 88 : 118;
+      const lines = pdfWrap(text, maxChars, isHead ? 2 : 6);
+      const h = Math.max(18, lines.length * lineH + 8);
+      if (y - h < margin) close();
+      content += pdfRect(margin, y - h, pageW - margin * 2, h, isHead ? "0.122 0.306 0.475" : "0.91 0.95 0.98");
+      content += isHead ? "1 1 1 rg\n" : "0 0 0 rg\n";
+      lines.forEach((line, i) => { content += pdfTextAt(margin + 6, y - 12 - i * lineH, line, isHead ? 9 : 8, isHead); });
+      y -= h + blockGap;
+    });
+    pages.push(content);
+    return pages;
+  }
+
+  function pdfTablePages(sheet){
+    if (isRemarksSheet(sheet)) return pdfNotePages(sheet);
+    const rows=safeRows(sheet.rows||[]), pages=[], pageW=842, pageH=595, margin=18, tableW=pageW-margin*2, titleH=38;
+    if(!rows.length) return [];
+    const maxCols=Math.max(1,...rows.map(r=>r.length));
+    const colW=Array.from({length:maxCols},(_,i)=>Math.max(44, Math.min(i===0?170:132, rows.reduce((m,r)=>Math.max(m, clean(r[i]).length), 0)*3.3+20)));
+    const totalW=colW.reduce((a,b)=>a+b,0), scale=Math.min(1, tableW/totalW), widths=colW.map(w=>w*scale);
+    const font=maxCols>10?5.6:maxCols>7?6.4:7.2, rowH=maxCols>9?22:24;
+    let y=pageH-margin-titleH, content="";
+    function startPage(cont=false){ content="0 0 0 RG 0.6 w\n"; content+=pdfTextAt(margin,pageH-margin-8,cont?`${sheet.name} continued`:sheet.name,13,true); content+=pdfTextAt(margin,pageH-margin-23,dataBasisText(),7,false); content+=pdfTextAt(margin,pageH-margin-34,"Figures in '000 with Crore value below where shown. Current visible view export.",7,false); y=pageH-margin-titleH; }
+    function closePage(){ pages.push(content); }
+    startPage(false);
+    rows.forEach((row,rIndex)=>{
+      if(y-rowH<margin){ closePage(); startPage(true); }
+      let x=margin; const isHeader=rIndex===4 || rIndex===0 && rows.length>6;
+      row.forEach((cell,c)=>{ const w=widths[c]||widths[0]; const fill=isHeader?"0.122 0.306 0.475":(rIndex%2?"0.91 0.95 0.98":"1 1 1"); content+=pdfRect(x,y-rowH,w,rowH,fill); const lines=pdfWrap(cell,Math.max(8,Math.floor(w/(font*0.50)))); content+=isHeader?"1 1 1 rg\n":"0 0 0 rg\n"; lines.forEach((line,i)=>{ content+=pdfTextAt(x+2,y-8-i*(font+1.7),line,i&&/Cr$/i.test(line)?Math.max(5,font-1):font,isHeader); }); x+=w; });
+      y-=rowH;
+    });
+    closePage();
+    return pages;
+  }
   function pdfBlob(){
-    const sheets=currentViewSheets(), pages=[];
-    sheets.forEach(sheet=>{ let page=[]; const lines=sheet.rows.map(row=>row.map(clean).join(" | ")); lines.forEach(line=>{(line.match(/.{1,118}(?:\s|$)|.{1,118}/g)||[""]).forEach(part=>{if(page.length>=42){pages.push(page);page=[];}page.push(part.trim());});});if(page.length)pages.push(page); });
-    const objects=[], add=(body)=>{objects.push(body);return objects.length;}, catalog=add(""), pagesRef=add(""), font=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"), pageRefs=[];
-    pages.forEach(lines=>{const content=["BT","/F1 10 Tf","40 560 Td",...lines.flatMap((line,index)=>[index?"0 -12 Td":"",`(${pdfEscape(line)}) Tj`]).filter(Boolean),"ET"].join("\n");const contentRef=add(`<< /Length ${encoder.encode(content).length} >>\nstream\n${content}\nendstream`);pageRefs.push(add(`<< /Type /Page /Parent ${pagesRef} 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 ${font} 0 R >> >> /Contents ${contentRef} 0 R >>`));});
+    const sheets=currentViewSheets(), pageStreams=[];
+    sheets.forEach(sheet=>pageStreams.push(...pdfTablePages(sheet)));
+    if(!pageStreams.length) pageStreams.push(pdfTextAt(40,560,pageTitle(),14,true));
+    const objects=[], add=(body)=>{objects.push(body);return objects.length;}, catalog=add(""), pagesRef=add(""), font=add("<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman >>"), fontB=add("<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold >>"), pageRefs=[];
+    pageStreams.forEach(content=>{const contentRef=add(`<< /Length ${encoder.encode(content).length} >>\nstream\n${content}\nendstream`);pageRefs.push(add(`<< /Type /Page /Parent ${pagesRef} 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 ${font} 0 R /F2 ${fontB} 0 R >> >> /Contents ${contentRef} 0 R >>`));});
     objects[0]=`<< /Type /Catalog /Pages ${pagesRef} 0 R >>`;objects[1]=`<< /Type /Pages /Kids [${pageRefs.map(ref=>`${ref} 0 R`).join(" ")}] /Count ${pageRefs.length} >>`;let out="%PDF-1.4\n", offsets=[0];objects.forEach((body,index)=>{offsets.push(encoder.encode(out).length);out+=`${index+1} 0 obj\n${body}\nendobj\n`;});const xref=encoder.encode(out).length;out+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n${offsets.slice(1).map(offset=>String(offset).padStart(10,"0")+" 00000 n \n").join("")}trailer\n<< /Size ${objects.length+1} /Root ${catalog} 0 R >>\nstartxref\n${xref}\n%%EOF`;return new Blob([out],{type:"application/pdf"});
   }
   function printPdf(){download(pdfBlob(),`${pageTitle().replace(/[^A-Za-z0-9]+/g,"_")}_View_${fileStamp()}.pdf`);}
-
   function tableToAoa(table){
-    return Array.from(table.rows || []).map(row => Array.from(row.cells || []).map(cell => clean(cell.innerText || cell.textContent)));
+    return Array.from(table.rows || []).map(row => Array.from(row.cells || []).map(cell => cellText(cell)));
   }
 
   function cardsAoa(root){
@@ -196,6 +285,8 @@
       const rows = cardsAoa(root);
       sheets.push({ name:pageTitle(), rows:[...intro, ["Visible content"], ...(rows.length ? rows : [[clean(root.innerText || root.textContent)]])] });
     }
+    const remarks = analysisRows(root);
+    if (remarks.length > 1) sheets.push({ name:"Remarks and Analysis", rows:[...compactContextRows(root), ...remarks] });
     return sheets;
   }
 
@@ -236,15 +327,27 @@
     return clean(name || "Sheet").replace(/[\\/?*[\]:]/g, " ").slice(0, 31) || "Sheet";
   }
 
+  function xlsxStyleFor(row, r, c){
+    const rowText = clean((row || []).join(" ")).toLowerCase();
+    const cellText = clean(row?.[c] || "").toLowerCase();
+    if (r === 0) return 2;
+    if (r < 4) return 3;
+    if (r === 4) return 1;
+    if (/total|grand total|subtotal/.test(rowText)) return 5;
+    if (/remarks|analysis/.test(rowText) || /adverse|excess|risk|shortfall|surrender/.test(cellText)) return 8;
+    if (c === 0) return 6;
+    return r % 2 ? 4 : 0;
+  }
+
   function worksheetXml(rows){
     const maxCols = Math.max(1, ...rows.map(row => row.length));
-    const cols = Array.from({ length:maxCols }, (_, i) => `<col min="${i + 1}" max="${i + 1}" width="${Math.min(42, Math.max(12, rows.reduce((m,row)=>Math.max(m, clean(row[i]).length), 0) + 2))}" customWidth="1"/>`).join("");
-    const sheetData = rows.map((row, r) => `<row r="${r + 1}" ht="${r < 3 ? 22 : 28}" customHeight="1">${row.map((cell, c) => `<c r="${columnName(c)}${r + 1}" t="inlineStr" s="${r === 0 ? 2 : r < 4 ? 3 : r === 4 ? 1 : 0}"><is><t xml:space="preserve">${xml(cell)}</t></is></c>`).join("")}</row>`).join("");
+    const cols = Array.from({ length:maxCols }, (_, i) => `<col min="${i + 1}" max="${i + 1}" width="${Math.min(i === 0 ? 34 : 26, Math.max(i === 0 ? 16 : 12, rows.reduce((m,row)=>Math.max(m, clean(row[i]).length), 0) + 2))}" customWidth="1"/>`).join("");
+    const sheetData = rows.map((row, r) => { const hasLines=row.some(cell=>String(cell||"").includes("\n")); return `<row r="${r + 1}" ht="${r < 3 ? 22 : hasLines ? 34 : 28}" customHeight="1">${row.map((cell, c) => `<c r="${columnName(c)}${r + 1}" t="inlineStr" s="${xlsxStyleFor(row,r,c)}"><is><t xml:space="preserve">${xml(cell)}</t></is></c>`).join("")}</row>`; }).join("");
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><cols>${cols}</cols><sheetData>${sheetData}</sheetData><pageMargins left="0.25" right="0.25" top="0.25" bottom="0.25" header="0.1" footer="0.1"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
   }
 
   function stylesXml(){
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="4"><font><sz val="11"/><name val="Times New Roman"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Times New Roman"/></font><font><b/><color rgb="FF1F4E79"/><sz val="14"/><name val="Times New Roman"/></font><font><b/><color rgb="FF607080"/><sz val="10"/><name val="Times New Roman"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E79"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8F2F8"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF8FBFD"/></patternFill></fill></fills><borders count="1"><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf fontId="0" fillId="4" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="1" fillId="2" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf fontId="2" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf fontId="3" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="5"><font><sz val="11"/><name val="Times New Roman"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Times New Roman"/></font><font><b/><color rgb="FF1F4E79"/><sz val="14"/><name val="Times New Roman"/></font><font><b/><color rgb="FF607080"/><sz val="10"/><name val="Times New Roman"/></font><font><b/><color rgb="FF7A1F00"/><sz val="11"/><name val="Times New Roman"/></font></fonts><fills count="10"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E79"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8F2F8"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF8FBFD"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9EAD3"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFE7A8"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFCE4D6"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE2F0D9"/></patternFill></fill></fills><borders count="1"><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="9"><xf fontId="0" fillId="4" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="1" fillId="2" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf fontId="2" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf fontId="3" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="0" fillId="3" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="1" fillId="5" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="0" fillId="6" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="4" fillId="7" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="4" fillId="8" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
   }
 
   function xlsxBlob(){
@@ -275,11 +378,57 @@
     download(xlsxBlob(), `${pageTitle().replace(/[^A-Za-z0-9]+/g, "_")}_View_${fileStamp()}.xlsx`);
   }
 
-  function pptTextShape(text,x,y,w,h,size,bold){const paras=text.split("\n").map(line=>`<a:p><a:r><a:rPr lang="en-US" sz="${size}" b="${bold?1:0}"/><a:t>${xml(line)}</a:t></a:r><a:endParaRPr lang="en-US"/></a:p>`).join("");return `<p:sp><p:nvSpPr><p:cNvPr id="${x+y}" name="Text"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square"/><a:lstStyle/>${paras}</p:txBody></p:sp>`;}
-  function pptSlide(title,lines){return `<?xml version="1.0" encoding="UTF-8"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${pptTextShape(title,457200,228600,11277600,457200,2200,true)}${pptTextShape(lines.join("\n"),457200,914400,11277600,5715000,1050,false)}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;}
-  function pptxBlob(){const sheets=currentViewSheets(),slides=[];sheets.forEach(sheet=>{for(let i=0;i<sheet.rows.length;i+=18)slides.push({title:sheet.name+(i?` (${Math.floor(i/18)+1})`:""),lines:sheet.rows.slice(i,i+18).map(row=>row.map(clean).join(" | "))});});if(!slides.length)slides.push({title:pageTitle(),lines:[dataBasisText(),remarksText()]});const files=[{name:"[Content_Types].xml",content:`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>${slides.map((_,i)=>`<Override PartName="/ppt/slides/slide${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join("")}</Types>`},{name:"_rels/.rels",content:`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>`},{name:"ppt/presentation.xml",content:`<?xml version="1.0"?><p:presentation xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldIdLst>${slides.map((_,i)=>`<p:sldId id="${256+i}" r:id="rId${i+1}"/>`).join("")}</p:sldIdLst><p:sldSz cx="12192000" cy="6858000" type="screen16x9"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>`},{name:"ppt/_rels/presentation.xml.rels",content:`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${slides.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i+1}.xml"/>`).join("")}</Relationships>`},...slides.map((slide,i)=>({name:`ppt/slides/slide${i+1}.xml`,content:pptSlide(slide.title,slide.lines)}))];return zip(files,"application/vnd.openxmlformats-officedocument.presentationml.presentation");}
-  function exportPpt(){download(pptxBlob(),`${pageTitle().replace(/[^A-Za-z0-9]+/g,"_")}_View_${fileStamp()}.pptx`);}
+  let pptShapeId = 2;
+  function pptTextShape(text,x,y,w,h,size,bold,fill="FFFFFF",line="FFFFFF",color="17212B"){
+    const paras=String(text||"").split("\n").map(lineText=>`<a:p><a:r><a:rPr lang="en-US" sz="${size}" b="${bold?1:0}"><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:latin typeface="Times New Roman"/></a:rPr><a:t>${xml(lineText)}</a:t></a:r><a:endParaRPr lang="en-US"/></a:p>`).join("");
+    return `<p:sp><p:nvSpPr><p:cNvPr id="${pptShapeId++}" name="Text"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="${line}"/></a:solidFill></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square" lIns="45720" rIns="45720" tIns="22860" bIns="22860"/><a:lstStyle/>${paras}</p:txBody></p:sp>`;
+  }
 
+  function pptTableSlide(title, rows, part){
+    const slideW=12192000, margin=320000, titleH=420000, top=780000, usableW=slideW-margin*2;
+    const maxCols=Math.max(1,...rows.map(r=>r.length));
+    const maxRows=maxCols>8?11:13;
+    const shown=rows.slice(part*maxRows,(part+1)*maxRows);
+    const cols=Math.max(1,...shown.map(r=>r.length));
+    const colW=Math.floor(usableW/cols), rowH=Math.floor(5300000/Math.max(1,shown.length));
+    let shapes=pptTextShape(part?`${title} (${part+1})`:title,margin,150000,usableW,titleH,2000,true,"FFFFFF","FFFFFF","1F4E79");
+    shown.forEach((row,r)=>{ row.forEach((cell,c)=>{ const header=r===0 || (part===0 && r===4); const total=/total/i.test(row.join(" ")); const first=c===0&&!header; const fill=header?"1F4E79":total?"D9EAD3":first?"FFE7A8":(r%2?"E8F2F8":"FFFFFF"); const color=header?"FFFFFF":"17212B"; shapes+=pptTextShape(String(cell||""),margin+c*colW,top+r*rowH,colW,rowH,cols>8?680:800,header||total,fill,"000000",color); }); });
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${shapes}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
+  }
+
+  function pptThemeXml(){
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="MB Budget"><a:themeElements><a:clrScheme name="MB Budget"><a:dk1><a:srgbClr val="17212B"/></a:dk1><a:lt1><a:srgbClr val="FFFFFF"/></a:lt1><a:dk2><a:srgbClr val="1F4E79"/></a:dk2><a:lt2><a:srgbClr val="E8F2F8"/></a:lt2><a:accent1><a:srgbClr val="1F4E79"/></a:accent1><a:accent2><a:srgbClr val="007C7C"/></a:accent2><a:accent3><a:srgbClr val="D9EAD3"/></a:accent3><a:accent4><a:srgbClr val="FFE7A8"/></a:accent4><a:accent5><a:srgbClr val="C00000"/></a:accent5><a:accent6><a:srgbClr val="607080"/></a:accent6><a:hlink><a:srgbClr val="0563C1"/></a:hlink><a:folHlink><a:srgbClr val="954F72"/></a:folHlink></a:clrScheme><a:fontScheme name="Times"><a:majorFont><a:latin typeface="Times New Roman"/></a:majorFont><a:minorFont><a:latin typeface="Times New Roman"/></a:minorFont></a:fontScheme><a:fmtScheme name="Office"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst><a:lnStyleLst><a:ln w="9525"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln></a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements><a:objectDefaults/><a:extraClrSchemeLst/></a:theme>`;
+  }
+
+  function pptLayoutXml(){
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" type="blank" preserve="1"><p:cSld name="Blank"><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>`;
+  }
+
+  function pptMasterXml(){
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></p:bgPr></p:bg><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld><p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/><p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst><p:txStyles><p:titleStyle/><p:bodyStyle/><p:otherStyle/></p:txStyles></p:sldMaster>`;
+  }
+
+  function pptxBlob(){
+    pptShapeId = 2;
+    const sheets=currentViewSheets(),slides=[];
+    sheets.forEach(sheet=>{const rows=safeRows(sheet.rows||[]);const maxCols=Math.max(1,...rows.map(r=>r.length));const chunk=maxCols>8?11:13;const chunks=Math.max(1,Math.ceil(rows.length/chunk));for(let i=0;i<chunks;i++)slides.push({title:sheet.name,rows,part:i});});
+    if(!slides.length)slides.push({title:pageTitle(),rows:[[dataBasisText()],[remarksText()]],part:0});
+    const files=[
+      {name:"[Content_Types].xml",content:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/><Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/><Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>${slides.map((_,i)=>`<Override PartName="/ppt/slides/slide${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join("")}</Types>`},
+      {name:"_rels/.rels",content:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>`},
+      {name:"ppt/presentation.xml",content:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rIdMaster"/></p:sldMasterIdLst><p:sldIdLst>${slides.map((_,i)=>`<p:sldId id="${256+i}" r:id="rId${i+1}"/>`).join("")}</p:sldIdLst><p:sldSz cx="12192000" cy="6858000" type="screen16x9"/><p:notesSz cx="6858000" cy="9144000"/><p:defaultTextStyle><a:defPPr><a:defRPr lang="en-US"/></a:defPPr></p:defaultTextStyle></p:presentation>`},
+      {name:"ppt/_rels/presentation.xml.rels",content:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdMaster" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>${slides.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i+1}.xml"/>`).join("")}</Relationships>`},
+      {name:"ppt/slideMasters/slideMaster1.xml",content:pptMasterXml()},
+      {name:"ppt/slideMasters/_rels/slideMaster1.xml.rels",content:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme1.xml"/></Relationships>`},
+      {name:"ppt/slideLayouts/slideLayout1.xml",content:pptLayoutXml()},
+      {name:"ppt/slideLayouts/_rels/slideLayout1.xml.rels",content:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/></Relationships>`},
+      {name:"ppt/theme/theme1.xml",content:pptThemeXml()},
+      ...slides.map((slide,i)=>({name:`ppt/slides/slide${i+1}.xml`,content:pptTableSlide(slide.title,slide.rows,slide.part)})),
+      ...slides.map((_,i)=>({name:`ppt/slides/_rels/slide${i+1}.xml.rels`,content:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/></Relationships>`}))
+    ];
+    return zip(files,"application/vnd.openxmlformats-officedocument.presentationml.presentation");
+  }
+  function exportPpt(){download(pptxBlob(),`${pageTitle().replace(/[^A-Za-z0-9]+/g,"_")}_View_${fileStamp()}.pptx`);}
   function fullExportTargets(){
     return {
       excel: document.querySelector("#exportExcel,#exportReportExcel,#export-all"),
