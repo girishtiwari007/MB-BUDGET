@@ -160,11 +160,11 @@
     return `<style>
       @page{size:A4 landscape;margin:.25in}
       *{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}
-      body{margin:0;background:#fff;color:#17212b;font-family:Arial,Helvetica,sans-serif}
+      body{margin:0;background:#fff;color:#17212b;font-family:"Times New Roman",Times,serif;font-size:10pt}
       main{width:100%;padding:0}
-      h1{margin:0 0 4px;text-align:center;color:#1f4e79;font:700 20px Arial,Helvetica,sans-serif}
-      .view-meta{margin:0 0 8px;font:700 10px Arial,Helvetica,sans-serif;text-align:right;color:#405060}
-      table{width:100%;border-collapse:collapse;font-size:8.5px;font-family:"Times New Roman",Times,serif;table-layout:auto}
+      h1{margin:0 0 4px;text-align:center;color:#1f4e79;font:700 18pt "Times New Roman",Times,serif}
+      .view-meta{margin:0 0 8px;font:700 8pt "Times New Roman",Times,serif;text-align:right;color:#405060}
+      table{width:100%;border-collapse:collapse;font-size:10pt;font-family:"Times New Roman",Times,serif;table-layout:auto}
       th,td{border:1px solid #000!important;padding:3px 4px;vertical-align:middle;white-space:normal;overflow-wrap:anywhere}
       th{background:#1f4e79!important;color:#fff!important;text-align:center}
       td{text-align:right}
@@ -172,8 +172,8 @@
       tr:nth-child(even) td{background:#e8f2f8}
       .dual-money{display:block;font-family:"Times New Roman",Times,serif;line-height:1.08}
       .dual-money span{display:block}
-      .dual-money .thousand{font-size:11px;font-weight:700}
-      .dual-money .crore{font-size:9px;color:#006f78}
+      .dual-money .thousand{font-size:10pt;font-weight:700}
+      .dual-money .crore{font-size:8pt;color:#005a61}
       .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
       .dot.green{background:#25a55b}.dot.yellow{background:#f2c230}.dot.red{background:#d92323}
       .card,.chart,.tablebox,.panel,.summary-grid,.grid,.freshness,.review-pack,.basis-guard,.refresh-proof,.export-board{border:1px solid #c8d6e2;margin:0 0 8px;padding:6px;background:#fff;box-shadow:none!important}
@@ -234,16 +234,19 @@
     const maxCols=Math.max(1,...rows.map(r=>r.length));
     const colW=Array.from({length:maxCols},(_,i)=>Math.max(44, Math.min(i===0?170:132, rows.reduce((m,r)=>Math.max(m, clean(r[i]).length), 0)*3.3+20)));
     const totalW=colW.reduce((a,b)=>a+b,0), scale=Math.min(1, tableW/totalW), widths=colW.map(w=>w*scale);
-    const font=maxCols>10?5.6:maxCols>7?6.4:7.2, rowH=maxCols>9?22:24;
+    const font=maxCols>10?7:maxCols>7?8:10, rowH=maxCols>9?24:28;
     let y=pageH-margin-titleH, content="";
-    function startPage(cont=false){ content="0 0 0 RG 0.6 w\n"; content+=pdfTextAt(margin,pageH-margin-8,cont?`${sheet.name} continued`:sheet.name,13,true); content+=pdfTextAt(margin,pageH-margin-23,dataBasisText(),7,false); content+=pdfTextAt(margin,pageH-margin-34,"Figures in '000 with Crore value below where shown. Current visible view export.",7,false); y=pageH-margin-titleH; }
+    function startPage(cont=false){ content="0 0 0 RG 0.6 w\n"; content+=pdfTextAt(margin,pageH-margin-8,cont?`${sheet.name} continued`:sheet.name,16,true); content+=pdfTextAt(margin,pageH-margin-23,dataBasisText(),7,false); content+=pdfTextAt(margin,pageH-margin-34,"Figures in '000 with Crore value below where shown. Current visible view export.",7,false); y=pageH-margin-titleH; }
     function closePage(){ pages.push(content); }
     startPage(false);
     rows.forEach((row,rIndex)=>{
-      if(y-rowH<margin){ closePage(); startPage(true); }
-      let x=margin; const isHeader=rIndex===4 || rIndex===0 && rows.length>6;
-      row.forEach((cell,c)=>{ const w=widths[c]||widths[0]; const fill=isHeader?"0.122 0.306 0.475":(rIndex%2?"0.91 0.95 0.98":"1 1 1"); content+=pdfRect(x,y-rowH,w,rowH,fill); const lines=pdfWrap(cell,Math.max(8,Math.floor(w/(font*0.50)))); content+=isHeader?"1 1 1 rg\n":"0 0 0 rg\n"; lines.forEach((line,i)=>{ content+=pdfTextAt(x+2,y-8-i*(font+1.7),line,i&&/Cr$/i.test(line)?Math.max(5,font-1):font,isHeader); }); x+=w; });
-      y-=rowH;
+      const isHeader=rIndex===4 || rIndex===0 && rows.length>6;
+      const wrapped=row.map((cell,c)=>pdfWrap(cell,Math.max(8,Math.floor((widths[c]||widths[0])/(font*0.50)))));
+      const actualRowH=Math.max(rowH,...wrapped.map(lines=>lines.length*(font+2)+8));
+      if(y-actualRowH<margin){ closePage(); startPage(true); }
+      let x=margin;
+      row.forEach((cell,c)=>{ const w=widths[c]||widths[0], lines=wrapped[c]; const fill=isHeader?"0.122 0.306 0.475":(rIndex%2?"0.91 0.95 0.98":"1 1 1"); content+=pdfRect(x,y-actualRowH,w,actualRowH,fill); content+=isHeader?"1 1 1 rg\n":"0 0 0 rg\n"; lines.forEach((line,i)=>{ content+=pdfTextAt(x+2,y-font-3-i*(font+2),line,/Cr$/i.test(line)?8:font,isHeader); }); x+=w; });
+      y-=actualRowH;
     });
     closePage();
     return pages;
@@ -339,15 +342,23 @@
     return r % 2 ? 4 : 0;
   }
 
+  function xlsxInlineString(cell){
+    const lines=String(cell ?? "").split("\n");
+    if(lines.length>1 && /(?:Cr|Crore)$/i.test(lines.at(-1).trim())){
+      const thousand=lines.slice(0,-1).join(" "), crore=lines.at(-1);
+      return `<is><r><rPr><rFont val="Times New Roman"/><sz val="10"/></rPr><t xml:space="preserve">${xml(thousand)}</t></r><r><rPr><rFont val="Times New Roman"/><sz val="8"/><color rgb="FF005A61"/></rPr><t xml:space="preserve">${xml("\n"+crore)}</t></r></is>`;
+    }
+    return `<is><t xml:space="preserve">${xml(cell)}</t></is>`;
+  }
   function worksheetXml(rows){
     const maxCols = Math.max(1, ...rows.map(row => row.length));
     const cols = Array.from({ length:maxCols }, (_, i) => `<col min="${i + 1}" max="${i + 1}" width="${Math.min(i === 0 ? 34 : 26, Math.max(i === 0 ? 16 : 12, rows.reduce((m,row)=>Math.max(m, clean(row[i]).length), 0) + 2))}" customWidth="1"/>`).join("");
-    const sheetData = rows.map((row, r) => { const hasLines=row.some(cell=>String(cell||"").includes("\n")); return `<row r="${r + 1}" ht="${r < 3 ? 22 : hasLines ? 34 : 28}" customHeight="1">${row.map((cell, c) => `<c r="${columnName(c)}${r + 1}" t="inlineStr" s="${xlsxStyleFor(row,r,c)}"><is><t xml:space="preserve">${xml(cell)}</t></is></c>`).join("")}</row>`; }).join("");
+    const sheetData = rows.map((row, r) => { const hasLines=row.some(cell=>String(cell||"").includes("\n")); return `<row r="${r + 1}" ht="${r < 3 ? 22 : hasLines ? 34 : 28}" customHeight="1">${row.map((cell, c) => `<c r="${columnName(c)}${r + 1}" t="inlineStr" s="${xlsxStyleFor(row,r,c)}">${xlsxInlineString(cell)}</c>`).join("")}</row>`; }).join("");
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><cols>${cols}</cols><sheetData>${sheetData}</sheetData><pageMargins left="0.25" right="0.25" top="0.25" bottom="0.25" header="0.1" footer="0.1"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
   }
 
   function stylesXml(){
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="5"><font><sz val="11"/><name val="Times New Roman"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Times New Roman"/></font><font><b/><color rgb="FF1F4E79"/><sz val="14"/><name val="Times New Roman"/></font><font><b/><color rgb="FF607080"/><sz val="10"/><name val="Times New Roman"/></font><font><b/><color rgb="FF7A1F00"/><sz val="11"/><name val="Times New Roman"/></font></fonts><fills count="10"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E79"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8F2F8"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF8FBFD"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9EAD3"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFE7A8"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFCE4D6"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE2F0D9"/></patternFill></fill></fills><borders count="1"><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="9"><xf fontId="0" fillId="4" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="1" fillId="2" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf fontId="2" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf fontId="3" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="0" fillId="3" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="1" fillId="5" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="0" fillId="6" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="4" fillId="7" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="4" fillId="8" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="5"><font><sz val="10"/><name val="Times New Roman"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="10"/><name val="Times New Roman"/></font><font><b/><color rgb="FF1F4E79"/><sz val="16"/><name val="Times New Roman"/></font><font><b/><color rgb="FF607080"/><sz val="8"/><name val="Times New Roman"/></font><font><b/><color rgb="FF7A1F00"/><sz val="10"/><name val="Times New Roman"/></font></fonts><fills count="10"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E79"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8F2F8"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF8FBFD"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9EAD3"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFE7A8"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFCE4D6"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE2F0D9"/></patternFill></fill></fills><borders count="1"><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="9"><xf fontId="0" fillId="4" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="1" fillId="2" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf fontId="2" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf fontId="3" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="0" fillId="3" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="1" fillId="5" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="0" fillId="6" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="4" fillId="7" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf fontId="4" fillId="8" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
   }
 
   function xlsxBlob(){
@@ -380,7 +391,7 @@
 
   let pptShapeId = 2;
   function pptTextShape(text,x,y,w,h,size,bold,fill="FFFFFF",line="FFFFFF",color="17212B"){
-    const paras=String(text||"").split("\n").map(lineText=>`<a:p><a:r><a:rPr lang="en-US" sz="${size}" b="${bold?1:0}"><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:latin typeface="Times New Roman"/></a:rPr><a:t>${xml(lineText)}</a:t></a:r><a:endParaRPr lang="en-US"/></a:p>`).join("");
+    const paras=String(text||"").split("\n").map(lineText=>{ const lineSize=/\b(?:Cr|Crore)$/i.test(lineText.trim()) ? Math.min(size,800) : size; return `<a:p><a:r><a:rPr lang="en-US" sz="${lineSize}" b="${bold?1:0}"><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:latin typeface="Times New Roman"/></a:rPr><a:t>${xml(lineText)}</a:t></a:r><a:endParaRPr lang="en-US"/></a:p>`; }).join("");
     return `<p:sp><p:nvSpPr><p:cNvPr id="${pptShapeId++}" name="Text"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="${line}"/></a:solidFill></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square" lIns="45720" rIns="45720" tIns="22860" bIns="22860"/><a:lstStyle/>${paras}</p:txBody></p:sp>`;
   }
 
@@ -392,7 +403,7 @@
     const cols=Math.max(1,...shown.map(r=>r.length));
     const colW=Math.floor(usableW/cols), rowH=Math.floor(5300000/Math.max(1,shown.length));
     let shapes=pptTextShape(part?`${title} (${part+1})`:title,margin,150000,usableW,titleH,2000,true,"FFFFFF","FFFFFF","1F4E79");
-    shown.forEach((row,r)=>{ row.forEach((cell,c)=>{ const header=r===0 || (part===0 && r===4); const total=/total/i.test(row.join(" ")); const first=c===0&&!header; const fill=header?"1F4E79":total?"D9EAD3":first?"FFE7A8":(r%2?"E8F2F8":"FFFFFF"); const color=header?"FFFFFF":"17212B"; shapes+=pptTextShape(String(cell||""),margin+c*colW,top+r*rowH,colW,rowH,cols>8?680:800,header||total,fill,"000000",color); }); });
+    shown.forEach((row,r)=>{ row.forEach((cell,c)=>{ const header=r===0 || (part===0 && r===4); const total=/total/i.test(row.join(" ")); const first=c===0&&!header; const fill=header?"1F4E79":total?"D9EAD3":first?"FFE7A8":(r%2?"E8F2F8":"FFFFFF"); const color=header?"FFFFFF":"17212B"; shapes+=pptTextShape(String(cell||""),margin+c*colW,top+r*rowH,colW,rowH,cols>8?800:1000,header||total,fill,"000000",color); }); });
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${shapes}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
   }
 
