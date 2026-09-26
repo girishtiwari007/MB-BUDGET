@@ -30,6 +30,22 @@ PERIOD_OPTIONS = [
     "FEB 2027",
     "MAR 2027",
 ]
+REQUIRED_PYTHON_MODULES = ("openpyxl", "xlrd")
+
+
+def missing_python_modules():
+    """Return the spreadsheet modules required by every local sync path."""
+    return [name for name in REQUIRED_PYTHON_MODULES if importlib.util.find_spec(name) is None]
+
+
+def ensure_python_modules():
+    missing = missing_python_modules()
+    if missing:
+        command = f'"{sys.executable}" -m pip install ' + " ".join(missing)
+        raise RuntimeError(
+            "Local sync requires missing Python package(s): " + ", ".join(missing)
+            + ". Install them once with: " + command
+        )
 
 
 def load_current_sync():
@@ -53,6 +69,7 @@ class LocalSyncApp(tk.Tk):
         self.status = tk.StringVar(value="Ready. Choose a current-year folder or FR file; sync starts automatically.")
         self.server_process = None
         self._build()
+        self.show_dependency_status()
 
     def _build(self):
         self.columnconfigure(0, weight=1)
@@ -105,6 +122,13 @@ class LocalSyncApp(tk.Tk):
         self.write("Month controls default to Auto sense from file. Override only when you want the portal to calculate on a chosen completed/running month.")
         self.write("After selection, sync starts automatically and refreshes portal data, calculations, views and all exports.")
 
+    def show_dependency_status(self):
+        missing = missing_python_modules()
+        if missing:
+            self.write("ACTION REQUIRED: missing local Python package(s): " + ", ".join(missing))
+        else:
+            self.write("Python export dependencies ready: openpyxl and xlrd.")
+
     def write(self, text):
         self.log.insert("end", text.rstrip() + "\n")
         self.log.see("end")
@@ -131,6 +155,7 @@ class LocalSyncApp(tk.Tk):
             self.write("")
             self.write(label)
             try:
+                ensure_python_modules()
                 output = worker()
                 if output:
                     self.write(str(output))
@@ -230,8 +255,8 @@ class LocalSyncApp(tk.Tk):
     def refresh_exports(self):
         def worker():
             from export_refresh import refresh_exports
-            return refresh_exports("local-sync-gui-simulation")
-        self.run_background("Running calculation/export simulation...", worker)
+            return refresh_exports("local-sync-gui-export-refresh")
+        self.run_background("Recalculating and rebuilding existing master exports...", worker)
 
     def validation_summary(self):
         lines = ["", "Portal refresh validation:"]
