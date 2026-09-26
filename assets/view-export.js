@@ -55,7 +55,7 @@
   }
 
   function pageTitle(){
-    const base = clean(document.querySelector("h1")?.textContent || document.querySelector("title")?.textContent || "MB Budget View");
+    const base = clean(document.querySelector("h1")?.dataset.exportTitle || document.querySelector("h1")?.textContent || document.querySelector("title")?.textContent || "MB Budget View");
     const active = activeViewLabel();
     return active && !base.includes(active) ? `${base} — ${active}` : base;
   }

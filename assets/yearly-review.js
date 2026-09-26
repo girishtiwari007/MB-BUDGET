@@ -10,7 +10,7 @@
   ];
   const $ = (id) => document.getElementById(id);
   const years = () => (data.years || []).map((row) => row.fy).filter(Boolean);
-  const state = { mode:"review", scope:"pu", period:"quarter", month:"APR", quarter:"Q1", compareYear:"", compareMonth:"", compareQuarter:"", targetYear:"", targetMonth:"", targetQuarter:"", selectedYears:new Set(years()), selectedItems:null, selectedDeptPus:null };
+  const state = { mode:"review", scope:"pu", period:"quarter", month:"APR", quarter:"Q1", compareYear:"", compareMonth:"", compareQuarter:"", targetYear:"", targetMonth:"", targetQuarter:"", selectedYears:new Set(years()), selectedMonths:new Set(), selectedItems:null, selectedDeptPus:null };
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const fmt = (v) => Number(v || 0).toLocaleString("en-IN");
   const money = (v) => `${fmt(v)}<small>${(Number(v || 0) / 10000).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})} Cr</small>`;
@@ -36,14 +36,16 @@
   }
   function usableIndexes(year, indexes){ return year === currentYear() ? indexes.filter((i) => i < completedCount()) : indexes; }
   function periodIndexes(){ return indexesForPeriod(state.period, state.month, state.quarter); }
-  function periodLabel(){ return state.period === "month" ? state.month : state.period === "quarter" ? `${state.quarter} (${periodIndexes().map((i) => months[i]).join("-")})` : "Financial Year"; }
+  function reviewIndexes(){ return state.period === "month" ? months.map((_, i) => i).filter((i) => state.selectedMonths.has(months[i])) : periodIndexes(); }
+  function selectedMonthLabel(){ const all = months, picked = selected(all, state.selectedMonths); return picked.length === all.length ? "All months" : picked.length === 1 ? picked[0] : picked.length ? `${picked.join(", ")} (${picked.length} months)` : "No months selected"; }
+  function periodLabel(){ return state.period === "month" ? selectedMonthLabel() : state.period === "quarter" ? `${state.quarter} (${periodIndexes().map((i) => months[i]).join("-")})` : "Financial Year"; }
   function comparisonLabel(){
     if(state.period === "month") return `${state.compareYear} ${state.compareMonth} to ${state.targetYear} ${state.targetMonth}`;
     if(state.period === "quarter") return `${state.compareYear} ${state.compareQuarter} to ${state.targetYear} ${state.targetQuarter}`;
     return `${state.compareYear} full year to ${state.targetYear} full year`;
   }
   function periodUnit(){ return state.period === "month" ? "Month" : state.period === "quarter" ? "Quarter" : "Year"; }
-  function value(values, year){ const indexes = usableIndexes(year, periodIndexes()); return indexes.reduce((total,i) => total + Number(values?.[year]?.[i] || 0),0); }
+  function value(values, year){ const indexes = usableIndexes(year, reviewIndexes()); return indexes.reduce((total,i) => total + Number(values?.[year]?.[i] || 0),0); }
   function monthValue(names, year, index, dataSource=source()){ if(year === currentYear() && index >= completedCount()) return null; return names.reduce((total,name) => total + Number(dataSource[name]?.[year]?.[index] || 0),0); }
   function periodValue(names, year, indexes, dataSource=source()){ const use = usableIndexes(year, indexes); if(!use.length) return null; return names.reduce((total,name) => total + use.reduce((sum,i) => sum + Number(dataSource[name]?.[year]?.[i] || 0),0),0); }
   function cumulativeValue(name, year, uptoIndex, dataSource=source()){ const last = year === currentYear() ? Math.min(uptoIndex, completedCount() - 1) : uptoIndex; return months.slice(0, last + 1).reduce((sum, _m, i) => sum + Number(dataSource[name]?.[year]?.[i] || 0), 0); }
@@ -72,6 +74,7 @@
     $("targetQuarter").innerHTML=Object.keys(quarters).map((q) => `<option value="${q}" ${q===state.targetQuarter?"selected":""}>${quarterNames[q]}</option>`).join("");
     const isReview = state.mode === "review";
     $("monthWrap").hidden=state.period!=="month" || !isReview;
+    $("monthChoiceWrap").hidden=state.period!=="month" || !isReview;
     $("quarterWrap").hidden=state.period!=="quarter" || !isReview;
     $("compareYearWrap").hidden=isReview;
     $("targetYearWrap").hidden=isReview;
@@ -81,6 +84,9 @@
     $("targetQuarterWrap").hidden=isReview || state.period!=="quarter";
     if($("yearChoiceWrap")) $("yearChoiceWrap").hidden=!isReview;
     state.selectedYears=new Set([...state.selectedYears].filter((y) => allYears.includes(y))); if(!state.selectedYears.size) allYears.forEach((y) => state.selectedYears.add(y));
+    state.selectedMonths=new Set([...state.selectedMonths].filter((m) => months.includes(m))); if(!state.selectedMonths.size) { state.month=currentMonth(); state.selectedMonths.add(state.month); }
+    checkboxList($("monthChecks"),months,state.selectedMonths,"month-choice","All months");
+    $("monthPickerLabel").textContent=selectedMonthLabel();
     if(state.selectedItems===null) state.selectedItems=new Set(allItems); else state.selectedItems=new Set([...state.selectedItems].filter((i) => allItems.includes(i)));
     if(state.selectedDeptPus===null) state.selectedDeptPus=new Set(allPus); else state.selectedDeptPus=new Set([...state.selectedDeptPus].filter((i) => allPus.includes(i)));
     checkboxList($("yearChecks"),allYears,state.selectedYears,"year","All available years");
@@ -153,12 +159,12 @@
   function renderReview(){
     const chosenYears=selected(years(),state.selectedYears), names=selected(items(),state.selectedItems);
     const rows=names.map((name) => { const values=chosenYears.map((year) => value(source()[name],year)); return {name,values,total:values.reduce((a,b) => a+b,0)}; }).filter((row) => row.total || state.selectedItems.size).sort((a,b) => b.total-a.total);
-    const total=rows.reduce((a,row) => a+row.total,0), top=rows[0]; $("reviewTitle").textContent=`Yearly Review / PU Trend Analysis - ${scopeName()}`; $("reviewStamp").textContent=`${periodLabel()} | ${label(years(),state.selectedYears,"years")} | Completed actuals through ${meta.completedMonth || "latest completed month"}`;
+    const total=rows.reduce((a,row) => a+row.total,0), top=rows[0], reviewTitle=`Yearly Review / PU Trend Analysis - ${scopeName()}`, exportTitle=`${reviewTitle} | ${periodLabel()} | ${label(years(),state.selectedYears,"years")} | ${label(items(),state.selectedItems,`${scopeName()}s`)}`; $("reviewTitle").textContent=reviewTitle; $("reviewTitle").dataset.exportTitle=exportTitle; $("reviewStamp").textContent=`${periodLabel()} | ${label(years(),state.selectedYears,"years")} | ${label(items(),state.selectedItems,`${scopeName()}s`)} | Completed actuals through ${meta.completedMonth || "latest completed month"}`;
     $("reviewHost").innerHTML=`<section class="summary"><article><span>Period</span><strong>${esc(periodLabel())}</strong></article><article><span>Selected rows</span><strong>${rows.length}</strong></article><article><span>Review total</span><strong>${money(total)}</strong></article><article><span>Highest item</span><strong>${esc(top?.name||"N/A")}</strong></article></section><section class="review-panel"><div class="section-head"><h2>${esc(periodLabel())} expenditure review</h2><span>Completed actuals only · Figures in '000 with Crore below</span></div><div class="table-wrap"><table><thead><tr><th>${scopeName()}</th>${chosenYears.map((y)=>`<th>${esc(y)}</th>`).join("")}<th>Total</th></tr></thead><tbody>${rows.map((r)=>`<tr class="${attentionClass(r,total)}"><td>${esc(r.name)}</td>${r.values.map((v)=>`<td>${money(v)}</td>`).join("")}<td>${money(r.total)}</td></tr>`).join("")||`<tr><td colspan="${chosenYears.length+2}">No data available for this selection.</td></tr>`}</tbody></table></div></section><section class="insight-grid"><article class="review-panel"><div class="section-head"><h2>Selection insights</h2><span>Derived from the displayed review</span></div><ul class="remark-list">${remarks(rows,total,names,chosenYears).map((remark)=>`<li>${esc(remark)}</li>`).join("")}</ul></article><article class="review-panel"><div class="section-head"><h2>Monthly completed-actual trend</h2><span>Markers show monthly values</span></div>${chart(names,chosenYears)}</article></section>${state.scope==="dept"?puCrossReport(chosenYears):""}${financeGuide()}`;
   }
   function render(){ sync(); if(state.mode==="trend") renderTrend(); else if(state.mode==="ai") renderAi(); else renderReview(); window.MBTableHighlight?.refresh?.(); }
-  ["reviewMode","reviewScope","reviewPeriod","reviewMonth","reviewQuarter","compareYear","compareMonth","compareQuarter","targetYear","targetMonth","targetQuarter"].forEach((id)=>$(id).addEventListener("change",(event)=>{ const keys={reviewMode:"mode",reviewScope:"scope",reviewPeriod:"period",reviewMonth:"month",reviewQuarter:"quarter",compareYear:"compareYear",compareMonth:"compareMonth",compareQuarter:"compareQuarter",targetYear:"targetYear",targetMonth:"targetMonth",targetQuarter:"targetQuarter"}; state[keys[id]]=event.target.value; if(id==="reviewScope"){state.selectedItems=null;state.selectedDeptPus=null;} render(); }));
-  document.addEventListener("change",(event)=>{ const input=event.target; if(!input.matches("input[data-type]"))return; const all=input.dataset.type==="year"?years():input.dataset.type==="dept-pu"?puItems():items(), set=input.dataset.type==="year"?state.selectedYears:input.dataset.type==="dept-pu"?state.selectedDeptPus:state.selectedItems; if(input.dataset.all){set.clear();if(input.checked)all.forEach((v)=>set.add(v));}else if(input.checked)set.add(input.value);else set.delete(input.value); render(); });
-  ["yearPicker","itemPicker","deptPuPicker"].forEach((id)=>$(id).addEventListener("mouseleave",()=>{$(id).open=false;}));
+  ["reviewMode","reviewScope","reviewPeriod","reviewMonth","reviewQuarter","compareYear","compareMonth","compareQuarter","targetYear","targetMonth","targetQuarter"].forEach((id)=>$(id).addEventListener("change",(event)=>{ const keys={reviewMode:"mode",reviewScope:"scope",reviewPeriod:"period",reviewMonth:"month",reviewQuarter:"quarter",compareYear:"compareYear",compareMonth:"compareMonth",compareQuarter:"compareQuarter",targetYear:"targetYear",targetMonth:"targetMonth",targetQuarter:"targetQuarter"}; state[keys[id]]=event.target.value; if(id==="reviewMonth") state.selectedMonths=new Set([state.month]); if(id==="reviewScope"){state.selectedItems=null;state.selectedDeptPus=null;} render(); }));
+  document.addEventListener("change",(event)=>{ const input=event.target; if(!input.matches("input[data-type]"))return; const type=input.dataset.type, all=type==="year"?years():type==="month-choice"?months:type==="dept-pu"?puItems():items(), set=type==="year"?state.selectedYears:type==="month-choice"?state.selectedMonths:type==="dept-pu"?state.selectedDeptPus:state.selectedItems; if(input.dataset.all){set.clear();if(input.checked)all.forEach((v)=>set.add(v));}else if(input.checked)set.add(input.value);else set.delete(input.value); if(type==="month-choice" && set.size===1) state.month=[...set][0]; render(); });
+  ["yearPicker","monthPicker","itemPicker","deptPuPicker"].forEach((id)=>$(id).addEventListener("mouseleave",()=>{$(id).open=false;}));
   render();
 }());

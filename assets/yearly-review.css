@@ -14,3 +14,6 @@
 .check-list label span{display:block;min-width:0;overflow-wrap:anywhere;word-break:normal}
 .check-list .check-all{grid-template-columns:18px minmax(0,1fr)}
 @media(max-width:760px){.check-list{min-width:0;width:100%}}
+
+/* Month picker is available only in Month review mode; controls stay within the viewport. */
+#monthChoiceWrap{min-width:190px}.toolbar:has(#monthChoiceWrap:not([hidden])){grid-template-columns:repeat(auto-fit,minmax(175px,1fr))}@media(max-width:760px){#monthChoiceWrap{min-width:0}.choice-control summary{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
