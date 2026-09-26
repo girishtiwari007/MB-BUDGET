@@ -10,7 +10,7 @@
   ];
   const $ = (id) => document.getElementById(id);
   const years = () => (data.years || []).map((row) => row.fy).filter(Boolean);
-  const state = { mode:"review", scope:"pu", period:"quarter", month:"APR", quarter:"Q1", compareYear:"", compareMonth:"", compareQuarter:"", targetYear:"", targetMonth:"", targetQuarter:"", selectedYears:new Set(years()), selectedMonths:new Set(), compareMonths:new Set(), targetMonths:new Set(), selectedItems:null, selectedDeptPus:null };
+  const state = { mode:"review", scope:"pu", period:"quarter", month:"APR", quarter:"Q1", compareYear:"", compareMonth:"", compareQuarter:"", targetYear:"", targetMonth:"", targetQuarter:"", selectedYears:new Set(years()), selectedMonths:new Set(), compareMonths:new Set(), targetMonths:new Set(), openPicker:"", selectedItems:null, selectedDeptPus:null };
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const fmt = (v) => Number(v || 0).toLocaleString("en-IN");
   const money = (v) => `${fmt(v)}<small>${(Number(v || 0) / 10000).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})} Cr</small>`;
@@ -98,6 +98,8 @@
     $("monthPickerLabel").textContent=selectedMonthLabel();
     $("fromMonthPickerLabel").textContent=comparisonMonthLabel(state.compareMonths);
     $("toMonthPickerLabel").textContent=comparisonMonthLabel(state.targetMonths);
+    const pickerId={year:"yearPicker","month-choice":"monthPicker","from-month":"fromMonthPicker","to-month":"toMonthPicker",item:"itemPicker","dept-pu":"deptPuPicker"}[state.openPicker];
+    if(pickerId) $(pickerId).open=true;
     if(state.selectedItems===null) state.selectedItems=new Set(allItems); else state.selectedItems=new Set([...state.selectedItems].filter((i) => allItems.includes(i)));
     if(state.selectedDeptPus===null) state.selectedDeptPus=new Set(allPus); else state.selectedDeptPus=new Set([...state.selectedDeptPus].filter((i) => allPus.includes(i)));
     checkboxList($("yearChecks"),allYears,state.selectedYears,"year","All available years");
@@ -175,7 +177,7 @@
   }
   function render(){ sync(); if(state.mode==="trend") renderTrend(); else if(state.mode==="ai") renderAi(); else renderReview(); window.MBTableHighlight?.refresh?.(); }
   ["reviewMode","reviewScope","reviewPeriod","reviewMonth","reviewQuarter","compareYear","compareMonth","compareQuarter","targetYear","targetMonth","targetQuarter"].forEach((id)=>$(id).addEventListener("change",(event)=>{ const keys={reviewMode:"mode",reviewScope:"scope",reviewPeriod:"period",reviewMonth:"month",reviewQuarter:"quarter",compareYear:"compareYear",compareMonth:"compareMonth",compareQuarter:"compareQuarter",targetYear:"targetYear",targetMonth:"targetMonth",targetQuarter:"targetQuarter"}; state[keys[id]]=event.target.value; if(id==="reviewMonth") state.selectedMonths=new Set([state.month]); if(id==="reviewScope"){state.selectedItems=null;state.selectedDeptPus=null;} render(); }));
-  document.addEventListener("change",(event)=>{ const input=event.target; if(!input.matches("input[data-type]"))return; const type=input.dataset.type, all=type==="year"?years():["month-choice","from-month","to-month"].includes(type)?months:type==="dept-pu"?puItems():items(), set=type==="year"?state.selectedYears:type==="month-choice"?state.selectedMonths:type==="from-month"?state.compareMonths:type==="to-month"?state.targetMonths:type==="dept-pu"?state.selectedDeptPus:state.selectedItems; if(input.dataset.all){set.clear();if(input.checked)all.forEach((v)=>set.add(v));}else if(input.checked)set.add(input.value);else set.delete(input.value); if(type==="month-choice" && set.size===1) state.month=[...set][0]; if(type==="from-month" && set.size===1) state.compareMonth=[...set][0]; if(type==="to-month" && set.size===1) state.targetMonth=[...set][0]; render(); });
-  ["yearPicker","monthPicker","fromMonthPicker","toMonthPicker","itemPicker","deptPuPicker"].forEach((id)=>$(id).addEventListener("mouseleave",()=>{$(id).open=false;}));
+  document.addEventListener("change",(event)=>{ const input=event.target; if(!input.matches("input[data-type]"))return; const type=input.dataset.type, all=type==="year"?years():["month-choice","from-month","to-month"].includes(type)?months:type==="dept-pu"?puItems():items(), set=type==="year"?state.selectedYears:type==="month-choice"?state.selectedMonths:type==="from-month"?state.compareMonths:type==="to-month"?state.targetMonths:type==="dept-pu"?state.selectedDeptPus:state.selectedItems; if(input.dataset.all){set.clear();if(input.checked)all.forEach((v)=>set.add(v));}else if(input.checked)set.add(input.value);else set.delete(input.value); if(type==="month-choice" && set.size===1) state.month=[...set][0]; if(type==="from-month" && set.size===1) state.compareMonth=[...set][0]; if(type==="to-month" && set.size===1) state.targetMonth=[...set][0]; state.openPicker=type; render(); });
+  ["yearPicker","monthPicker","fromMonthPicker","toMonthPicker","itemPicker","deptPuPicker"].forEach((id)=>$(id).addEventListener("mouseleave",()=>{ $(id).open=false; state.openPicker=""; }));
   render();
 }());
