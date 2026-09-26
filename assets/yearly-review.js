@@ -10,7 +10,7 @@
   ];
   const $ = (id) => document.getElementById(id);
   const years = () => (data.years || []).map((row) => row.fy).filter(Boolean);
-  const state = { mode:"review", scope:"pu", period:"quarter", month:"APR", quarter:"Q1", compareYear:"", compareMonth:"", compareQuarter:"", targetYear:"", targetMonth:"", targetQuarter:"", selectedYears:new Set(years()), selectedMonths:new Set(), selectedItems:null, selectedDeptPus:null };
+  const state = { mode:"review", scope:"pu", period:"quarter", month:"APR", quarter:"Q1", compareYear:"", compareMonth:"", compareQuarter:"", targetYear:"", targetMonth:"", targetQuarter:"", selectedYears:new Set(years()), selectedMonths:new Set(), compareMonths:new Set(), targetMonths:new Set(), selectedItems:null, selectedDeptPus:null };
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const fmt = (v) => Number(v || 0).toLocaleString("en-IN");
   const money = (v) => `${fmt(v)}<small>${(Number(v || 0) / 10000).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})} Cr</small>`;
@@ -39,8 +39,11 @@
   function reviewIndexes(){ return state.period === "month" ? months.map((_, i) => i).filter((i) => state.selectedMonths.has(months[i])) : periodIndexes(); }
   function selectedMonthLabel(){ const all = months, picked = selected(all, state.selectedMonths); return picked.length === all.length ? "All months" : picked.length === 1 ? picked[0] : picked.length ? `${picked.join(", ")} (${picked.length} months)` : "No months selected"; }
   function periodLabel(){ return state.period === "month" ? selectedMonthLabel() : state.period === "quarter" ? `${state.quarter} (${periodIndexes().map((i) => months[i]).join("-")})` : "Financial Year"; }
+  function comparisonMonthLabel(set){ const picked=selected(months,set); return picked.length===months.length ? "All months" : picked.length===1 ? picked[0] : picked.length ? picked.join(", ") : "No months"; }
+  function compareIndexes(){ return state.period === "month" ? months.map((_,i)=>i).filter(i=>state.compareMonths.has(months[i])) : indexesForPeriod(state.period,state.compareMonth,state.compareQuarter); }
+  function targetIndexes(){ return state.period === "month" ? months.map((_,i)=>i).filter(i=>state.targetMonths.has(months[i])) : indexesForPeriod(state.period,state.targetMonth,state.targetQuarter); }
   function comparisonLabel(){
-    if(state.period === "month") return `${state.compareYear} ${state.compareMonth} to ${state.targetYear} ${state.targetMonth}`;
+    if(state.period === "month") return `${state.compareYear} ${comparisonMonthLabel(state.compareMonths)} to ${state.targetYear} ${comparisonMonthLabel(state.targetMonths)}`;
     if(state.period === "quarter") return `${state.compareYear} ${state.compareQuarter} to ${state.targetYear} ${state.targetQuarter}`;
     return `${state.compareYear} full year to ${state.targetYear} full year`;
   }
@@ -78,15 +81,23 @@
     $("quarterWrap").hidden=state.period!=="quarter" || !isReview;
     $("compareYearWrap").hidden=isReview;
     $("targetYearWrap").hidden=isReview;
-    $("compareMonthWrap").hidden=isReview || state.period!=="month";
-    $("targetMonthWrap").hidden=isReview || state.period!=="month";
+    $("compareMonthWrap").hidden=true;
+    $("targetMonthWrap").hidden=true;
+    $("fromMonthChoiceWrap").hidden=isReview || state.period!=="month";
+    $("toMonthChoiceWrap").hidden=isReview || state.period!=="month";
     $("compareQuarterWrap").hidden=isReview || state.period!=="quarter";
     $("targetQuarterWrap").hidden=isReview || state.period!=="quarter";
     if($("yearChoiceWrap")) $("yearChoiceWrap").hidden=!isReview;
     state.selectedYears=new Set([...state.selectedYears].filter((y) => allYears.includes(y))); if(!state.selectedYears.size) allYears.forEach((y) => state.selectedYears.add(y));
     state.selectedMonths=new Set([...state.selectedMonths].filter((m) => months.includes(m))); if(!state.selectedMonths.size) { state.month=currentMonth(); state.selectedMonths.add(state.month); }
+    state.compareMonths=new Set([...state.compareMonths].filter((m) => months.includes(m))); if(!state.compareMonths.size) state.compareMonths.add(state.compareMonth || currentMonth());
+    state.targetMonths=new Set([...state.targetMonths].filter((m) => months.includes(m))); if(!state.targetMonths.size) state.targetMonths.add(state.targetMonth || currentMonth());
     checkboxList($("monthChecks"),months,state.selectedMonths,"month-choice","All months");
+    checkboxList($("fromMonthChecks"),months,state.compareMonths,"from-month","All months");
+    checkboxList($("toMonthChecks"),months,state.targetMonths,"to-month","All months");
     $("monthPickerLabel").textContent=selectedMonthLabel();
+    $("fromMonthPickerLabel").textContent=comparisonMonthLabel(state.compareMonths);
+    $("toMonthPickerLabel").textContent=comparisonMonthLabel(state.targetMonths);
     if(state.selectedItems===null) state.selectedItems=new Set(allItems); else state.selectedItems=new Set([...state.selectedItems].filter((i) => allItems.includes(i)));
     if(state.selectedDeptPus===null) state.selectedDeptPus=new Set(allPus); else state.selectedDeptPus=new Set([...state.selectedDeptPus].filter((i) => allPus.includes(i)));
     checkboxList($("yearChecks"),allYears,state.selectedYears,"year","All available years");
@@ -113,13 +124,13 @@
   }
   function trendRows(){
     const names=selected(items(),state.selectedItems), fromYear=state.compareYear || years().at(-2) || currentYear(), toYear=state.targetYear || currentYear();
-    const fromIndexes=indexesForPeriod(state.period,state.compareMonth,state.compareQuarter), toIndexes=indexesForPeriod(state.period,state.targetMonth,state.targetQuarter);
+    const fromIndexes=compareIndexes(), toIndexes=targetIndexes();
     const fromEnd=cumulativeEndIndex(fromYear,fromIndexes), toEnd=cumulativeEndIndex(toYear,toIndexes);
     return names.map((name)=>{ const fromPeriodValue=periodValue([name],fromYear,fromIndexes), toPeriodValue=periodValue([name],toYear,toIndexes), fromCum=cumulativeValue(name,fromYear,fromEnd), toCum=cumulativeValue(name,toYear,toEnd); const budget=budgetRow(name,toYear), bp=Number(budget.bp || 0), oba=Number(budget.oba || 0); const change=fromCum ? ((toCum-fromCum)/Math.abs(fromCum))*100 : null, bpPct=bp ? toCum/bp*100 : null; return {name, fromYear, toYear, fromPeriodValue, toPeriodValue, fromCum, toCum, bp, oba, change, bpPct, rule:ruleFor(name), fromLabel:fromPeriodLabel("from"), toLabel:toPeriodLabel("to")}; }).sort((a,b)=>Math.abs(b.toCum)-Math.abs(a.toCum));
   }
-  function fromPeriodLabel(){ return state.period === "month" ? `${state.compareYear} ${state.compareMonth}` : state.period === "quarter" ? `${state.compareYear} ${state.compareQuarter}` : `${state.compareYear} FY`; }
-  function toPeriodLabel(){ return state.period === "month" ? `${state.targetYear} ${state.targetMonth}` : state.period === "quarter" ? `${state.targetYear} ${state.targetQuarter}` : `${state.targetYear} FY`; }
-  function movementClass(row){ if(row.rule && /PLB/.test(row.rule.title) && state.period !== "year" && cumulativeEndIndex(row.toYear,indexesForPeriod(state.period,state.targetMonth,state.targetQuarter)) < 6) return "attn-green"; if((row.change || 0) >= 25 || (row.bpPct || 0) >= 115) return "attn-red"; if((row.change || 0) >= 10 || (row.bpPct || 0) >= 90) return "attn-amber"; return "attn-green"; }
+  function fromPeriodLabel(){ return state.period === "month" ? `${state.compareYear} ${comparisonMonthLabel(state.compareMonths)}` : state.period === "quarter" ? `${state.compareYear} ${state.compareQuarter}` : `${state.compareYear} FY`; }
+  function toPeriodLabel(){ return state.period === "month" ? `${state.targetYear} ${comparisonMonthLabel(state.targetMonths)}` : state.period === "quarter" ? `${state.targetYear} ${state.targetQuarter}` : `${state.targetYear} FY`; }
+  function movementClass(row){ if(row.rule && /PLB/.test(row.rule.title) && state.period !== "year" && cumulativeEndIndex(row.toYear,targetIndexes()) < 6) return "attn-green"; if((row.change || 0) >= 25 || (row.bpPct || 0) >= 115) return "attn-red"; if((row.change || 0) >= 10 || (row.bpPct || 0) >= 90) return "attn-amber"; return "attn-green"; }
   function aiRemark(row){
     const basis = `${fromPeriodLabel()} is compared with ${toPeriodLabel()} on ${state.period === "year" ? "full-year actual expenditure" : `${periodUnit().toLowerCase()} AE and cumulative AE`}.`;
     const movement = row.change === null ? "Comparable cumulative base is not available, so percentage movement is not shown." : `Cumulative expenditure is ${row.change >= 0 ? "higher" : "lower"} by ${Math.abs(row.change).toFixed(1)}%.`;
@@ -127,13 +138,13 @@
     const rule = row.rule ? ` Finance rule: ${row.rule.note}` : " Finance view: read this with period AE, cumulative trend, budget proportion and the nature of expenditure.";
     if(row.bpPct !== null && row.bpPct > 115) return `${basis} ${movement} ${budget} This needs attention because booking is faster than the expected budget proportion.${rule}`;
     if(row.change !== null && row.change > 25) return `${basis} ${movement} ${budget} Please verify whether arrears, bill batches, claim settlement or one-time booking caused the increase.${rule}`;
-    if(row.bpPct !== null && row.bpPct < 55 && cumulativeEndIndex(row.toYear,indexesForPeriod(state.period,state.targetMonth,state.targetQuarter)) >= 5) return `${basis} ${movement} ${budget} This may indicate slow booking or possible surrender risk, subject to pending liabilities.${rule}`;
+    if(row.bpPct !== null && row.bpPct < 55 && cumulativeEndIndex(row.toYear,targetIndexes()) >= 5) return `${basis} ${movement} ${budget} This may indicate slow booking or possible surrender risk, subject to pending liabilities.${rule}`;
     return `${basis} ${movement} ${budget} Position is within normal review range, but should still be watched with next upload.${rule}`;
   }
   function trendTable(rows){
     const unit=periodUnit(), showCum=state.period !== "year", toYear=state.targetYear || currentYear();
-    const fromCumLabel = state.period === "quarter" ? state.compareQuarter : state.compareMonth;
-    const toCumLabel = state.period === "quarter" ? state.targetQuarter : state.targetMonth;
+    const fromCumLabel = state.period === "quarter" ? state.compareQuarter : state.period === "month" ? comparisonMonthLabel(state.compareMonths) : state.compareMonth;
+    const toCumLabel = state.period === "quarter" ? state.targetQuarter : state.period === "month" ? comparisonMonthLabel(state.targetMonths) : state.targetMonth;
     const empty = `<tr><td colspan="${showCum ? 9 : 7}" class="ai-cell">No item selected. Select one or more ${esc(scopeName())}s from the Specific ${esc(scopeName())}s menu.</td></tr>`;
     return `<div class="table-wrap"><table><thead><tr><th>${scopeName()}</th><th>OBA/RG<br>${esc(toYear)}</th><th>BP<br>${esc(toYear)}</th><th>From ${unit} AE<br>${esc(fromPeriodLabel())}</th>${showCum?`<th>From Cumulative AE<br>up to ${esc(fromCumLabel)}</th>`:""}<th>To ${unit} AE<br>${esc(toPeriodLabel())}</th>${showCum?`<th>To Cumulative AE<br>up to ${esc(toCumLabel)}</th>`:""}<th>Movement</th><th>AI finance remark</th></tr></thead><tbody>${rows.length?rows.map((r)=>`<tr class="${movementClass(r)}"><td>${esc(r.name)}</td><td>${money(r.oba)}</td><td>${money(r.bp)}</td><td>${r.fromPeriodValue===null?"NA":money(r.fromPeriodValue)}</td>${showCum?`<td>${money(r.fromCum)}</td>`:""}<td>${r.toPeriodValue===null?"Running/NA":money(r.toPeriodValue)}</td>${showCum?`<td>${money(r.toCum)}</td>`:""}<td>${r.change===null?"NA":pct(r.change)}<small>BP ${r.bpPct===null?"NA":pct(r.bpPct)}</small></td><td class="ai-cell">${esc(aiRemark(r))}</td></tr>`).join(""):empty}</tbody></table></div>`;
   }
@@ -142,12 +153,12 @@
   }
   function renderTrend(){
     const rows=trendRows(), names=selected(items(),state.selectedItems), trendYears=[...new Set([state.compareYear, state.targetYear].filter(Boolean))]; const total=rows.reduce((sum,row)=>sum+row.toCum,0), high=rows[0];
-    $("reviewTitle").textContent="Yearly Review / PU Trend Analysis"; $("reviewStamp").textContent=`Compare ${comparisonLabel()} | Completed actuals through ${meta.completedMonth || "latest completed month"}`;
+    $("reviewTitle").textContent="Yearly Review / PU Trend Analysis"; $("reviewTitle").dataset.exportTitle=`PU Trend Analysis | ${scopeName()} | ${comparisonLabel()} | ${label(items(),state.selectedItems,`${scopeName()}s`)}`; $("reviewStamp").textContent=`Compare ${comparisonLabel()} | Completed actuals through ${meta.completedMonth || "latest completed month"}`;
     $("reviewHost").innerHTML=`<section class="summary"><article><span>Trend Mode</span><strong>${esc(scopeName())}</strong></article><article><span>Comparison Period</span><strong>${esc(periodUnit())}</strong></article><article><span>To cumulative</span><strong>${money(total)}</strong></article><article><span>Highest item</span><strong>${esc(high?.name||"N/A")}</strong></article></section><section class="review-panel"><div class="section-head"><h2>Expense / Budget Trend</h2><span>${esc(comparisonLabel())} · Figures in '000 with Crore below</span></div>${trendTable(rows)}</section><section class="insight-grid"><article class="review-panel"><div class="section-head"><h2>AI Budget Analysis</h2><span>Plain-language finance remarks</span></div><ul class="remark-list">${rows.slice(0,6).map((r)=>`<li><strong>${esc(r.name)}:</strong> ${esc(aiRemark(r))}</li>`).join("")}</ul></article><article class="review-panel"><div class="section-head"><h2>Monthly Trend Graph</h2><span>${esc(label(items(),state.selectedItems,`${scopeName()}s`))}</span></div>${chart(names,trendYears)}</article></section>${financeGuide()}`;
   }
   function renderAi(){
     const rows=trendRows(), risk=rows.filter((r)=>movementClass(r)==="attn-red"), watch=rows.filter((r)=>movementClass(r)==="attn-amber"), special=rows.filter((r)=>r.rule);
-    $("reviewTitle").textContent="Yearly Review / PU Trend Analysis"; $("reviewStamp").textContent=`AI Budget Analysis | Compare ${comparisonLabel()} | Static rule engine refreshed with GUI data sync`;
+    $("reviewTitle").textContent="Yearly Review / PU Trend Analysis"; $("reviewTitle").dataset.exportTitle=`AI Budget Analysis | ${scopeName()} | ${comparisonLabel()} | ${label(items(),state.selectedItems,`${scopeName()}s`)}`; $("reviewStamp").textContent=`AI Budget Analysis | Compare ${comparisonLabel()} | Static rule engine refreshed with GUI data sync`;
     $("reviewHost").innerHTML=`<section class="summary"><article><span>AI Review Rows</span><strong>${rows.length}</strong></article><article><span>High Attention</span><strong>${risk.length}</strong></article><article><span>Watch</span><strong>${watch.length}</strong></article><article><span>Rule Based PU</span><strong>${special.length}</strong></article></section><section class="review-panel ai-review"><div class="section-head"><h2>Elaborative AI Budget Analysis</h2><span>Auto-generated from current synced monthly data, BP/OBA and finance rules</span></div><ul class="remark-list">${rows.map((r)=>`<li class="${movementClass(r)}"><strong>${esc(r.name)}:</strong> ${esc(aiRemark(r))}</li>`).join("")}</ul></section><section class="review-panel"><div class="section-head"><h2>AI Trend Evidence Table</h2><span>Use this with the remarks above for authority review</span></div>${trendTable(rows)}</section>${financeGuide()}`;
   }
   function puCrossReport(chosenYears){
@@ -164,7 +175,7 @@
   }
   function render(){ sync(); if(state.mode==="trend") renderTrend(); else if(state.mode==="ai") renderAi(); else renderReview(); window.MBTableHighlight?.refresh?.(); }
   ["reviewMode","reviewScope","reviewPeriod","reviewMonth","reviewQuarter","compareYear","compareMonth","compareQuarter","targetYear","targetMonth","targetQuarter"].forEach((id)=>$(id).addEventListener("change",(event)=>{ const keys={reviewMode:"mode",reviewScope:"scope",reviewPeriod:"period",reviewMonth:"month",reviewQuarter:"quarter",compareYear:"compareYear",compareMonth:"compareMonth",compareQuarter:"compareQuarter",targetYear:"targetYear",targetMonth:"targetMonth",targetQuarter:"targetQuarter"}; state[keys[id]]=event.target.value; if(id==="reviewMonth") state.selectedMonths=new Set([state.month]); if(id==="reviewScope"){state.selectedItems=null;state.selectedDeptPus=null;} render(); }));
-  document.addEventListener("change",(event)=>{ const input=event.target; if(!input.matches("input[data-type]"))return; const type=input.dataset.type, all=type==="year"?years():type==="month-choice"?months:type==="dept-pu"?puItems():items(), set=type==="year"?state.selectedYears:type==="month-choice"?state.selectedMonths:type==="dept-pu"?state.selectedDeptPus:state.selectedItems; if(input.dataset.all){set.clear();if(input.checked)all.forEach((v)=>set.add(v));}else if(input.checked)set.add(input.value);else set.delete(input.value); if(type==="month-choice" && set.size===1) state.month=[...set][0]; render(); });
-  ["yearPicker","monthPicker","itemPicker","deptPuPicker"].forEach((id)=>$(id).addEventListener("mouseleave",()=>{$(id).open=false;}));
+  document.addEventListener("change",(event)=>{ const input=event.target; if(!input.matches("input[data-type]"))return; const type=input.dataset.type, all=type==="year"?years():["month-choice","from-month","to-month"].includes(type)?months:type==="dept-pu"?puItems():items(), set=type==="year"?state.selectedYears:type==="month-choice"?state.selectedMonths:type==="from-month"?state.compareMonths:type==="to-month"?state.targetMonths:type==="dept-pu"?state.selectedDeptPus:state.selectedItems; if(input.dataset.all){set.clear();if(input.checked)all.forEach((v)=>set.add(v));}else if(input.checked)set.add(input.value);else set.delete(input.value); if(type==="month-choice" && set.size===1) state.month=[...set][0]; if(type==="from-month" && set.size===1) state.compareMonth=[...set][0]; if(type==="to-month" && set.size===1) state.targetMonth=[...set][0]; render(); });
+  ["yearPicker","monthPicker","fromMonthPicker","toMonthPicker","itemPicker","deptPuPicker"].forEach((id)=>$(id).addEventListener("mouseleave",()=>{$(id).open=false;}));
   render();
 }());
