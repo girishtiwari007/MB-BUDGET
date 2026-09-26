@@ -216,16 +216,19 @@
     });
   });
 
+  function observeTables(){
+    if (document.body) observer.observe(document.body, { childList: true, subtree: true });
+  }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
       enableAll();
       requestAnimationFrame(() => refreshStickyHeaders());
-      observer.observe(document.body, { childList: true, subtree: true });
+      observeTables();
     });
   } else {
     enableAll();
     requestAnimationFrame(() => refreshStickyHeaders());
-    observer.observe(document.body, { childList: true, subtree: true });
+    observeTables();
   }
 
   window.addEventListener("resize", () => refreshStickyHeaders());
