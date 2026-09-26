@@ -1,48 +1,54 @@
 (function(){
   const current=window.CURRENT_PAYLOAD||{}, reports=window.REPORTS_DATA||{}, meta=window.CURRENT_PAYLOAD_META||{};
-  const $=id=>document.getElementById(id), num=value=>Number(value||0), fmt=value=>num(value).toLocaleString("en-IN"), money=value=>`${fmt(value)} (${(num(value)/10000).toLocaleString("en-IN",{maximumFractionDigits:2})} Cr)`;
-  const tabs={current:[["demand","Demand / SMH"],["staff","PU Staff"],["nonstaff","PU Non-Staff"],["pu_prev","PU Previous-Year Comparison"],["demand_prev","Demand / SMH Previous-Year Comparison"]],fouryear:[["pu","Primary Unit"],["demand","Demand / SMH"],["dept","Department"]],fr:[["fr","FR plan-head and fund review"]],yearly:[["yearly","Month / Quarter / Year review"]]};
-  const label=(options,key)=>options.find(([value])=>value===key)?.[1]||key;
-  const clean=rows=>(rows||[]).filter(row=>!/^total$/i.test(String(row.Name||""))&&!/12N|10N|suspense/i.test(String(row.Name||"")));
-  const top=(rows,key,count=5)=>[...rows].sort((a,b)=>num(b[key])-num(a[key])).slice(0,count);
+  const $=id=>document.getElementById(id), n=v=>Number(v||0), money=v=>`${n(v).toLocaleString("en-IN")} (${(n(v)/10000).toLocaleString("en-IN",{maximumFractionDigits:2})} Cr)`, pct=v=>`${n(v).toFixed(1)}%`;
+  const tabs={current:[["demand","Demand / SMH"],["staff","PU Staff"],["nonstaff","PU Non-Staff"],["pu_prev","PU Previous-Year Comparison"],["demand_prev","Demand / SMH Previous-Year Comparison"]],fouryear:[["pu","Primary Unit"],["demand","Demand / SMH"],["dept","Department"]],fr:[["fr","FR plan-head and fund review"]],yearly:[["yearly","Month / Quarter / Year review"]],alerts:[["all","All financial alerts"],["red","Red attention alerts"],["yellow","Yellow watch alerts"],["green","Green on-track items"]]};
+  const label=(set,key)=>set.find(x=>x[0]===key)?.[1]||key, clean=rows=>(rows||[]).filter(r=>!/^total$/i.test(String(r.Name||""))&&!/12N|10N|suspense/i.test(String(r.Name||"")));
+  const sort=(rows,key)=>[...rows].sort((a,b)=>n(b[key])-n(a[key]));
   const metric=(name,value,tone="")=>`<article class="metric ${tone}"><span>${name}</span><strong>${value}</strong></article>`;
-  const signal=(tone,title,text)=>`<article class="signal ${tone}"><span>${tone==="critical"?"Attention":tone==="watch"?"Watch":"On track"}</span><h3>${title}</h3><p>${text}</p></article>`;
-  const evidence=(title,rows,key,text)=>`<section class="evidence"><div class="section-title"><h2>${title}</h2><span>Ranked from the synced portal view</span></div><ol>${rows.map((row,index)=>{const value=key==="BPPercent"?`${num(row[key]).toFixed(1)}%`:key?money(row[key]):row.value;return `<li><b>${index+1}</b><strong>${row.Name||row.label||"Item"}</strong><span>${text||"Value"}: ${value}</span></li>`;}).join("")||"<li>No source rows are available for this selection.</li>"}</ol></section>`;
-  const reviewFrame=(title,sub,metrics,signals,evidenceHtml)=>`<section class="review-title"><div><h2>${title}</h2><p>${sub}</p></div><span>Rule-based review</span></section><section class="insight-metrics">${metrics}</section><section class="signal-board">${signals}</section>${evidenceHtml}`;
-
+  const signal=(tone,title,text)=>`<article class="signal ${tone}"><span>${tone==="critical"?"Red attention":tone==="watch"?"Yellow watch":"Green on track"}</span><h3>${title}</h3><p>${text}</p></article>`;
+  const frame=(title,sub,metrics,signals,content)=>`<section class="review-title"><div><h2>${title}</h2><p>${sub}</p></div><span>Rule-based review</span></section><section class="insight-metrics">${metrics}</section><section class="signal-board">${signals}</section>${content}`;
+  const evidence=(title,rows,value,caption="Value")=>`<section class="evidence"><div class="section-title"><h2>${title}</h2><span>Calculated from the synced source rows</span></div><ol>${rows.map((r,i)=>`<li class="${r.tone||""}"><b>${i+1}</b><strong>${r.Name}</strong><span>${caption}: ${value(r)}</span></li>`).join("")||"<li>No rows meet this review condition.</li>"}</ol></section>`;
+  const basis=()=>`Completed actuals through ${meta.completedMonth||"the selected month"}`;
+  const completedMonths=()=>{const match=String(meta.completedMonth||"").match(/JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC/i);const order=["APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC","JAN","FEB","MAR"];return match?order.indexOf(match[0].toUpperCase())+1:12;};
+  const percentChange=row=>n(row.AEPrevious)?(n(row.VariationActual)/Math.abs(n(row.AEPrevious)))*100:null;
+  function alertTone(row){if(n(row.BP)>0&&n(row.BPPercent)>100||n(row.Remaining)<0)return "critical";if(n(row.BP)>0&&n(row.BPPercent)>=90||Math.abs(percentChange(row)||0)>=20)return "watch";return "good"}
+  function comparisons(key){return clean(current[key]?.rows).map(r=>({...r,tone:alertTone(r),YoY:percentChange(r)}));}
   function currentReview(key){
-    const rows=current[key]?.rows||[], visible=clean(rows), total=rows.find(row=>/^total$/i.test(String(row.Name||"")))||{};
-    const actualKey=key.includes("prev")?"AECurrent":"AE", budgetKey=key.includes("prev")?"BP":"BP";
-    const largest=top(visible,actualKey), attention=top(visible.filter(row=>num(row.BPPercent)>100),"BPPercent"), basis=meta.basis||"Completed actual month";
-    const largestText=largest[0]?`${largest[0].Name} is the largest visible actual-expenditure item at ${money(largest[0][actualKey])}.`:"No visible expenditure item is available.";
-    return reviewFrame(
-      `${label(tabs.current,key)} review`,
-      `Active portal tab only · ${basis}. Rankings exclude Total and suspense rows.`,
-      metric("Visible rows",visible.length)+metric("Actual expenditure",money(total[actualKey]),"value")+metric("Budget proportion",money(total[budgetKey]),"value")+metric("Utilisation",`${num(total.BPPercent).toFixed(1)}%`,num(total.BPPercent)>100?"alert":""),
-      signal("info","Largest visible item",largestText)+signal(attention.length?"critical":"good",attention.length?`${attention.length} item(s) above budget proportion`:"No visible item above budget proportion",attention.length?`${attention[0].Name} is at ${num(attention[0].BPPercent).toFixed(1)}% budget proportion.`:"The displayed rows remain within the available budget proportion.")+signal("watch","Reporting basis",`${basis}. Use the current page filters before exporting a view.`),
-      evidence("Largest visible actual expenditure",largest,actualKey,"Actual")+evidence("Budget-proportion attention",attention,"BPPercent","BP utilisation")
+    const previous=key.includes("prev"), rows=previous?comparisons(key):clean(current[key]?.rows).map(r=>({...r,tone:alertTone(r)}));
+    const actual=previous?"AECurrent":"AE", total=(current[key]?.rows||[]).find(r=>/^total$/i.test(String(r.Name||"")))||{};
+    const red=rows.filter(r=>r.tone==="critical"), yellow=rows.filter(r=>r.tone==="watch"), highest=sort(rows,actual).slice(0,5), yoy=previous?sort(rows,"VariationActual").slice(0,5):[];
+    const text=previous?"Current and previous-year actuals cover the same completed-month period; Total and suspense rows are excluded.":`Active portal tab only · ${basis()}.`;
+    return frame(`${label(tabs.current,key)} financial review`,text,
+      metric("Rows reviewed",rows.length)+metric("Current actual",money(total[actual]),"value")+metric("Red attention",red.length,red.length?"alert":"")+metric("Yellow watch",yellow.length),
+      signal(red.length?"critical":"good",red.length?`${red.length} budget-proportion risk item(s)`:"No red budget-proportion risk",red[0]?`${red[0].Name}: ${pct(red[0].BPPercent)} of current budget proportion.`:"Displayed rows are within the current budget proportion.")+signal(yellow.length?"watch":"good",yellow.length?`${yellow.length} variance/watch item(s)`:"No material watch item",yellow[0]?`${yellow[0].Name} needs review before final financial conclusion.`:"No configured variance watch threshold is triggered.")+signal("good","Calculation basis",previous?"Like-for-like completed-month comparison is used for current versus previous year.":`${basis()}.`),
+      evidence("Largest current actual expenditure",highest,r=>money(r[actual]),"Current actual")+(previous?evidence("Largest year-on-year increase",yoy,r=>`${money(r.VariationActual)} · ${r.YoY===null?"N/A":pct(r.YoY)}`,"Increase"):evidence("Budget-proportion attention",sort(red,"BPPercent").slice(0,7),r=>pct(r.BPPercent),"BP utilisation"))
     );
   }
-
+  function trendRows(scope){
+    const years=reports.years||[], latest=years.at(-1)?.fy, previous=years.at(-2)?.fy, source=reports.monthly?.[scope]||{};
+    return Object.entries(source).filter(([name])=>!/^total$/i.test(name)).map(([Name,series])=>{const now=series?.[latest]||[], old=series?.[previous]||[], count=Math.min(completedMonths(),now.length,old.length); const currentTotal=now.slice(0,count).reduce((s,v)=>s+n(v),0), previousComparable=old.slice(0,count).reduce((s,v)=>s+n(v),0), variation=currentTotal-previousComparable, change=previousComparable?variation/Math.abs(previousComparable)*100:null; const tone=Math.abs(change||0)>=20?"critical":Math.abs(change||0)>=10?"watch":"good";return{Name,currentTotal,previousComparable,variation,change,tone,months:count};});
+  }
   function fourYearReview(scope){
-    const years=reports.years||[], latest=years.at(-1)?.fy, source=reports.monthly?.[scope]||{};
-    const rows=Object.entries(source).filter(([name])=>!/^total$/i.test(name)).map(([Name,series])=>({Name,AE:(series?.[latest]||[]).reduce((sum,value)=>sum+num(value),0)}));
-    const largest=top(rows,"AE",7), leading=largest[0];
-    return reviewFrame(
-      `${label(tabs.fouryear,scope)} four-year review`,
-      `Annual values are calculated from the available monthly series. Latest financial year: ${latest||"not loaded"}.`,
-      metric("Years available",years.length)+metric("Latest financial year",latest||"Not loaded")+metric("Items reviewed",rows.length)+metric("Largest annual item",leading?money(leading.AE):"N/A","value"),
-      signal("info","Largest latest-year item",leading?`${leading.Name} totals ${money(leading.AE)} in ${latest}.`:"No latest-year series is available.")+signal("good","Comparison coverage",`${years.length} financial year(s) are available in this report area.`)+signal("watch","Interpretation",`Use the page chart and its selected item for the month-by-month movement behind this ranking.`),
-      evidence("Largest annual actual expenditure",largest,"AE","Latest-year actual")
+    const years=reports.years||[], latest=years.at(-1)?.fy, rows=trendRows(scope), red=rows.filter(r=>r.tone==="critical"), yellow=rows.filter(r=>r.tone==="watch"), topNow=sort(rows,"currentTotal").slice(0,7), rise=sort(rows,"variation").slice(0,5);
+    return frame(`${label(tabs.fouryear,scope)} year-on-year review`,`Current ${latest||"financial year"} values compare equal available months with the preceding financial year.`,
+      metric("Years available",years.length)+metric("Items reviewed",rows.length)+metric("Comparable months",rows[0]?.months||0)+metric("Material movement",red.length+yellow.length,(red.length+yellow.length)?"alert":""),
+      signal(red.length?"critical":"good",red.length?`${red.length} large year-on-year movements`:"No large movement",red[0]?`${red[0].Name}: ${pct(red[0].change)} against the comparable previous-year period.`:"No item exceeds the configured 20% material-movement threshold.")+signal(yellow.length?"watch":"good",yellow.length?`${yellow.length} moderate movements`:"No moderate movement",yellow[0]?`${yellow[0].Name}: ${pct(yellow[0].change)} year-on-year.`:"No item is in the 10% to 20% watch range.")+signal("good","Comparison discipline",`Only ${rows[0]?.months||0} available current-year month(s) are compared with the same month count in the previous year.`),
+      evidence(`Largest ${latest||"current-year"} actual expenditure`,topNow,r=>money(r.currentTotal),"Current actual")+evidence("Largest year-on-year increase",rise,r=>`${money(r.variation)} · ${r.change===null?"N/A":pct(r.change)}`,"Increase")
     );
   }
-
-  function sourceLink(title,text,href){return reviewFrame(title,text,metric("Source status","Available","value")+metric("Review method","Filtered portal view"),signal("info","Open source analysis",text)+signal("watch","Export discipline","Apply filters and sort on the source page before exporting the current view."),`<p class="source-link"><a href="${href}">Open ${title}</a></p>`)}
-  function overview(){
-    const stamp=meta.lastUpload||meta.dataAsOf||"Synced portal data";
-    return `<section class="overview-head"><h2>Portfolio review</h2><p>Precise, source-backed highlights across the portal. Generated from the synced data loaded in this browser.</p></section><section class="insight-metrics">${metric("Current basis",meta.basis||"Completed actual month","value")}${metric("Portal areas",4)}${metric("Data status",stamp)}${metric("Review rule","Visible source data")}</section><section class="overview-grid"><div>${currentReview("demand")}</div><div>${fourYearReview("pu")}</div><div>${sourceLink("FR Budget Status","Plan-head and fund review is available in the FR Budget Status page.","fr.html")}</div><div>${sourceLink("Yearly Review","Month, quarter and financial-year review is available in Yearly Review.","yearly-review.html")}</div></section>`;
+  function allAlerts(filter="all"){
+    const sources=[["Demand / SMH",comparisons("demand_prev")],["Primary Unit",comparisons("pu_prev")]];
+    const rows=sources.flatMap(([area,list])=>list.map(r=>({...r,Name:`${area}: ${r.Name}`,area}))).filter(r=>filter==="all"||r.tone===(filter==="red"?"critical":filter==="yellow"?"watch":"good"));
+    const red=rows.filter(r=>r.tone==="critical"), yellow=rows.filter(r=>r.tone==="watch"), green=rows.filter(r=>r.tone==="good");
+    return frame("Financial budget alerts",`Configured analytical thresholds: red when actual exceeds budget proportion or remaining balance is negative; yellow at 90%+ BP utilisation or ±20% year-on-year variance. These are portal review thresholds, not a statement of official-rule compliance.`,
+      metric("Alerts displayed",rows.length)+metric("Red attention",red.length,red.length?"alert":"")+metric("Yellow watch",yellow.length)+metric("Green on track",green.length,"value"),
+      signal(red.length?"critical":"good",red.length?"Budget-proportion risk requires verification":"No red item in this view",red[0]?`${red[0].Name} is at ${pct(red[0].BPPercent)} of budget proportion.`:"No selected item exceeds its available budget proportion.")+signal(yellow.length?"watch":"good",yellow.length?"Variance watch requires review":"No yellow item in this view",yellow[0]?`${yellow[0].Name} is within the portal’s watch threshold.`:"No selected item is close to the BP or variance alert boundary.")+signal("good","Financial reading note","Alerts support review. Verify liabilities, sanctioned re-appropriations, booked adjustments and supporting records before decision."),
+      evidence("Prioritised financial alerts",sort(rows,"BPPercent").slice(0,12),r=>`${pct(r.BPPercent)} · ${money(r.AECurrent??r.AE)}`,"BP / actual")
+    );
   }
+  function overview(){return `<section class="overview-head"><h2>Portfolio financial review</h2><p>Source-backed summary across current, previous-year, four-year and financial-alert report areas. Use a specific report selection for full evidence.</p></section><section class="insight-metrics">${metric("Current basis",basis(),"value")}${metric("Report areas",5)}${metric("Financial years",(reports.years||[]).length)}${metric("Method","Configured review thresholds")}</section><section class="overview-grid"><div>${currentReview("demand_prev")}</div><div>${fourYearReview("pu")}</div><div>${fourYearReview("dept")}</div><div>${allAlerts("all")}</div></section>`;}
+  function sourceLink(title,text,href){return frame(title,text,metric("Source status","Available","value"),signal("good","Open source analysis",text)+signal("watch","Export discipline","Apply filters and sort on the source page before exporting the current view."),`<p class="source-link"><a href="${href}">Open ${title}</a></p>`)}
   function syncTabs(){const mode=$("insightSource").value, options=tabs[mode]||[];$("insightTabWrap").hidden=mode==="overview";$("insightTab").innerHTML=options.map(([value,text])=>`<option value="${value}">${text}</option>`).join("");}
-  function render(){const mode=$("insightSource").value,key=$("insightTab").value;if(mode==="overview")$("insightHost").innerHTML=overview();else if(mode==="current")$("insightHost").innerHTML=currentReview(key);else if(mode==="fouryear")$("insightHost").innerHTML=fourYearReview(key);else if(mode==="fr")$("insightHost").innerHTML=sourceLink("FR Budget Status","Plan-head and fund review is available in the FR Budget Status page.","fr.html");else $("insightHost").innerHTML=sourceLink("Yearly Review","Month, quarter and financial-year review is available in Yearly Review.","yearly-review.html");}
+  function render(){const mode=$("insightSource").value,key=$("insightTab").value;if(mode==="overview")$("insightHost").innerHTML=overview();else if(mode==="current")$("insightHost").innerHTML=currentReview(key);else if(mode==="fouryear")$("insightHost").innerHTML=fourYearReview(key);else if(mode==="alerts")$("insightHost").innerHTML=allAlerts(key);else if(mode==="fr")$("insightHost").innerHTML=sourceLink("FR Budget Status","Plan-head and fund review is available in the FR Budget Status page.","fr.html");else $("insightHost").innerHTML=sourceLink("Yearly Review","Month, quarter and financial-year review is available in Yearly Review.","yearly-review.html");}
   $("insightSource").addEventListener("change",()=>{syncTabs();render();});$("insightTab").addEventListener("change",render);syncTabs();render();
 })();
