@@ -145,12 +145,13 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       const note = document.createElement("div"); note.className = "note"; note.textContent = tabKey === "pu_prev" || tabKey === "demand_prev" ? `Remarks - Figures in '000' (thousands). GUI synced basis uses completed actuals up to ${COMPLETED_PERIOD.displayLabel} (${String(COMPLETED_PERIOD.count).padStart(2, "0")} months). Previous year RG is treated as OBA; current year BG_ISL is treated as OBA until current-year RG is available.` : `Remarks - Figures in '000' (thousands). GUI synced basis uses completed actuals up to ${COMPLETED_PERIOD.displayLabel} (${String(COMPLETED_PERIOD.count).padStart(2, "0")} months). ${RUNNING_PERIOD.displayLabel} is the running month and is excluded from default calculations.`;
       const specialNote = isDemandTable(tabKey) ? renderDemandSuspenseNote(tab.rows) : null;
       const table = document.createElement("table");
-      if (tab.columns.length > 8) table.className = "wide";
+      if (tab.columns.length > 8) table.classList.add("wide");
+      if (tabKey === "pu_prev" || tabKey === "demand_prev") table.classList.add("comparison-table");
       const thead = document.createElement("thead"); const letterRow = document.createElement("tr"); letterRow.className = "letter-row"; const labelRow = document.createElement("tr");
-      tab.columns.forEach(col => { const split = splitHeader(col.label); const letterTh = document.createElement("th"); letterTh.textContent = split.letter; letterRow.appendChild(letterTh); const labelTh = document.createElement("th"); labelTh.textContent = split.text; labelRow.appendChild(labelTh); });
+      tab.columns.forEach(col => { const split = splitHeader(col.label); const columnClass = col.format === "money" ? "money-col" : (col.format === "int" || col.format === "percent" ? "ratio-col" : "label-col"); const letterTh = document.createElement("th"); letterTh.className = columnClass; letterTh.textContent = split.letter; letterRow.appendChild(letterTh); const labelTh = document.createElement("th"); labelTh.className = columnClass; labelTh.textContent = split.text; labelRow.appendChild(labelTh); });
       thead.appendChild(letterRow); thead.appendChild(labelRow); table.appendChild(thead);
       const tbody = document.createElement("tbody");
-      tab.rows.forEach(row => { const tr = document.createElement("tr"); tr.className = rowClassName(row); tab.columns.forEach(col => { const td = document.createElement("td"); if (col.key === "OBAPercent" || col.key === "BPPercent") { const dot = document.createElement("span"); dot.className = "dot " + utilizationClass(row[col.key]); td.appendChild(dot); td.append(document.createTextNode(formatCell(row[col.key], col.format))); } else if (col.format === "money") { td.innerHTML = moneyCellHtml(row[col.key]); } else { td.textContent = formatCell(row[col.key], col.format); } tr.appendChild(td); }); tbody.appendChild(tr); });
+      tab.rows.forEach(row => { const tr = document.createElement("tr"); tr.className = rowClassName(row); tab.columns.forEach(col => { const td = document.createElement("td"); td.className = col.format === "money" ? "money-col" : (col.format === "int" || col.format === "percent" ? "ratio-col" : "label-col"); if (col.key === "OBAPercent" || col.key === "BPPercent") { const dot = document.createElement("span"); dot.className = "dot " + utilizationClass(row[col.key]); td.appendChild(dot); td.append(document.createTextNode(formatCell(row[col.key], col.format))); } else if (col.format === "money") { td.innerHTML = moneyCellHtml(row[col.key]); } else { td.textContent = formatCell(row[col.key], col.format); } tr.appendChild(td); }); tbody.appendChild(tr); });
       table.appendChild(tbody);
       const children = [subMenu, puTools, note, specialNote, table].filter(Boolean);
       document.getElementById("tableHost").replaceChildren(...children);
@@ -1301,7 +1302,8 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
       const headers = tab.columns.map(col => `<th>${htmlEscape(String(col.label || "").replace(/\n/g, " "))}</th>`).join("");
       const note = isDemandTable(tabKey) ? demandSuspenseNoteHtml(tab.rows) : "";
       const rows = tab.rows.map(row => `<tr class="${rowClassName(row)}">${tab.columns.map(col => `<td>${col.key === "OBAPercent" || col.key === "BPPercent" ? alertDotHtml(row[col.key]) : ""}${formatCellHtml(row[col.key], col.format)}</td>`).join("")}</tr>`).join("");
-      return `<section class="export-section"><h2>${htmlEscape(tab.title)}</h2>${note}<table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></section>`;
+      const tableClass = tab.columns.length > 8 ? "comparison-export" : "";
+      return `<section class="export-section"><h2>${htmlEscape(tab.title)}</h2>${note}<table class="${tableClass}"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></section>`;
     }
     function sheetName(name, fallback = "Sheet") {
       const cleaned = String(name || fallback).replace(/[\\/?*[\]:]/g, " ").replace(/\s+/g, " ").trim();
@@ -1355,14 +1357,16 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     }
     function exportColumnWidth(rows, index) {
       const maxLength = rows.reduce((max, row) => Math.max(max, String(row?.[index] ?? "").length), 0);
-      return Math.max(index === 0 ? 28 : 11, Math.min(index === 0 ? 42 : 22, maxLength + 2));
+      const wide = Math.max(1, ...rows.map(row => row.length)) > 8;
+      return Math.max(index === 0 ? 28 : 11, Math.min(index === 0 ? 38 : (wide ? 20 : 22), maxLength + 2));
     }
     function decorateAoaSheet(sheet, rows, headerRowIndex = 3) {
       const colCount = Math.max(1, ...rows.map(row => row.length));
       const lastCol = columnLetter(colCount - 1);
       const lastRow = Math.max(rows.length, headerRowIndex + 1);
       sheet["!cols"] = Array.from({ length: colCount }, (_, index) => ({ wch: exportColumnWidth(rows, index) }));
-      sheet["!rows"] = rows.map((_, index) => ({ hpt: index === 0 ? 24 : index === headerRowIndex ? 21 : 18 }));
+      const wide = colCount > 8;
+      sheet["!rows"] = rows.map((_, index) => ({ hpt: index === 0 ? 24 : index === headerRowIndex ? (wide ? 42 : 21) : 18 }));
       sheet["!merges"] = [
         { s: { r: 0, c: 0 }, e: { r: 0, c: colCount - 1 } },
         { s: { r: 1, c: 0 }, e: { r: 1, c: colCount - 1 } },
@@ -1378,7 +1382,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
     }
     function currentExportStyles(mode) {
       return `<style>
-        @page{size:A4 landscape;margin:.25in}
+        @page{size:A3 landscape;margin:.22in}
         *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
         body{font-family:Arial,sans-serif;color:#17212b;margin:0;background:#fff}
         main{width:100%;margin:0 auto}
@@ -1421,6 +1425,7 @@ const SHEETJS_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min
         .analysis-copy .note{display:none}
         .analysis-copy table{margin-bottom:10px}
         ${mode === "excel" ? ".export-cover{display:none}.export-section{page-break-after:auto}.analysis-copy{page-break-before:auto}" : ""}
+        .comparison-export{font-size:7.2px}.comparison-export th,.comparison-export td{padding:2px}.comparison-export th{line-height:1.1}
       </style>`;
     }
     function currentExportDocument(mode) {

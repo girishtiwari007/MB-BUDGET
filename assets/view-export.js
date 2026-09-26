@@ -232,7 +232,12 @@
     const rows=safeRows(sheet.rows||[]), pages=[], pageW=842, pageH=595, margin=18, tableW=pageW-margin*2, titleH=38;
     if(!rows.length) return [];
     const maxCols=Math.max(1,...rows.map(r=>r.length));
-    const colW=Array.from({length:maxCols},(_,i)=>Math.max(44, Math.min(i===0?170:132, rows.reduce((m,r)=>Math.max(m, clean(r[i]).length), 0)*3.3+20)));
+    const dataRows=rows.slice(maxCols>8 ? 5 : 1);
+    const colW=Array.from({length:maxCols},(_,i)=>{
+      const contentLength=(dataRows.length?dataRows:rows).reduce((m,r)=>Math.max(m, clean(r[i]).length), 0);
+      const min=i===0?110:58, max=i===0?165:(maxCols>8?82:132);
+      return Math.max(min,Math.min(max,contentLength*3.15+18));
+    });
     const totalW=colW.reduce((a,b)=>a+b,0), scale=Math.min(1, tableW/totalW), widths=colW.map(w=>w*scale);
     const font=maxCols>10?7:maxCols>7?8:10, rowH=maxCols>9?24:28;
     let y=pageH-margin-titleH, content="";
@@ -352,7 +357,8 @@
   }
   function worksheetXml(rows){
     const maxCols = Math.max(1, ...rows.map(row => row.length));
-    const cols = Array.from({ length:maxCols }, (_, i) => `<col min="${i + 1}" max="${i + 1}" width="${Math.min(i === 0 ? 34 : 26, Math.max(i === 0 ? 16 : 12, rows.reduce((m,row)=>Math.max(m, clean(row[i]).length), 0) + 2))}" customWidth="1"/>`).join("");
+    const dataRows=rows.slice(maxCols>8 ? 5 : 1);
+    const cols = Array.from({ length:maxCols }, (_, i) => { const contentLength=(dataRows.length?dataRows:rows).reduce((m,row)=>Math.max(m, clean(row[i]).length), 0); const max=maxCols>8?(i===0?32:18):(i===0?34:26); const min=i===0?16:11; return `<col min="${i + 1}" max="${i + 1}" width="${Math.min(max,Math.max(min,contentLength+2))}" customWidth="1"/>`; }).join("");
     const sheetData = rows.map((row, r) => { const hasLines=row.some(cell=>String(cell||"").includes("\n")); return `<row r="${r + 1}" ht="${r < 3 ? 22 : hasLines ? 34 : 28}" customHeight="1">${row.map((cell, c) => `<c r="${columnName(c)}${r + 1}" t="inlineStr" s="${xlsxStyleFor(row,r,c)}">${xlsxInlineString(cell)}</c>`).join("")}</row>`; }).join("");
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><cols>${cols}</cols><sheetData>${sheetData}</sheetData><pageMargins left="0.25" right="0.25" top="0.25" bottom="0.25" header="0.1" footer="0.1"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
   }
