@@ -10,7 +10,7 @@
   ];
   const $ = (id) => document.getElementById(id);
   const years = () => (data.years || []).map((row) => row.fy).filter(Boolean);
-  const state = { mode:"review", scope:"pu", period:"quarter", month:"APR", quarter:"Q1", compareYear:"", compareMonth:"", compareQuarter:"", targetYear:"", targetMonth:"", targetQuarter:"", selectedYears:new Set(years()), selectedMonths:new Set(), compareMonths:new Set(), targetMonths:new Set(), openPicker:"", selectedItems:null, selectedDeptPus:null };
+  const state = { mode:"review", scope:"pu", period:"year", month:"APR", quarter:"Q1", compareYear:"", compareMonth:"", compareQuarter:"", targetYear:"", targetMonth:"", targetQuarter:"", selectedYears:new Set(years()), selectedMonths:new Set(), compareMonths:new Set(), targetMonths:new Set(), openPicker:"", selectedItems:null, selectedDeptPus:null };
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const fmt = (v) => Number(v || 0).toLocaleString("en-IN");
   const money = (v) => `${fmt(v)}<small>${(Number(v || 0) / 10000).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})} Cr</small>`;
@@ -75,18 +75,21 @@
     $("targetYear").innerHTML=allYears.map((y) => `<option ${y===state.targetYear?"selected":""}>${esc(y)}</option>`).join("");
     $("targetMonth").innerHTML=months.map((m) => `<option ${m===state.targetMonth?"selected":""}>${m}</option>`).join("");
     $("targetQuarter").innerHTML=Object.keys(quarters).map((q) => `<option value="${q}" ${q===state.targetQuarter?"selected":""}>${quarterNames[q]}</option>`).join("");
-    const isReview = state.mode === "review";
+    const isReview = state.mode === "review", isAi = state.mode === "ai";
+    $("reviewPeriod").querySelector('option[value="month"]').textContent=isReview ? "Custom Months" : "Single / Multiple Months";
+    $("reviewScopeWrap").hidden=isAi;
+    $("reviewPeriodWrap").hidden=isAi;
     $("monthWrap").hidden=state.period!=="month" || !isReview;
     $("monthChoiceWrap").hidden=state.period!=="month" || !isReview;
     $("quarterWrap").hidden=state.period!=="quarter" || !isReview;
-    $("compareYearWrap").hidden=isReview;
-    $("targetYearWrap").hidden=isReview;
+    $("compareYearWrap").hidden=isReview || isAi;
+    $("targetYearWrap").hidden=isReview || isAi;
     $("compareMonthWrap").hidden=true;
     $("targetMonthWrap").hidden=true;
-    $("fromMonthChoiceWrap").hidden=isReview || state.period!=="month";
-    $("toMonthChoiceWrap").hidden=isReview || state.period!=="month";
-    $("compareQuarterWrap").hidden=isReview || state.period!=="quarter";
-    $("targetQuarterWrap").hidden=isReview || state.period!=="quarter";
+    $("fromMonthChoiceWrap").hidden=isReview || isAi || state.period!=="month";
+    $("toMonthChoiceWrap").hidden=isReview || isAi || state.period!=="month";
+    $("compareQuarterWrap").hidden=isReview || isAi || state.period!=="quarter";
+    $("targetQuarterWrap").hidden=isReview || isAi || state.period!=="quarter";
     if($("yearChoiceWrap")) $("yearChoiceWrap").hidden=!isReview;
     state.selectedYears=new Set([...state.selectedYears].filter((y) => allYears.includes(y))); if(!state.selectedYears.size) allYears.forEach((y) => state.selectedYears.add(y));
     state.selectedMonths=new Set([...state.selectedMonths].filter((m) => months.includes(m))); if(!state.selectedMonths.size) { state.month=currentMonth(); state.selectedMonths.add(state.month); }
@@ -106,7 +109,8 @@
     checkboxList($("itemChecks"),allItems,state.selectedItems,"item",`All ${scopeName()}s`);
     $("yearPickerLabel").textContent=label(allYears,state.selectedYears,"years");
     $("itemPickerTitle").textContent=`Specific ${scopeName()}s`; $("itemPickerLabel").textContent=label(allItems,state.selectedItems,`${scopeName()}s`);
-    $("deptPuWrap").hidden=state.scope!=="dept"; checkboxList($("deptPuChecks"),allPus,state.selectedDeptPus,"dept-pu","All Primary Units"); $("deptPuPickerLabel").textContent=label(allPus,state.selectedDeptPus,"Primary Units");
+    $("itemChoiceWrap").hidden=isAi;
+    $("deptPuWrap").hidden=state.scope!=="dept" || isAi; checkboxList($("deptPuChecks"),allPus,state.selectedDeptPus,"dept-pu","All Primary Units"); $("deptPuPickerLabel").textContent=label(allPus,state.selectedDeptPus,"Primary Units");
   }
   function chart(names, chosenYears, dataSource=source()){
     if(!chosenYears.length || !names.length) return `<p class="empty-chart">Select at least one year and one item to view the trend.</p>`;
@@ -161,7 +165,7 @@
   function renderAi(){
     const rows=trendRows(), risk=rows.filter((r)=>movementClass(r)==="attn-red"), watch=rows.filter((r)=>movementClass(r)==="attn-amber"), special=rows.filter((r)=>r.rule);
     $("reviewTitle").textContent="Yearly Review / PU Trend Analysis"; $("reviewTitle").dataset.exportTitle=`AI Budget Analysis | ${scopeName()} | ${comparisonLabel()} | ${label(items(),state.selectedItems,`${scopeName()}s`)}`; $("reviewStamp").textContent=`AI Budget Analysis | Compare ${comparisonLabel()} | Static rule engine refreshed with GUI data sync`;
-    $("reviewHost").innerHTML=`<section class="summary"><article><span>AI Review Rows</span><strong>${rows.length}</strong></article><article><span>High Attention</span><strong>${risk.length}</strong></article><article><span>Watch</span><strong>${watch.length}</strong></article><article><span>Rule Based PU</span><strong>${special.length}</strong></article></section><section class="review-panel ai-review"><div class="section-head"><h2>Elaborative AI Budget Analysis</h2><span>Auto-generated from current synced monthly data, BP/OBA and finance rules</span></div><ul class="remark-list">${rows.map((r)=>`<li class="${movementClass(r)}"><strong>${esc(r.name)}:</strong> ${esc(aiRemark(r))}</li>`).join("")}</ul></section><section class="review-panel"><div class="section-head"><h2>AI Trend Evidence Table</h2><span>Use this with the remarks above for authority review</span></div>${trendTable(rows)}</section>${financeGuide()}`;
+    $("reviewHost").innerHTML=`<section class="analysis-context"><div><strong>Analysis context</strong><span>${esc(scopeName())} · ${esc(comparisonLabel())} · ${esc(label(items(),state.selectedItems,`${scopeName()}s`))}</span></div><button type="button" id="changeAnalysisSelection">Change analysis selection</button></section><section class="summary"><article><span>AI Review Rows</span><strong>${rows.length}</strong></article><article><span>High Attention</span><strong>${risk.length}</strong></article><article><span>Watch</span><strong>${watch.length}</strong></article><article><span>Rule Based PU</span><strong>${special.length}</strong></article></section><section class="review-panel ai-review"><div class="section-head"><h2>Elaborative AI Budget Analysis</h2><span>Auto-generated from current synced monthly data, BP/OBA and finance rules</span></div><ul class="remark-list">${rows.map((r)=>`<li class="${movementClass(r)}"><strong>${esc(r.name)}:</strong> ${esc(aiRemark(r))}</li>`).join("")}</ul></section><section class="review-panel"><div class="section-head"><h2>AI Trend Evidence Table</h2><span>Use this with the remarks above for authority review</span></div>${trendTable(rows)}</section>${financeGuide()}`;
   }
   function puCrossReport(chosenYears){
     const names=selected(puItems(),state.selectedDeptPus), puSource=data.monthly?.pu||{};
@@ -179,5 +183,6 @@
   ["reviewMode","reviewScope","reviewPeriod","reviewMonth","reviewQuarter","compareYear","compareMonth","compareQuarter","targetYear","targetMonth","targetQuarter"].forEach((id)=>$(id).addEventListener("change",(event)=>{ const keys={reviewMode:"mode",reviewScope:"scope",reviewPeriod:"period",reviewMonth:"month",reviewQuarter:"quarter",compareYear:"compareYear",compareMonth:"compareMonth",compareQuarter:"compareQuarter",targetYear:"targetYear",targetMonth:"targetMonth",targetQuarter:"targetQuarter"}; state[keys[id]]=event.target.value; if(id==="reviewMonth") state.selectedMonths=new Set([state.month]); if(id==="reviewScope"){state.selectedItems=null;state.selectedDeptPus=null;} render(); }));
   document.addEventListener("change",(event)=>{ const input=event.target; if(!input.matches("input[data-type]"))return; const type=input.dataset.type, all=type==="year"?years():["month-choice","from-month","to-month"].includes(type)?months:type==="dept-pu"?puItems():items(), set=type==="year"?state.selectedYears:type==="month-choice"?state.selectedMonths:type==="from-month"?state.compareMonths:type==="to-month"?state.targetMonths:type==="dept-pu"?state.selectedDeptPus:state.selectedItems; if(input.dataset.all){set.clear();if(input.checked)all.forEach((v)=>set.add(v));}else if(input.checked)set.add(input.value);else set.delete(input.value); if(type==="month-choice" && set.size===1) state.month=[...set][0]; if(type==="from-month" && set.size===1) state.compareMonth=[...set][0]; if(type==="to-month" && set.size===1) state.targetMonth=[...set][0]; state.openPicker=type; render(); });
   ["yearPicker","monthPicker","fromMonthPicker","toMonthPicker","itemPicker","deptPuPicker"].forEach((id)=>$(id).addEventListener("mouseleave",()=>{ $(id).open=false; state.openPicker=""; }));
+  document.addEventListener("click",(event)=>{ if(event.target.closest("#changeAnalysisSelection")){ state.mode="trend"; render(); } });
   render();
 }());
