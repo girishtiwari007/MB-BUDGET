@@ -268,13 +268,19 @@ class LocalSyncApp(tk.Tk):
             payload = json.loads(current_manifest.read_text(encoding="utf-8"))
             lines.append(f"- Current year as on: {payload.get('statusAsOn') or payload.get('uploadedAt')}")
             lines.append(f"- Completed month: {payload.get('completedMonth')} | Running month: {payload.get('runningMonth')}")
+            lines.append(f"- Current unit basis: {payload.get('dataUnit') or 'not recorded'}")
             lines.append(f"- Current source folder: {payload.get('sourceFolder')}")
+            if "000" not in str(payload.get("dataUnit") or "") and "THOUSAND" not in str(payload.get("dataUnit") or "").upper():
+                errors.append("Current-year unit basis is not confirmed as figures in '000/thousand.")
         else:
             lines.append("- Current year manifest missing.")
             errors.append("Current year manifest missing.")
         if fr_manifest.exists():
             payload = json.loads(fr_manifest.read_text(encoding="utf-8"))
             lines.append(f"- FR source: {payload.get('originalName')} | Data as on: {payload.get('dataAsOn') or payload.get('uploadedAt')}")
+            lines.append(f"- FR unit basis: {payload.get('dataUnit') or 'not recorded'}")
+            if "000" not in str(payload.get("dataUnit") or "") and "THOUSAND" not in str(payload.get("dataUnit") or "").upper():
+                errors.append("FR unit basis is not confirmed as figures in '000/thousand.")
         else:
             lines.append("- FR manifest missing.")
             errors.append("FR manifest missing.")

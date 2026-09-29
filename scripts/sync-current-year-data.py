@@ -89,6 +89,22 @@ def workbook_table(path):
     }
 
 
+def assert_thousand_unit_file(path):
+    rows = read_rows(path)[:10]
+    text = " ".join(str(cell) for row in rows for cell in row if str(cell).strip()).upper()
+    markers = ("'000", "000S", "THOUSAND")
+    if not any(marker in text for marker in markers):
+        raise RuntimeError(
+            f"{path.name} does not declare figures in '000/thousand in its header. "
+            "Local sync is blocked so portal calculations and exports cannot mix units."
+        )
+
+
+def validate_current_source_units(year_dir):
+    for _role, (_source_name, target_name) in SOURCE_FILES.items():
+        assert_thousand_unit_file(year_dir / target_name)
+
+
 def col_index(headers, needles):
     wanted = [clean(item) for item in needles]
     for idx, header in enumerate(headers):
@@ -555,6 +571,7 @@ def copy_sources(source_root):
 
 def sync_current_year(source_root=DEFAULT_SOURCE, refresh=True, completed_month=None, running_month=None):
     year_dir, backup_name, helpers = copy_sources(source_root)
+    validate_current_source_units(year_dir)
     pu_budget = workbook_table(year_dir / "pu-budget.xls")
     smh_budget = workbook_table(year_dir / "demand-smh-budget.xls")
     pu_month = workbook_table(year_dir / "pu-month-actual.xls")
@@ -585,6 +602,8 @@ def sync_current_year(source_root=DEFAULT_SOURCE, refresh=True, completed_month=
         "completedMonth": completed["label"],
         "basisSource": basis_source,
         "budgetRule": "RG 2026-2027 overrides BG_ISL/OBA when RG has a non-zero amount; otherwise BG_ISL/OBA is used. RG is expected from JAN onward.",
+        "dataUnit": "Figures in '000 (thousands)",
+        "unitValidation": "All six current-year source files declare figures in '000/thousand before portal refresh.",
         "sourceFolder": str(Path(source_root).resolve()),
         "backup": backup_name,
     })

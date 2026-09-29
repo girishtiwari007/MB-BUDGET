@@ -105,6 +105,7 @@ def current_payload_meta():
 def validate_current_basis():
     errors = []
     upload_manifest = REPO_ROOT / "data" / "source-files" / "2026-2027" / "upload-manifest.json"
+    fr_manifest = REPO_ROOT / "data" / "fr" / "fr-upload-manifest.json"
     meta = current_payload_meta()
     if not upload_manifest.exists():
         errors.append("Current-year upload manifest is missing.")
@@ -113,6 +114,12 @@ def validate_current_basis():
     for key in ("completedMonth", "runningMonth", "statusAsOn"):
         if upload.get(key) and meta.get(key) and upload.get(key) != meta.get(key):
             errors.append(f"Current payload {key} does not match upload manifest: {meta.get(key)} != {upload.get(key)}")
+    if "000" not in str(upload.get("dataUnit") or "") and "THOUSAND" not in str(upload.get("dataUnit") or "").upper():
+        errors.append("Current-year upload manifest does not confirm figures in '000/thousand.")
+    if fr_manifest.exists():
+        fr_upload = json.loads(fr_manifest.read_text(encoding="utf-8"))
+        if "000" not in str(fr_upload.get("dataUnit") or "") and "THOUSAND" not in str(fr_upload.get("dataUnit") or "").upper():
+            errors.append("FR upload manifest does not confirm figures in '000/thousand.")
     return errors
 
 
@@ -330,7 +337,7 @@ def write_manifest(trigger, output, cache_refresh=None, run_started=None):
         "missing": missing,
         "files": files,
         "generator": GENERATOR.relative_to(REPO_ROOT).as_posix(),
-        "output": output.strip(),
+        "output": stable_output(output),
         "cacheRefresh": cache_refresh or {},
     }
     MANIFEST.parent.mkdir(parents=True, exist_ok=True)
@@ -338,6 +345,15 @@ def write_manifest(trigger, output, cache_refresh=None, run_started=None):
     if missing:
         raise RuntimeError("Export refresh incomplete. Missing: " + ", ".join(missing))
     return payload
+
+
+def stable_output(output):
+    text = output.strip()
+    if not text:
+        return ""
+    root_pattern = re.escape(str(REPO_ROOT))
+    text = re.sub(root_pattern + r"[\\/]+", "", text, flags=re.I)
+    return text.replace("\\", "/")
 
 
 def refresh_exports(trigger="manual"):

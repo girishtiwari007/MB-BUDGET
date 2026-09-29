@@ -1,6 +1,6 @@
 {
-  "uploadedAt": "2026-09-25T10:56:20+05:30",
-  "statusAsOn": "2026-09-25T10:56:20+05:30",
+  "uploadedAt": "2026-09-29T13:48:08+05:30",
+  "statusAsOn": "2026-09-29T13:48:08+05:30",
   "financialYear": "2026-2027",
   "sourceFolder": "D:\\PORTAL DATA\\current year",
   "activeFiles": [
@@ -48,12 +48,14 @@
     }
   ],
   "backups": [
-    "data/source-files/2026-2027/backups/20260925-105620",
-    "data/source-files/2026-2027/backups/20260925-105537"
+    "data/source-files/2026-2027/backups/20260929-134807",
+    "data/source-files/2026-2027/backups/20260925-105620"
   ],
   "runningMonth": "SEP 2026",
   "completedMonth": "AUG 2026",
   "basisSource": "auto-sensed from uploaded file",
-  "backup": "20260925-105620",
-  "budgetRule": "RG 2026-2027 overrides BG_ISL/OBA when RG has a non-zero amount; otherwise BG_ISL/OBA is used. RG is expected from JAN onward."
+  "backup": "20260929-134807",
+  "budgetRule": "RG 2026-2027 overrides BG_ISL/OBA when RG has a non-zero amount; otherwise BG_ISL/OBA is used. RG is expected from JAN onward.",
+  "dataUnit": "Figures in '000 (thousands)",
+  "unitValidation": "All six current-year source files declare figures in '000/thousand before portal refresh."
 }

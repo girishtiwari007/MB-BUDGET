@@ -118,6 +118,21 @@ def parse_workbook(path):
     return [parse_sheet(sheet) for sheet in workbook.worksheets[:2]]
 
 
+def assert_thousand_unit_workbook(path):
+    workbook = load_workbook(path, data_only=True, read_only=True)
+    text_parts = []
+    for sheet in workbook.worksheets[:2]:
+        for row in sheet.iter_rows(min_row=1, max_row=6, values_only=True):
+            text_parts.extend(str(cell) for cell in row if cell not in (None, ""))
+    text = " ".join(text_parts).upper()
+    markers = ("'000", "000S", "THOUSAND")
+    if not any(marker in text for marker in markers):
+        raise RuntimeError(
+            f"{path.name} does not declare figures in '000/thousand in its header. "
+            "FR sync is blocked so portal calculations and exports cannot mix units."
+        )
+
+
 def as_on_from_data(workbook_data, fallback_path):
     text = " ".join(sheet.get("title", "") for sheet in workbook_data)
     match = re.search(r"as\s+on\s+([0-9]{1,2}[.][0-9]{1,2}[.][0-9]{4})", text, re.I)
@@ -175,6 +190,7 @@ def main():
     source_display_name = sys.argv[2] if len(sys.argv) > 2 else source.name
     if not source.exists():
         raise SystemExit(f"FR workbook not found: {source}")
+    assert_thousand_unit_workbook(source)
     workbook_data = parse_workbook(source)
     data_as_on = as_on_from_data(workbook_data, source)
     uploaded_at = datetime.now().isoformat(timespec="seconds")
@@ -195,6 +211,8 @@ def main():
         "dataAsOn": iso_date_from_ddmmyyyy(data_as_on),
         "activeFile": rel(FR_TARGET),
         "originalName": source_display_name,
+        "dataUnit": "Figures in '000 (thousands)",
+        "unitValidation": "FR workbook declares figures in '000/thousand before portal refresh.",
         "backup": backup_name,
         "backups": backup_listing(),
     }
