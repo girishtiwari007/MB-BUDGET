@@ -183,6 +183,53 @@ def available_actual_periods(headers):
     return periods
 
 
+def monthly_actual_periods(headers):
+    periods = []
+    seen = set()
+    for idx, header in enumerate(headers):
+        match = re.match(r"^([A-Z]{3})\s+(20\d{2})$", clean(header))
+        if match and match.group(1) in MONTHS:
+            label = f"{match.group(1)} {match.group(2)}"
+            if label not in seen:
+                seen.add(label)
+                periods.append({"idx": idx, "month": match.group(1), "year": int(match.group(2)), "count": month_count(match.group(1)), "label": label})
+    periods.sort(key=lambda item: (item["year"], item["count"]))
+    return periods
+
+
+def fiscal_period_for_date(value):
+    month = value.month
+    if month >= 4:
+        label_month = MONTHS[month - 4]
+        label_year = value.year
+    else:
+        label_month = MONTHS[month + 8]
+        label_year = value.year
+    return {"idx": -1, "month": label_month, "year": label_year, "count": month_count(label_month), "label": f"{label_month} {label_year}"}
+
+
+def auto_periods_from_monthly_actual(month_table, now=None):
+    periods = monthly_actual_periods(month_table["headers"])
+    if not periods:
+        return None, None
+    now = now or datetime.now()
+    running = next((item for item in periods if item["label"] == fiscal_period_for_date(now)["label"]), None)
+    if running:
+        running_index = periods.index(running)
+        completed = periods[running_index - 1] if running_index > 0 else running
+        return completed, running
+    nonzero = []
+    for item in periods:
+        total = sum(number(row[item["idx"]] if item["idx"] < len(row) else 0) for row in month_table["rows"])
+        if abs(total) > 0.0001:
+            nonzero.append(item)
+    if nonzero:
+        completed = nonzero[-1]
+        running = next((item for item in periods if (item["year"], item["count"]) > (completed["year"], completed["count"])), completed)
+        return completed, running
+    return periods[0], periods[0]
+
+
 def source_file(source_root, role):
     source_root = Path(source_root).resolve()
     source_name, target_name = SOURCE_FILES[role]
@@ -193,11 +240,12 @@ def source_file(source_root, role):
 
 
 def available_period_labels(source_root):
-    path = source_file(source_root, "currSmhBudget")
+    path = source_file(source_root, "currSmhMonth")
     if not path.exists():
-        raise RuntimeError(f"Current-year budget file not found for month sensing: {path.name}")
+        raise RuntimeError(f"Current-year actual file not found for month sensing: {path.name}")
     table = workbook_table(path)
-    return [item["label"] for item in available_actual_periods(table["headers"])]
+    labels = [item["label"] for item in monthly_actual_periods(table["headers"])]
+    return labels or [item["label"] for item in available_actual_periods(table["headers"])]
 
 
 def budget_amount(raw, bg_idx, rg_idx=-1):
@@ -579,8 +627,11 @@ def sync_current_year(source_root=DEFAULT_SOURCE, refresh=True, completed_month=
     dept_month = workbook_table(year_dir / "pu-dept-demand-smh-actual.xls")
     prev_pu_budget = workbook_table(REPO_ROOT / "data" / "source-files" / PREVIOUS_YEAR / "pu-budget.xls")
     prev_smh_budget = workbook_table(REPO_ROOT / "data" / "source-files" / PREVIOUS_YEAR / "demand-smh-budget.xls")
-    demand, completed, running = build_current(smh_budget, "SMH", "Demand No. / SMH-Grant", "Demand / SMH Wise Current Year", True, completed_month, running_month)
-    pu_current, _completed, _running = build_current(pu_budget, "PUCODE", "PU", "PU Wise Current Year", False, completed_month, running_month)
+    auto_completed, auto_running = auto_periods_from_monthly_actual(smh_month)
+    effective_completed = completed_month or (auto_completed["label"] if auto_completed else None)
+    effective_running = running_month or (auto_running["label"] if auto_running else None)
+    demand, completed, running = build_current(smh_budget, "SMH", "Demand No. / SMH-Grant", "Demand / SMH Wise Current Year", True, effective_completed, effective_running)
+    pu_current, _completed, _running = build_current(pu_budget, "PUCODE", "PU", "PU Wise Current Year", False, effective_completed, effective_running)
     detail_rows = [row for row in pu_current["rows"] if row["Name"] != "Total"]
     staff = {"title": "PU Staff Current Year", "columns": deepcopy(pu_current["columns"]), "rows": add_total([row for row in detail_rows if code_from_label(row["Name"], "PU") in STAFF_CODES])}
     nonstaff = {"title": "PU Non-Staff Current Year", "columns": deepcopy(pu_current["columns"]), "rows": add_total([row for row in detail_rows if code_from_label(row["Name"], "PU") not in STAFF_CODES])}
@@ -588,11 +639,11 @@ def sync_current_year(source_root=DEFAULT_SOURCE, refresh=True, completed_month=
         "demand": demand,
         "staff": staff,
         "nonstaff": nonstaff,
-        "pu_prev": build_previous(prev_pu_budget, pu_budget, "PUCODE", "PU", "PU Wise Previous Year Comparison", False, completed_month, running_month),
-        "demand_prev": build_previous(prev_smh_budget, smh_budget, "SMH", "Demand No. / SMH-Grant", "Demand / SMH Wise Previous Year Comparison", True, completed_month, running_month),
+        "pu_prev": build_previous(prev_pu_budget, pu_budget, "PUCODE", "PU", "PU Wise Previous Year Comparison", False, effective_completed, effective_running),
+        "demand_prev": build_previous(prev_smh_budget, smh_budget, "SMH", "Demand No. / SMH-Grant", "Demand / SMH Wise Previous Year Comparison", True, effective_completed, effective_running),
     }
     validate_current_payload(payload, completed, running)
-    basis_source = "manual override" if completed_month or running_month else "auto-sensed from uploaded file"
+    basis_source = "manual override" if completed_month or running_month else "auto-sensed from monthly actual columns and system date"
     meta = write_current_payload(payload, completed, running, Path(source_root).resolve(), backup_name, basis_source)
     manifest = helpers.write_current_manifest(YEAR, str(Path(source_root).resolve()), backup_name)
     manifest.update({
@@ -601,6 +652,7 @@ def sync_current_year(source_root=DEFAULT_SOURCE, refresh=True, completed_month=
         "runningMonth": running["label"],
         "completedMonth": completed["label"],
         "basisSource": basis_source,
+        "autoSenseRule": "Auto mode uses the system/upload month as running month and the previous monthly actual column as completed month; monthly actual columns override cumulative ACTUALS UPTO headers for month sensing.",
         "budgetRule": "RG 2026-2027 overrides BG_ISL/OBA when RG has a non-zero amount; otherwise BG_ISL/OBA is used. RG is expected from JAN onward.",
         "dataUnit": "Figures in '000 (thousands)",
         "unitValidation": "All six current-year source files declare figures in '000/thousand before portal refresh.",

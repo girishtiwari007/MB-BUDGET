@@ -1,13 +1,13 @@
 const REPORT_LOGIC = {
   current_demand: {
     title: "Demand / SMH Wise Current Year",
-    basis: "GUI synced basis is completed actual expenditure up to AUG 2026. September is treated as running/till-date and shown separately.",
+    basis: "GUI synced basis uses the completed actual month from the latest upload manifest. The running/till-date month is shown separately.",
     columns: [
       ["Demand No. / SMH-Grant", "Demand and Sub Major Head grouping from source file."],
       ["Department", "Department mapped from Demand / SMH."],
       ["OBA / RG", "Effective OBA uses RG 2026-27 when RG has a non-zero amount; otherwise BG_ISL 2026-27 is used. RG normally starts from JAN."],
-      ["BP", "Effective OBA / 12 * completed month count. Default month count is 05 for APR-AUG."],
-      ["AE", "Actual Expenditure up to completed month. Default is actual up to AUG 2026."],
+      ["BP", "Effective OBA / 12 * completed month count. Month count is derived from the completed actual month recorded in the latest upload manifest."],
+      ["AE", "Actual Expenditure up to the completed actual month recorded in the latest upload manifest."],
       ["Variation", "AE - BP."],
       ["% BP", "AE / BP * 100."],
       ["Budget Remaining", "Effective OBA - AE."],
@@ -17,12 +17,12 @@ const REPORT_LOGIC = {
   },
   current_pu_staff: {
     title: "PU Staff Current Year",
-    basis: "GUI synced basis is completed actual expenditure up to AUG 2026. Staff PUs are filtered by staff PU code list.",
+    basis: "GUI synced basis uses the completed actual month from the latest upload manifest. Staff PUs are filtered by staff PU code list.",
     columns: [
       ["PU", "Primary Unit name/code."],
       ["OBA / RG", "Effective OBA uses RG 2026-27 when RG has a non-zero amount; otherwise BG_ISL 2026-27 is used. RG normally starts from JAN."],
       ["BP", "Effective OBA / 12 * completed month count from GUI sync basis."],
-      ["AE", "Actual expenditure up to AUG 2026."],
+      ["AE", "Actual expenditure up to the completed actual month recorded in the latest upload manifest."],
       ["Variation", "AE - BP."],
       ["% BP", "AE / BP * 100."],
       ["Budget Remaining", "Effective OBA - AE."],
@@ -32,12 +32,12 @@ const REPORT_LOGIC = {
   },
   current_pu_nonstaff: {
     title: "PU Non-Staff Current Year",
-    basis: "GUI synced basis is completed actual expenditure up to AUG 2026. Non-staff PUs are all PUs outside staff PU code list.",
+    basis: "GUI synced basis uses the completed actual month from the latest upload manifest. Non-staff PUs are all PUs outside staff PU code list.",
     columns: [
       ["PU", "Primary Unit name/code."],
       ["OBA / RG", "Effective OBA uses RG 2026-27 when RG has a non-zero amount; otherwise BG_ISL 2026-27 is used. RG normally starts from JAN."],
       ["BP", "Effective OBA / 12 * completed month count from GUI sync basis."],
-      ["AE", "Actual expenditure up to AUG 2026."],
+      ["AE", "Actual expenditure up to the completed actual month recorded in the latest upload manifest."],
       ["Variation", "AE - BP."],
       ["% BP", "AE / BP * 100."],
       ["Budget Remaining", "Effective OBA - AE."],
@@ -64,10 +64,10 @@ const REPORT_LOGIC = {
   },
   till_date: {
     title: "Till Date / Running Month",
-    basis: "This page keeps September as running/till-date data. It is separate from default completed-actual calculation.",
+    basis: "This page keeps the manifest running month as till-date data. It is separate from default completed-actual calculation.",
     columns: [
       ["OBA / RG", "Effective OBA uses RG where available; otherwise BG_ISL/OBA from source."],
-      ["BP", "Effective OBA / 12 * 06 when September running month is included."],
+      ["BP", "Effective OBA / 12 * running month count when the running month is included."],
       ["AE", "Actual expenditure through the running month from loaded monthly data."],
       ["Variation", "AE - BP."],
       ["Budget Remaining", "Effective OBA - AE."],
@@ -77,7 +77,7 @@ const REPORT_LOGIC = {
   },
   advanced_monthly: {
     title: "Advanced Report - Month-Wise Expenditure",
-    basis: "Actual Basis selector controls latest-year active months: completed AUG 2026 (05) or till-date SEP 2026 (06).",
+    basis: "Actual Basis selector controls latest-year active months using the latest manifest: completed actual month or till-date running month.",
     columns: [
       ["Month columns", "Actual expenditure booked in each month."],
       ["N/A months", "Months beyond selected basis are shown as N/A for latest year."],
@@ -87,7 +87,7 @@ const REPORT_LOGIC = {
   },
   advanced_utilization: {
     title: "Advanced Report - Budget Proportion vs Actual Expenditure",
-    basis: "GUI synced basis is completed AUG 2026 (05). Till-date option uses SEP 2026 running month (06).",
+    basis: "GUI synced basis uses the manifest completed actual month. Till-date option uses the manifest running month.",
     columns: [
       ["OBA / RG", "Effective OBA uses RG 2026-27 when available; otherwise BG_ISL/OBA."],
       ["BP", "Effective OBA / 12 * active month count for latest year; source BP is used for older years where available."],
