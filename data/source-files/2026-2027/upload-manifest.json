@@ -1,6 +1,6 @@
 {
-  "uploadedAt": "2026-10-05T14:47:35+05:30",
-  "statusAsOn": "2026-10-05T14:47:35+05:30",
+  "uploadedAt": "2026-10-06T10:20:58+05:30",
+  "statusAsOn": "2026-10-06T10:20:58+05:30",
   "financialYear": "2026-2027",
   "sourceFolder": "D:\\PORTAL DATA\\current year",
   "activeFiles": [
@@ -48,13 +48,13 @@
     }
   ],
   "backups": [
-    "data/source-files/2026-2027/backups/20261005-144735",
-    "data/source-files/2026-2027/backups/20261001-110141"
+    "data/source-files/2026-2027/backups/20261006-102057",
+    "data/source-files/2026-2027/backups/20261005-144735"
   ],
   "runningMonth": "OCT 2026",
   "completedMonth": "SEP 2026",
   "basisSource": "auto-sensed from monthly actual columns and system date",
-  "backup": "20261005-144735",
+  "backup": "20261006-102057",
   "autoSenseRule": "Auto mode uses the system/upload month as running month and the previous monthly actual column as completed month; monthly actual columns override cumulative ACTUALS UPTO headers for month sensing.",
   "budgetRule": "RG 2026-2027 overrides BG_ISL/OBA when RG has a non-zero amount; otherwise BG_ISL/OBA is used. RG is expected from JAN onward.",
   "dataUnit": "Figures in '000 (thousands)",
