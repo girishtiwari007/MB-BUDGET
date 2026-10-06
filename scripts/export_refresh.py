@@ -182,13 +182,21 @@ def validate_yearly_comparison_template():
         return [f"Yearly Comparison template missing: {YEARLY_COMPARISON_TEMPLATE}"], {}
     template_counts = pptx_part_counts(template_path)
     export_counts = pptx_part_counts(export_path)
+    expected_counts = {
+        **template_counts,
+        "slides": template_counts["slides"] + 1,
+        "relationships": template_counts["relationships"] + 1,
+    }
     for key in ("slides", "charts", "relationships"):
-        if export_counts[key] != template_counts[key]:
+        if export_counts[key] != expected_counts[key]:
             errors.append(
-                f"Yearly Comparison PPTX template structure changed: {key} {export_counts[key]} != template {template_counts[key]}"
+                f"Yearly Comparison PPTX template structure changed: {key} {export_counts[key]} != expected {expected_counts[key]}"
             )
     text = export_text(export_path).upper()
     completed = str(current_payload_meta().get("completedMonth") or "").strip().upper()
+    fr_as_on = export_text(REPO_ROOT / "exports/Moradabad_Division_DRM_Budget_FR_Analysis.pptx").upper()
+    if "AS ON" not in fr_as_on:
+        errors.append("DRM PPTX heading slide missing As on label.")
     if completed and f"THROUGH {completed}" not in text:
         errors.append(f"Yearly Comparison PPTX title does not show through {completed}.")
     if "NATIVE POWERPOINT CHARTS WITH EMBEDDED EDITABLE DATA" not in text:

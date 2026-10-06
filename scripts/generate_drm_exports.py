@@ -30,6 +30,7 @@ DRM_YEARLY_COMPARISON_PPTX = OUT / "Moradabad_Division_DRM_PPT_With_Yearly_Compa
 XLSX = OUT / "Moradabad_Division_DRM_Budget_FR_Analysis.xlsx"
 PREVIOUS_FR_XLSX = ROOT / "data" / "source-files" / "2025-2026" / "fr-budget-status.xlsx"
 YEARLY_COMPARISON_TEMPLATE = ROOT / "data" / "templates" / "Moradabad_Division_DRM_Yearly_Comparison_Template.pptx"
+HEADING_PPTX = ROOT / "data" / "templates" / "Moradabad_Division_DRM_Heading_Page.pptx"
 TEMPLATE_CANDIDATES = [
     ROOT / "data" / "templates" / "Moradabad_Division_DRM_Table_Template.pptx",
     Path(r"C:\Users\HP\Dropbox\Revenue PU Laibilities\PPT PORTAL\Moradabad Division Quarty FR and Revenue Budget Analysis DRM.pptx"),
@@ -64,10 +65,11 @@ def load_json_assignment(path, name):
 
 
 def load_fr_data():
-    text = (ROOT / "pages" / "fr.html").read_text(encoding="utf-8")
+    source = ROOT / "assets" / "fr.js"
+    text = source.read_text(encoding="utf-8") if source.exists() else (ROOT / "pages" / "fr.html").read_text(encoding="utf-8")
     match = re.search(r"const\s+workbookData\s*=\s*(\[.*?\]);\s*const\s+funds", text, re.S)
     if not match:
-        raise RuntimeError("Cannot locate FR workbookData")
+        raise RuntimeError(f"Cannot locate FR workbookData in {source}")
     return json.loads(match.group(1))
 
 
@@ -1068,10 +1070,47 @@ def split_section(title, headers, rows):
     return slides
 
 
-def build_pptx_from_template(output_path, sections, subtitle):
+def heading_as_on_label(fr_as_on):
+    match = re.search(r"(\d{1,2})[./-](\d{1,2})[./-](20\d{2})", str(fr_as_on or ""))
+    if not match:
+        return "As on " + str(fr_as_on or "latest FR data").strip()
+    day, month, year = (int(match.group(1)), int(match.group(2)), match.group(3))
+    return f"As on {day:02d}.{month:02d}.{year}"
+
+
+def heading_slide_xml(fr_as_on):
+    if not HEADING_PPTX.exists():
+        return None
+    with zipfile.ZipFile(HEADING_PPTX, "r") as src:
+        xml = src.read("ppt/slides/slide1.xml").decode("utf-8")
+    label = xesc(heading_as_on_label(fr_as_on))
+    run_matches = list(re.finditer(r"<a:t>(.*?)</a:t>", xml, flags=re.S))
+    for idx, match in enumerate(run_matches):
+        if unescape(match.group(1)).strip().lower() == "as":
+            replacements = [(match.start(1), match.end(1), label)]
+            for extra in run_matches[idx + 1:idx + 6]:
+                replacements.append((extra.start(1), extra.end(1), ""))
+            for start, end, value in sorted(replacements, reverse=True):
+                xml = xml[:start] + value + xml[end:]
+            return xml
+    return xml
+
+
+def heading_slide_rels():
+    return '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/></Relationships>'''
+
+
+def build_pptx_from_template(output_path, sections, subtitle, heading_fr_as_on=None):
     if not TEMPLATE_PPTX.exists():
         raise RuntimeError(f"Template PPTX not found: {TEMPLATE_PPTX}")
     slides = [cover_slide_xml("Moradabad Division Budget & FR Analysis", subtitle)]
+    has_heading = False
+    if heading_fr_as_on:
+        heading_xml = heading_slide_xml(heading_fr_as_on)
+        if heading_xml:
+            slides.insert(0, heading_xml)
+            has_heading = True
     for title, headers, rows in sections:
         slides.extend(split_section(title, headers, rows))
     with zipfile.ZipFile(TEMPLATE_PPTX, "r") as src:
@@ -1100,9 +1139,56 @@ def build_pptx_from_template(output_path, sections, subtitle):
             dst.writestr("ppt/_rels/presentation.xml.rels", pres_rels)
             for i, xml in enumerate(slides, 1):
                 dst.writestr(f"ppt/slides/slide{i}.xml", xml)
-                dst.writestr(f"ppt/slides/_rels/slide{i}.xml.rels", slide_rel)
+                dst.writestr(f"ppt/slides/_rels/slide{i}.xml.rels", heading_slide_rels() if i == 1 and has_heading else slide_rel)
     from test_pptx_integrity import validate
     validate(output_path)
+
+
+def prepend_heading_slide_to_pptx(path, fr_as_on):
+    heading_xml = heading_slide_xml(fr_as_on)
+    if not heading_xml:
+        return
+    tmp = path.with_suffix(".heading.tmp.pptx")
+    with zipfile.ZipFile(path, "r") as src:
+        slide_numbers = sorted(
+            int(re.search(r"slide(\d+)\.xml$", name).group(1))
+            for name in src.namelist()
+            if re.fullmatch(r"ppt/slides/slide\d+\.xml", name)
+        )
+        slide_count = len(slide_numbers) + 1
+        content = src.read("[Content_Types].xml").decode("utf-8")
+        pres = src.read("ppt/presentation.xml").decode("utf-8")
+        pres_rels = src.read("ppt/_rels/presentation.xml.rels").decode("utf-8")
+        content = re.sub(r'<Override PartName="/ppt/slides/slide\d+\.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide\+xml"/>', "", content)
+        slide_overrides = "".join(f'<Override PartName="/ppt/slides/slide{i}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>' for i in range(1, slide_count + 1))
+        content = content.replace("</Types>", f"{slide_overrides}</Types>")
+        sld_ids = "".join(f'<p:sldId id="{255 + i}" r:id="rIdSlide{i}"/>' for i in range(1, slide_count + 1))
+        pres = re.sub(r"<p:sldIdLst>.*?</p:sldIdLst>", f"<p:sldIdLst>{sld_ids}</p:sldIdLst>", pres, flags=re.S)
+        pres_rels = re.sub(r'<Relationship Id="rId[^"]+" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide\d+\.xml"/>', "", pres_rels)
+        slide_rels = "".join(f'<Relationship Id="rIdSlide{i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide{i}.xml"/>' for i in range(1, slide_count + 1))
+        pres_rels = pres_rels.replace("</Relationships>", f"{slide_rels}</Relationships>")
+        with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as dst:
+            for item in src.infolist():
+                name = item.filename
+                if name in {"[Content_Types].xml", "ppt/presentation.xml", "ppt/_rels/presentation.xml.rels"}:
+                    continue
+                if re.fullmatch(r"ppt/slides/slide\d+\.xml", name) or re.fullmatch(r"ppt/slides/_rels/slide\d+\.xml\.rels", name):
+                    continue
+                dst.writestr(item, src.read(name))
+            dst.writestr("[Content_Types].xml", content)
+            dst.writestr("ppt/presentation.xml", pres)
+            dst.writestr("ppt/_rels/presentation.xml.rels", pres_rels)
+            dst.writestr("ppt/slides/slide1.xml", heading_xml)
+            dst.writestr("ppt/slides/_rels/slide1.xml.rels", heading_slide_rels())
+            for old_no in slide_numbers:
+                new_no = old_no + 1
+                dst.writestr(f"ppt/slides/slide{new_no}.xml", src.read(f"ppt/slides/slide{old_no}.xml"))
+                rel_name = f"ppt/slides/_rels/slide{old_no}.xml.rels"
+                if rel_name in src.namelist():
+                    dst.writestr(f"ppt/slides/_rels/slide{new_no}.xml.rels", src.read(rel_name))
+    shutil.move(tmp, path)
+    from test_pptx_integrity import validate
+    validate(path)
 
 
 class YearlyComparisonTemplatePatch:
@@ -1352,6 +1438,7 @@ def refresh_yearly_comparison_pptx():
     with zipfile.ZipFile(DRM_YEARLY_COMPARISON_PPTX) as z:
         assert z.testzip() is None
         assert "ppt/presentation.xml" in z.namelist()
+    prepend_heading_slide_to_pptx(DRM_YEARLY_COMPARISON_PPTX, load_fr_as_on())
     from test_pptx_integrity import validate
     validate(DRM_YEARLY_COMPARISON_PPTX)
 
@@ -1418,10 +1505,10 @@ def build():
     write_pdf(fr_sections, FR_PDF)
     write_smh_matrix_pdf(SMH_MATRIX_PDF)
     period = period_from_meta()
-    build_pptx_from_template(CURRENT_PPTX, current_sections, f"Accounts Dept | FY 2026-2027 | Current / Previous Year Budget Analysis | Completed {period['label']}")
-    build_pptx_from_template(PPTX, drm_sections_full, drm_subtitle_full)
-    build_pptx_from_template(DRM_TILL_ACTUAL_PPTX, drm_sections_till, drm_subtitle_till)
-    build_pptx_from_template(DRM_FULL_PREVIOUS_PPTX, drm_sections_full, drm_subtitle_full)
+    build_pptx_from_template(CURRENT_PPTX, current_sections, f"Accounts Dept | FY 2026-2027 | Current / Previous Year Budget Analysis | Completed {period['label']}", fr_as_on)
+    build_pptx_from_template(PPTX, drm_sections_full, drm_subtitle_full, fr_as_on)
+    build_pptx_from_template(DRM_TILL_ACTUAL_PPTX, drm_sections_till, drm_subtitle_till, fr_as_on)
+    build_pptx_from_template(DRM_FULL_PREVIOUS_PPTX, drm_sections_full, drm_subtitle_full, fr_as_on)
     refresh_yearly_comparison_pptx()
     for path in (CURRENT_PPTX, PPTX, DRM_TILL_ACTUAL_PPTX, DRM_FULL_PREVIOUS_PPTX, DRM_YEARLY_COMPARISON_PPTX):
         with zipfile.ZipFile(path) as z:
