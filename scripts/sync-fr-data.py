@@ -176,7 +176,17 @@ def remove_readonly(func, path, _exc):
 def update_fr_page(workbook_data, source_name, data_as_on, uploaded_at):
     text = FR_PAGE.read_text(encoding="utf-8")
     data_json = json.dumps(workbook_data, separators=(",", ":"))
-    text = re.sub(r"const\s+workbookData\s*=\s*\[.*?\];\s*const\s+funds", f"const workbookData = {data_json};\n    const funds", text, flags=re.S)
+    data_path = REPO_ROOT / "assets" / "fr.js"
+    if not data_path.exists():
+        data_path = FR_PAGE
+    data_text = data_path.read_text(encoding="utf-8")
+    data_text, replacements = re.subn(r"const\s+workbookData\s*=\s*\[.*?\];\s*const\s+funds", lambda _: f"const workbookData = {data_json};\n    const funds", data_text, flags=re.S)
+    if replacements != 1:
+        raise RuntimeError("FR data assignment was not found exactly once; refresh cancelled.")
+    if data_path == FR_PAGE:
+        text = data_text
+    else:
+        data_path.write_text(data_text, encoding="utf-8")
     text = re.sub(r"Data as on <strong>.*?</strong>", f"Data as on <strong>{data_as_on}</strong>", text)
     text = re.sub(r"Source <strong>.*?</strong>", f"Source <strong>{source_name}</strong>", text)
     text = re.sub(r"Stored <strong>.*?</strong>", f"Stored <strong>{uploaded_at}</strong>", text)
