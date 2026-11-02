@@ -1,11 +1,11 @@
 {
-  "uploadedAt": "2026-11-02T12:15:54",
+  "uploadedAt": "2026-11-02T12:44:17",
   "dataAsOn": "2026-11-02",
   "activeFile": "data/fr/FR_Budget_Status.xlsx",
   "originalName": "FR 02.11.2026.xlsx",
   "dataUnit": "Figures in '000 (thousands)",
   "unitValidation": "FR workbook declares figures in '000/thousand before portal refresh.",
-  "backup": "20261102-121554",
+  "backup": "",
   "backups": [
     {
       "name": "20261102-121554",
