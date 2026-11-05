@@ -1,22 +1,22 @@
 {
-  "uploadedAt": "2026-11-02T12:44:17",
-  "dataAsOn": "2026-11-02",
+  "uploadedAt": "2026-11-05T13:04:53",
+  "dataAsOn": "2026-11-05",
   "activeFile": "data/fr/FR_Budget_Status.xlsx",
-  "originalName": "FR 02.11.2026.xlsx",
+  "originalName": "FR 05.11.2026.xlsx",
   "dataUnit": "Figures in '000 (thousands)",
   "unitValidation": "FR workbook declares figures in '000/thousand before portal refresh.",
-  "backup": "",
+  "backup": "20261105-130453",
   "backups": [
+    {
+      "name": "20261105-130453",
+      "files": [
+        "data/fr/backups/20261105-130453/FR_Budget_Status.xlsx"
+      ]
+    },
     {
       "name": "20261102-121554",
       "files": [
         "data/fr/backups/20261102-121554/FR_Budget_Status.xlsx"
-      ]
-    },
-    {
-      "name": "20261019-160404",
-      "files": [
-        "data/fr/backups/20261019-160404/FR_Budget_Status.xlsx"
       ]
     }
   ]
