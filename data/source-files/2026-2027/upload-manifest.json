@@ -1,6 +1,6 @@
 {
-  "uploadedAt": "2026-11-02T12:44:12+05:30",
-  "statusAsOn": "2026-11-02T12:44:12+05:30",
+  "uploadedAt": "2026-11-10T10:32:57+05:30",
+  "statusAsOn": "2026-11-10T10:32:57+05:30",
   "financialYear": "2026-2027",
   "sourceFolder": "D:\\PORTAL DATA\\current year",
   "activeFiles": [
@@ -8,53 +8,53 @@
       "role": "currPuBudget",
       "source": "pu-budget.xls",
       "target": "data/source-files/2026-2027/pu-budget.xls",
-      "sourceModifiedAt": "2026-11-02T12:36:17+05:30",
+      "sourceModifiedAt": "2026-11-10T10:30:09+05:30",
       "size": 22016
     },
     {
       "role": "currPuMonth",
       "source": "pu-month-actual.xls",
       "target": "data/source-files/2026-2027/pu-month-actual.xls",
-      "sourceModifiedAt": "2026-11-02T12:36:28+05:30",
+      "sourceModifiedAt": "2026-11-10T10:30:16+05:30",
       "size": 16896
     },
     {
       "role": "currPuDeptDemandSmhBudget",
       "source": "pu-dept-demand-smh-budget.xls",
       "target": "data/source-files/2026-2027/pu-dept-demand-smh-budget.xls",
-      "sourceModifiedAt": "2026-11-02T12:37:07+05:30",
-      "size": 1544192
+      "sourceModifiedAt": "2026-11-10T10:30:41+05:30",
+      "size": 1545728
     },
     {
       "role": "currPuDeptDemandSmhActual",
       "source": "pu-dept-demand-smh-actual.xls",
       "target": "data/source-files/2026-2027/pu-dept-demand-smh-actual.xls",
-      "sourceModifiedAt": "2026-11-02T12:37:18+05:30",
-      "size": 577536
+      "sourceModifiedAt": "2026-11-10T10:30:51+05:30",
+      "size": 581120
     },
     {
       "role": "currSmhBudget",
       "source": "demand-smh-budget.xls",
       "target": "data/source-files/2026-2027/demand-smh-budget.xls",
-      "sourceModifiedAt": "2026-11-02T12:36:39+05:30",
+      "sourceModifiedAt": "2026-11-10T10:29:53+05:30",
       "size": 9216
     },
     {
       "role": "currSmhMonth",
       "source": "demand-smh-actual.xls",
       "target": "data/source-files/2026-2027/demand-smh-actual.xls",
-      "sourceModifiedAt": "2026-11-02T12:36:48+05:30",
+      "sourceModifiedAt": "2026-11-10T10:30:02+05:30",
       "size": 8192
     }
   ],
   "backups": [
-    "data/source-files/2026-2027/backups/20261102-124412",
-    "data/source-files/2026-2027/backups/20261027-113619"
+    "data/source-files/2026-2027/backups/20261110-103257",
+    "data/source-files/2026-2027/backups/20261102-124412"
   ],
   "runningMonth": "NOV 2026",
   "completedMonth": "OCT 2026",
   "basisSource": "auto-sensed from monthly actual columns and system date",
-  "backup": "20261102-124412",
+  "backup": "20261110-103257",
   "autoSenseRule": "Auto mode uses the system/upload month as running month and the previous monthly actual column as completed month; monthly actual columns override cumulative ACTUALS UPTO headers for month sensing.",
   "budgetRule": "RG 2026-2027 overrides BG_ISL/OBA when RG has a non-zero amount; otherwise BG_ISL/OBA is used. RG is expected from JAN onward.",
   "dataUnit": "Figures in '000 (thousands)",
